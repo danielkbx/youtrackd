@@ -59,3 +59,40 @@ jobs:
         with:
           files: ytd-*.tar.gz
           generate_release_notes: true
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Compute SHA256 hashes
+        id: sha
+        run: |
+          echo "darwin_arm64=$(sha256sum ytd-aarch64-apple-darwin.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "darwin_amd64=$(sha256sum ytd-x86_64-apple-darwin.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "linux_arm64=$(sha256sum ytd-aarch64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "linux_amd64=$(sha256sum ytd-x86_64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+      - name: Generate and push formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -e "s|{{VERSION}}|${VERSION}|g" \
+              -e "s|{{SHA256_DARWIN_ARM64}}|${{ steps.sha.outputs.darwin_arm64 }}|g" \
+              -e "s|{{SHA256_DARWIN_AMD64}}|${{ steps.sha.outputs.darwin_amd64 }}|g" \
+              -e "s|{{SHA256_LINUX_ARM64}}|${{ steps.sha.outputs.linux_arm64 }}|g" \
+              -e "s|{{SHA256_LINUX_AMD64}}|${{ steps.sha.outputs.linux_amd64 }}|g" \
+              Formula/ytd.rb > ytd.rb
+
+          cd "$(mktemp -d)"
+          git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/danielkbx/homebrew-tap.git" .
+          mkdir -p Formula
+          cp "${GITHUB_WORKSPACE}/ytd.rb" Formula/ytd.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/ytd.rb
+          git commit -m "ytd ${VERSION}"
+          git push
