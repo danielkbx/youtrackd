@@ -1,0 +1,90 @@
+mod args;
+mod client;
+mod commands;
+mod config;
+mod duration;
+mod error;
+mod format;
+mod help;
+mod input;
+mod types;
+
+use args::parse_args;
+use error::YtdError;
+use std::process;
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("{e}");
+        process::exit(1);
+    }
+}
+
+fn run() -> Result<(), YtdError> {
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    let args = parse_args(&argv);
+
+    // Version check
+    if args.flags.contains_key("version") {
+        println!("ytd {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
+    // Help check
+    if args.resource.as_deref() == Some("help") || args.resource.is_none() {
+        help::print_help(args.action.as_deref(), None);
+        return Ok(());
+    }
+    if args.action.as_deref() == Some("help") {
+        help::print_help(args.resource.as_deref(), args.positional.first().map(|s| s.as_str()));
+        return Ok(());
+    }
+
+    let resource = args.resource.as_deref().unwrap();
+    let action = args.action.as_deref();
+
+    // Validate command before loading config
+    if !is_known_command(resource, action) {
+        return Err(YtdError::Input(format!("Unknown command: ytd {}{}", resource, action.map(|a| format!(" {a}")).unwrap_or_default())));
+    }
+
+    // Auth commands don't need config
+    match resource {
+        "login" => return commands::login::run(&args),
+        "logout" => return commands::logout::run(),
+        _ => {}
+    }
+
+    let cfg = config::get_config()?;
+    let transport = client::UreqTransport;
+    let mut client = client::YtClient::new(cfg, transport);
+    if args.flags.contains_key("verbose") {
+        client.set_verbose(true);
+    }
+
+    let opts = format::OutputOptions::from_flags(&args.flags);
+
+    match resource {
+        "whoami" => commands::whoami::run(&client, &opts),
+        "project" => commands::project::run(&client, &args, &opts),
+        "article" => commands::article::run(&client, &args, &opts),
+        "ticket" => commands::ticket::run(&client, &args, &opts),
+        "tag" => commands::tag::run(&client, &args, &opts),
+        "search" => commands::search::run(&client, &args, &opts),
+        "board" => commands::board::run(&client, &args, &opts),
+        _ => Err(YtdError::Input(format!("Unknown resource: {resource}"))),
+    }
+}
+
+fn is_known_command(resource: &str, action: Option<&str>) -> bool {
+    matches!(
+        (resource, action),
+        ("login", None) | ("logout", None) | ("whoami", None)
+            | ("project", Some("list" | "get"))
+            | ("article", Some("search" | "list" | "get" | "create" | "update" | "append" | "comment" | "comments" | "attach" | "attachments" | "delete"))
+            | ("ticket", Some("search" | "list" | "get" | "create" | "update" | "comment" | "tag" | "untag" | "link" | "links" | "attach" | "attachments" | "log" | "worklog" | "set" | "fields" | "history" | "delete"))
+            | ("tag", Some("list"))
+            | ("search", Some("list" | "run"))
+            | ("board", Some("list" | "get"))
+    )
+}
