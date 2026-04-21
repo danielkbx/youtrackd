@@ -7,7 +7,14 @@ CLI for YouTrack tickets, articles, time tracking, and more. Single binary, no r
 
 ## Installation
 
-### Download (recommended)
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap danielkbx/tap
+brew install ytd
+```
+
+### Download
 
 Grab the latest binary for your platform from the [Releases](../../releases) page:
 

@@ -3,6 +3,7 @@ class Ytd < Formula
   homepage "https://github.com/danielkbx/youtrackd"
   version "{{VERSION}}"
   license "MIT"
+  bottle :unneeded
 
   on_macos do
     on_arm do
