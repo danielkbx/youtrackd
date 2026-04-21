@@ -83,9 +83,7 @@ jobs:
         run: |
           echo "darwin_arm64=$(sha256sum ytd-aarch64-apple-darwin.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
           echo "darwin_amd64=$(sha256sum ytd-x86_64-apple-darwin.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-          echo "linux_arm64=$(sha256sum ytd-aarch64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-          echo "linux_amd64=$(sha256sum ytd-x86_64-unknown-linux-gnu.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-      - name: Generate and push formula
+      - name: Generate and push cask
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
@@ -93,16 +91,15 @@ jobs:
           sed -e "s|{{VERSION}}|${VERSION}|g" \
               -e "s|{{SHA256_DARWIN_ARM64}}|${{ steps.sha.outputs.darwin_arm64 }}|g" \
               -e "s|{{SHA256_DARWIN_AMD64}}|${{ steps.sha.outputs.darwin_amd64 }}|g" \
-              -e "s|{{SHA256_LINUX_ARM64}}|${{ steps.sha.outputs.linux_arm64 }}|g" \
-              -e "s|{{SHA256_LINUX_AMD64}}|${{ steps.sha.outputs.linux_amd64 }}|g" \
-              Formula/ytd.rb > ytd.rb
+              Casks/ytd.rb > ytd.rb
 
           cd "$(mktemp -d)"
           git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/danielkbx/homebrew-tap.git" .
-          mkdir -p Formula
-          cp "${GITHUB_WORKSPACE}/ytd.rb" Formula/ytd.rb
+          rm -rf Formula
+          mkdir -p Casks
+          cp "${GITHUB_WORKSPACE}/ytd.rb" Casks/ytd.rb
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/ytd.rb
+          git add -A
           git commit -m "ytd ${VERSION}"
           git push
