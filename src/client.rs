@@ -184,6 +184,57 @@ impl<T: HttpTransport> YtClient<T> {
         Ok(resp)
     }
 
+    fn is_project_database_id(project_ref: &str) -> bool {
+        let mut parts = project_ref.split('-');
+        matches!(
+            (parts.next(), parts.next(), parts.next()),
+            (Some(left), Some(right), None)
+                if !left.is_empty()
+                    && !right.is_empty()
+                    && left.chars().all(|c| c.is_ascii_digit())
+                    && right.chars().all(|c| c.is_ascii_digit())
+        )
+    }
+
+    fn resolve_project_id(&self, project_ref: &str) -> Result<String, YtdError> {
+        if Self::is_project_database_id(project_ref) {
+            return Ok(project_ref.to_string());
+        }
+
+        match self.get_project(project_ref) {
+            Ok(project) => return Ok(project.id),
+            Err(YtdError::Http(_)) | Err(YtdError::Api { .. }) => {}
+            Err(err) => return Err(err),
+        }
+
+        let projects = self.list_projects()?;
+
+        if let Some(project) = projects.iter().find(|p| p.id == project_ref) {
+            return Ok(project.id.clone());
+        }
+
+        if let Some(project) = projects.iter().find(|p| p.short_name == project_ref) {
+            return Ok(project.id.clone());
+        }
+
+        if let Some(project) = projects.iter().find(|p| p.short_name.eq_ignore_ascii_case(project_ref)) {
+            return Ok(project.id.clone());
+        }
+
+        Err(YtdError::Input(format!("Project not found: {project_ref}")))
+    }
+
+    fn article_matches_query(article: &Article, query: &str) -> bool {
+        let query = query.to_lowercase();
+        if query.is_empty() {
+            return true;
+        }
+
+        article.id_readable.as_deref().map(|s| s.to_lowercase().contains(&query)).unwrap_or(false)
+            || article.summary.as_deref().map(|s| s.to_lowercase().contains(&query)).unwrap_or(false)
+            || article.content.as_deref().map(|s| s.to_lowercase().contains(&query)).unwrap_or(false)
+    }
+
     // --- Users ---
 
     pub fn get_me(&self) -> Result<User, YtdError> {
@@ -208,21 +259,30 @@ impl<T: HttpTransport> YtClient<T> {
     // --- Articles ---
 
     pub fn search_articles(&self, query: &str, project: Option<&str>) -> Result<Vec<Article>, YtdError> {
-        let q = match project {
-            Some(p) => format!("project: {{{p}}} {query}"),
-            None => query.to_string(),
+        let mut articles: Vec<Article> = match project {
+            Some(project_ref) => {
+                let project_id = self.resolve_project_id(project_ref)?;
+                self.get(&format!("/admin/projects/{project_id}/articles"), &[
+                    ("fields", "id,idReadable,summary,content,updated,project(id,shortName,name)"),
+                    ("$top", "500"),
+                ])?
+            }
+            None => self.get("/articles", &[
+                ("fields", "id,idReadable,summary,content,updated,project(id,shortName,name)"),
+                ("$top", "500"),
+            ])?,
         };
-        self.get("/articles", &[
-            ("fields", "id,idReadable,summary,updated,project(id,shortName,name)"),
-            ("query", &q),
-            ("$top", "100"),
-        ])
+        articles.retain(|article| Self::article_matches_query(article, query));
+        for article in &mut articles {
+            article.content = None;
+        }
+        Ok(articles)
     }
 
     pub fn list_articles(&self, project: &str) -> Result<Vec<Article>, YtdError> {
-        self.get("/articles", &[
+        let project_id = self.resolve_project_id(project)?;
+        self.get(&format!("/admin/projects/{project_id}/articles"), &[
             ("fields", "id,idReadable,summary,updated,project(id,shortName,name)"),
-            ("query", &format!("project: {{{project}}}")),
             ("$top", "500"),
         ])
     }
@@ -469,30 +529,36 @@ mod tests {
 
     struct MockTransport {
         responses: RefCell<Vec<String>>,
+        requests: RefCell<Vec<String>>,
     }
 
     impl MockTransport {
         fn new(responses: Vec<&str>) -> Self {
             Self {
                 responses: RefCell::new(responses.into_iter().rev().map(String::from).collect()),
+                requests: RefCell::new(vec![]),
             }
         }
     }
 
     impl HttpTransport for MockTransport {
-        fn get(&self, _url: &str, _token: &str) -> Result<String, YtdError> {
+        fn get(&self, url: &str, _token: &str) -> Result<String, YtdError> {
+            self.requests.borrow_mut().push(format!("GET {url}"));
             self.responses.borrow_mut().pop()
                 .ok_or_else(|| YtdError::Http("No more mock responses".into()))
         }
-        fn post(&self, _url: &str, _token: &str, _body: &str) -> Result<String, YtdError> {
+        fn post(&self, url: &str, _token: &str, _body: &str) -> Result<String, YtdError> {
+            self.requests.borrow_mut().push(format!("POST {url}"));
             self.responses.borrow_mut().pop()
                 .ok_or_else(|| YtdError::Http("No more mock responses".into()))
         }
-        fn post_multipart(&self, _url: &str, _token: &str, _file: &Path, _name: &str) -> Result<String, YtdError> {
+        fn post_multipart(&self, url: &str, _token: &str, _file: &Path, _name: &str) -> Result<String, YtdError> {
+            self.requests.borrow_mut().push(format!("POST multipart {url}"));
             self.responses.borrow_mut().pop()
                 .ok_or_else(|| YtdError::Http("No more mock responses".into()))
         }
-        fn delete(&self, _url: &str, _token: &str) -> Result<(), YtdError> {
+        fn delete(&self, url: &str, _token: &str) -> Result<(), YtdError> {
+            self.requests.borrow_mut().push(format!("DELETE {url}"));
             self.responses.borrow_mut().pop();
             Ok(())
         }
@@ -552,5 +618,76 @@ mod tests {
     fn url_encoding() {
         assert_eq!(urlenc("hello world"), "hello%20world");
         assert_eq!(urlenc("a=b&c"), "a%3Db%26c");
+    }
+
+    #[test]
+    fn detects_project_database_ids() {
+        assert!(YtClient::<MockTransport>::is_project_database_id("0-96"));
+        assert!(!YtClient::<MockTransport>::is_project_database_id("DWP"));
+        assert!(!YtClient::<MockTransport>::is_project_database_id("0-ABC"));
+    }
+
+    #[test]
+    fn article_query_matches_summary_content_and_id() {
+        let article = Article {
+            id: "109-1".into(),
+            id_readable: Some("DWP-A-1".into()),
+            summary: Some("Testartikel 1".into()),
+            content: Some("Technische Dokumentation".into()),
+            created: None,
+            updated: None,
+            reporter: None,
+            project: None,
+        };
+
+        assert!(YtClient::<MockTransport>::article_matches_query(&article, "testartikel"));
+        assert!(YtClient::<MockTransport>::article_matches_query(&article, "DOKUMENTATION"));
+        assert!(YtClient::<MockTransport>::article_matches_query(&article, "dwp-a-1"));
+        assert!(!YtClient::<MockTransport>::article_matches_query(&article, "foobar"));
+    }
+
+    #[test]
+    fn list_articles_uses_project_articles_endpoint() {
+        let client = test_client(vec![
+            r#"{"id":"0-96","name":"DW Playground","shortName":"DWP","archived":false,"description":null}"#,
+            r#"[]"#,
+        ]);
+
+        let articles = client.list_articles("DWP").unwrap();
+        assert!(articles.is_empty());
+
+        let requests = client.transport.requests.borrow();
+        assert_eq!(requests[0], "GET https://test.youtrack.cloud/api/admin/projects/DWP?fields=id%2Cname%2CshortName%2Carchived%2Cdescription");
+        assert_eq!(requests[1], "GET https://test.youtrack.cloud/api/admin/projects/0-96/articles?fields=id%2CidReadable%2Csummary%2Cupdated%2Cproject%28id%2CshortName%2Cname%29&%24top=500");
+    }
+
+    #[test]
+    fn search_articles_filters_project_articles_locally() {
+        let client = test_client(vec![
+            r#"{"id":"0-96","name":"DW Playground","shortName":"DWP","archived":false,"description":null}"#,
+            r#"[
+                {"id":"109-787","idReadable":"DWP-A-1","summary":"Testartikel 1","content":"Alpha","updated":1,"project":{"id":"0-96","shortName":"DWP","name":"DW Playground"}},
+                {"id":"109-788","idReadable":"DWP-A-2","summary":"Handbuch","content":"Beta","updated":2,"project":{"id":"0-96","shortName":"DWP","name":"DW Playground"}}
+            ]"#,
+        ]);
+
+        let articles = client.search_articles("testartikel", Some("DWP")).unwrap();
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].id_readable.as_deref(), Some("DWP-A-1"));
+    }
+
+    #[test]
+    fn search_articles_without_project_uses_global_articles_endpoint() {
+        let client = test_client(vec![
+            r#"[
+                {"id":"109-787","idReadable":"DWP-A-1","summary":"Testartikel 1","content":"Alpha","updated":1,"project":{"id":"0-96","shortName":"DWP","name":"DW Playground"}}
+            ]"#,
+        ]);
+
+        let articles = client.search_articles("alpha", None).unwrap();
+        assert_eq!(articles.len(), 1);
+
+        let requests = client.transport.requests.borrow();
+        assert_eq!(requests[0], "GET https://test.youtrack.cloud/api/articles?fields=id%2CidReadable%2Csummary%2Ccontent%2Cupdated%2Cproject%28id%2CshortName%2Cname%29&%24top=500");
     }
 }

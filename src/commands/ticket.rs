@@ -144,8 +144,60 @@ fn cmd_link<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result
 fn cmd_links<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let links = client.list_issue_links(id)?;
-    format::print_items(&links, opts);
+    if matches!(opts.format, format::Format::Text) {
+        print!("{}", render_issue_links_text(&links));
+    } else {
+        format::print_items(&links, opts);
+    }
     Ok(())
+}
+
+fn render_issue_links_text(links: &[IssueLink]) -> String {
+    let populated: Vec<&IssueLink> = links.iter()
+        .filter(|link| link.issues.as_ref().map(|issues| !issues.is_empty()).unwrap_or(false))
+        .collect();
+
+    if populated.is_empty() {
+        return "No linked tickets.\n".to_string();
+    }
+
+    let mut out = String::new();
+
+    for (idx, link) in populated.iter().enumerate() {
+        if idx > 0 {
+            out.push('\n');
+        }
+
+        out.push_str("linkType: ");
+        out.push_str(link.link_type.as_ref().and_then(|lt| lt.name.as_deref()).unwrap_or("Unknown"));
+        out.push('\n');
+        out.push_str("direction: ");
+        out.push_str(link.direction.as_deref().unwrap_or("Unknown"));
+        out.push('\n');
+        out.push_str("issues:\n");
+
+        if let Some(issues) = &link.issues {
+            for issue in issues {
+                let identifier = issue.id_readable.as_deref().unwrap_or(&issue.id);
+                match issue.summary.as_deref() {
+                    Some(summary) if !summary.is_empty() => {
+                        out.push_str("- ");
+                        out.push_str(identifier);
+                        out.push_str(": ");
+                        out.push_str(summary);
+                        out.push('\n');
+                    }
+                    _ => {
+                        out.push_str("- ");
+                        out.push_str(identifier);
+                        out.push('\n');
+                    }
+                }
+            }
+        }
+    }
+
+    out
 }
 
 fn cmd_attach<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
@@ -255,6 +307,90 @@ fn build_field_value(cf_type: &str, value: &str) -> serde_json::Value {
         serde_json::json!(f)
     } else {
         serde_json::json!(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_issue(id: &str, id_readable: Option<&str>, summary: Option<&str>) -> Issue {
+        Issue {
+            id: id.to_string(),
+            id_readable: id_readable.map(String::from),
+            summary: summary.map(String::from),
+            description: None,
+            created: None,
+            updated: None,
+            resolved: None,
+            reporter: None,
+            project: None,
+            tags: vec![],
+            comments: vec![],
+            custom_fields: vec![],
+        }
+    }
+
+    #[test]
+    fn render_issue_links_text_with_populated_issues() {
+        let links = vec![
+            IssueLink {
+                id: Some("105-0".into()),
+                direction: Some("BOTH".into()),
+                link_type: Some(IssueLinkType {
+                    id: Some("105-0".into()),
+                    name: Some("Relates".into()),
+                    source_to_target: Some("relates to".into()),
+                    target_to_source: Some(String::new()),
+                }),
+                issues: Some(vec![sample_issue("2-14252", Some("DWP-14"), Some("Link Target"))]),
+            }
+        ];
+
+        let rendered = render_issue_links_text(&links);
+        assert!(rendered.contains("linkType: Relates"));
+        assert!(rendered.contains("direction: BOTH"));
+        assert!(rendered.contains("- DWP-14: Link Target"));
+    }
+
+    #[test]
+    fn render_issue_links_text_handles_missing_summaries() {
+        let links = vec![
+            IssueLink {
+                id: Some("105-0".into()),
+                direction: Some("BOTH".into()),
+                link_type: Some(IssueLinkType {
+                    id: Some("105-0".into()),
+                    name: Some("Relates".into()),
+                    source_to_target: None,
+                    target_to_source: None,
+                }),
+                issues: Some(vec![sample_issue("2-14252", Some("DWP-14"), None)]),
+            }
+        ];
+
+        let rendered = render_issue_links_text(&links);
+        assert!(rendered.contains("- DWP-14\n"));
+    }
+
+    #[test]
+    fn render_issue_links_text_with_no_populated_links() {
+        let links = vec![
+            IssueLink {
+                id: Some("105-0".into()),
+                direction: Some("BOTH".into()),
+                link_type: Some(IssueLinkType {
+                    id: Some("105-0".into()),
+                    name: Some("Relates".into()),
+                    source_to_target: None,
+                    target_to_source: None,
+                }),
+                issues: Some(vec![]),
+            }
+        ];
+
+        let rendered = render_issue_links_text(&links);
+        assert_eq!(rendered, "No linked tickets.\n");
     }
 }
 

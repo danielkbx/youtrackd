@@ -1,4 +1,4 @@
-# User Journey Test Process
+# User Journey and Guard Test Process
 
 ## Voraussetzungen
 
@@ -16,14 +16,19 @@
 3. Die **Bestätigung des Users abwarten** — niemals selbstständig ein Projekt wählen
 4. Das bestätigte Projekt-Kürzel (z.B. `TESTPROJ`) für alle Journeys verwenden
 
-### 2. Journey-Ausführung
+### 2. Journey- und Guard-Ausführung
 
-Jede Journey-Datei in diesem Verzeichnis beschreibt einen Test-Durchlauf. Der Agent:
+Die Markdown-Dateien in diesem Verzeichnis fallen in zwei Gruppen:
 
-1. Liest die Journey-Datei
+- **User Journeys**: fachliche End-to-End-Abläufe aus Nutzersicht
+- **Technical Guards**: technische Absicherungen für API-Kompatibilität, dokumentierte Request-Shapes und risikobehaftete Integrationspunkte
+
+Der Agent:
+
+1. Liest die entsprechende Datei
 2. Führt die beschriebenen Schritte sequenziell aus
 3. Prüft nach jedem Schritt, ob das erwartete Ergebnis eingetreten ist
-4. Führt am Ende den **Cleanup** durch (in der Journey beschrieben)
+4. Führt am Ende den **Cleanup** durch (in der Datei beschrieben)
 
 ### 3. Naming-Konvention für Test-Entities
 
@@ -54,7 +59,9 @@ So sind Test-Entities sofort erkennbar und können bei Bedarf manuell aufgeräum
 
 ### 6. Reihenfolge
 
-Die Journeys sind unabhängig voneinander und können in beliebiger Reihenfolge ausgeführt werden. Empfohlene Reihenfolge:
+Die User Journeys sind unabhängig voneinander und können in beliebiger Reihenfolge ausgeführt werden. Technical Guards sind ergänzende technische Prüfungen und ersetzen keine fachlichen Journeys.
+
+Empfohlene Reihenfolge:
 
 1. `01-auth-and-projects.md` — Grundlagen, kein Cleanup nötig
 2. `02-ticket-lifecycle.md` — Ticket CRUD
@@ -65,3 +72,4 @@ Die Journeys sind unabhängig voneinander und können in beliebiger Reihenfolge 
 7. `07-custom-fields.md` — Feldwerte setzen
 8. `08-search-and-boards.md` — Saved Searches, Boards
 9. `09-history.md` — Activity-Log
+10. `10-api-compat-guard.md` — technische Absicherung gegen API-Drift und dokumentationskritische Integrationspunkte

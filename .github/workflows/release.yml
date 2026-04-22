@@ -62,13 +62,40 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
+      - name: Build changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          mode: COMMIT
+          configurationJson: |
+            {
+              "template": "## Changes\n\n#{{CHANGELOG}}",
+              "categories": [
+                { "title": "### Features", "labels": ["feat"] },
+                { "title": "### Fixes", "labels": ["fix"] },
+                { "title": "### Docs", "labels": ["docs"] },
+                { "title": "### Other", "labels": [] }
+              ],
+              "label_extractor": [
+                {
+                  "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\\([\\w\\-.]+\\))?(!)?:\\s+.*$",
+                  "target": "$1",
+                  "on_property": "title"
+                }
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: softprops/action-gh-release@v2
         with:
           files: ytd-*.tar.gz
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.changelog }}
 
   homebrew:
     needs: release
