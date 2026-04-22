@@ -14,5 +14,5 @@ cask "ytd" do
   desc "CLI tool for reading and editing YouTrack tickets and knowledge base articles"
   homepage "https://github.com/danielkbx/youtrackd"
 
-  binary "ytd"
+  binary "ytd", quarantine: false
 end
