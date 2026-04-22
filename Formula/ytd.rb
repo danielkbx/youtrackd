@@ -4,7 +4,7 @@ class Ytd < Formula
   url "https://github.com/danielkbx/youtrackd/archive/refs/tags/v{{VERSION}}.tar.gz"
   sha256 "{{SHA256_SOURCE}}"
   version "{{VERSION}}"
-  license "MIT"
+  license "GPL-3.0-only"
 
   depends_on "rust" => :build
 

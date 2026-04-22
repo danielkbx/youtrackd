@@ -203,4 +203,4 @@ YTD_CONFIG=~/.config/ytd/oss.json ytd login
 
 ## License
 
-GPL-3.0 — see [LICENSE.md](LICENSE.md).
+GPL-3.0-only — see [LICENSE.md](LICENSE.md).
