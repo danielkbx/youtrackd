@@ -8,7 +8,9 @@ use std::io::{self, BufRead, Write};
 pub fn run(_args: &ParsedArgs) -> Result<(), YtdError> {
     let url = prompt("YouTrack URL: ")?;
     if !url.starts_with("https://") && !url.starts_with("http://") {
-        return Err(YtdError::Input("URL must start with https:// or http://".into()));
+        return Err(YtdError::Input(
+            "URL must start with https:// or http://".into(),
+        ));
     }
 
     let token = prompt("Permanent token: ")?;
@@ -21,11 +23,17 @@ pub fn run(_args: &ParsedArgs) -> Result<(), YtdError> {
     // Validate credentials
     let transport = UreqTransport;
     let client = YtClient::new(cfg.clone(), transport);
-    let user = client.get_me().map_err(|_| YtdError::Input("Could not authenticate. Check URL and token.".into()))?;
+    let user = client
+        .get_me()
+        .map_err(|_| YtdError::Input("Could not authenticate. Check URL and token.".into()))?;
 
     config::save_config(&cfg)?;
 
-    println!("Logged in as {} ({})", user.full_name.unwrap_or_default(), user.login);
+    println!(
+        "Logged in as {} ({})",
+        user.full_name.unwrap_or_default(),
+        user.login
+    );
     Ok(())
 }
 

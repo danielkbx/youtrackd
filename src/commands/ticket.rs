@@ -1,5 +1,6 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
+use crate::config;
 use crate::duration;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
@@ -8,7 +9,11 @@ use crate::types::*;
 use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::Path;
 
-pub fn run<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+pub fn run<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     match args.action.as_deref() {
         Some("search") => cmd_search(client, args, opts),
         Some("list") => cmd_list(client, args, opts),
@@ -33,12 +38,20 @@ pub fn run<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &Out
 }
 
 fn require_id(args: &ParsedArgs) -> Result<&str, YtdError> {
-    args.positional.first().map(|s| s.as_str())
+    args.positional
+        .first()
+        .map(|s| s.as_str())
         .ok_or_else(|| YtdError::Input("Ticket ID is required".into()))
 }
 
-fn cmd_search<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
-    let query = args.positional.first()
+fn cmd_search<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    let query = args
+        .positional
+        .first()
         .ok_or_else(|| YtdError::Input("Usage: ytd ticket search <query>".into()))?;
     let project = args.flags.get("project").map(|s| s.as_str());
     let issues = client.search_issues(query, project)?;
@@ -46,15 +59,25 @@ fn cmd_search<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &
     Ok(())
 }
 
-fn cmd_list<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
-    let project = args.flags.get("project")
+fn cmd_list<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    let project = args
+        .flags
+        .get("project")
         .ok_or_else(|| YtdError::Input("--project is required".into()))?;
     let issues = client.list_issues(project)?;
     format::print_items(&issues, opts);
     Ok(())
 }
 
-fn cmd_get<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+fn cmd_get<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let issue = client.get_issue(id)?;
     format::print_single(&issue, opts);
@@ -62,17 +85,8 @@ fn cmd_get<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &Out
 }
 
 fn cmd_create<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
-    let project = args.flags.get("project")
-        .ok_or_else(|| YtdError::Input("--project is required".into()))?;
     let json = input::read_json_input(&args.flags)?;
-    let summary = json.get("summary").and_then(|v| v.as_str())
-        .ok_or_else(|| YtdError::Input("summary is required".into()))?;
-    let description = json.get("description").and_then(|v| v.as_str());
-    let input = CreateIssueInput {
-        project: ProjectRef { id: String::new(), short_name: Some(project.clone()), name: None },
-        summary: summary.to_string(),
-        description: description.map(String::from),
-    };
+    let input = build_create_issue_input(client, args, &json)?;
     let issue = client.create_issue(&input)?;
     println!("{}", issue.id_readable.unwrap_or(issue.id));
     Ok(())
@@ -81,18 +95,109 @@ fn cmd_create<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resu
 fn cmd_update<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let json = input::read_json_input(&args.flags)?;
-    let input = UpdateIssueInput {
-        summary: json.get("summary").and_then(|v| v.as_str()).map(String::from),
-        description: json.get("description").and_then(|v| v.as_str()).map(String::from),
-    };
+    let input = build_update_issue_input(client, args, &json)?;
     let issue = client.update_issue(id, &input)?;
     println!("{}", issue.id_readable.unwrap_or(issue.id));
     Ok(())
 }
 
+fn build_create_issue_input<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    json: &serde_json::Value,
+) -> Result<CreateIssueInput, YtdError> {
+    let project = args
+        .flags
+        .get("project")
+        .ok_or_else(|| YtdError::Input("--project is required".into()))?;
+    let summary = json
+        .get("summary")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| YtdError::Input("summary is required".into()))?;
+
+    Ok(CreateIssueInput {
+        project: ProjectRef {
+            id: String::new(),
+            short_name: Some(project.clone()),
+            name: None,
+        },
+        summary: summary.to_string(),
+        description: json
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        visibility: build_visibility_input(client, args, false)?,
+    })
+}
+
+fn build_update_issue_input<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    json: &serde_json::Value,
+) -> Result<UpdateIssueInput, YtdError> {
+    Ok(UpdateIssueInput {
+        summary: json
+            .get("summary")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        description: json
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        visibility: build_visibility_input(client, args, true)?,
+    })
+}
+
+fn build_visibility_input<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    is_update: bool,
+) -> Result<Option<LimitedVisibilityInput>, YtdError> {
+    match config::resolve_visibility_group(
+        args.flags.get("visibility-group").map(|s| s.as_str()),
+        args.flags.contains_key("no-visibility-group"),
+    )? {
+        ResolvedVisibilityGroup::Group(group) => Ok(Some(LimitedVisibilityInput {
+            visibility_type: "LimitedVisibility",
+            permitted_groups: vec![UserGroupInput {
+                id: resolve_group_id(client, &group)?,
+            }],
+        })),
+        ResolvedVisibilityGroup::Clear if is_update => Ok(Some(LimitedVisibilityInput {
+            visibility_type: "LimitedVisibility",
+            permitted_groups: vec![],
+        })),
+        ResolvedVisibilityGroup::Clear | ResolvedVisibilityGroup::None => Ok(None),
+    }
+}
+
+fn resolve_group_id<T: HttpTransport>(
+    client: &YtClient<T>,
+    group_name: &str,
+) -> Result<String, YtdError> {
+    let groups = client.list_groups()?;
+
+    if let Some(group) = groups.iter().find(|group| group.name == group_name) {
+        return Ok(group.id.clone());
+    }
+
+    if let Some(group) = groups
+        .iter()
+        .find(|group| group.name.eq_ignore_ascii_case(group_name))
+    {
+        return Ok(group.id.clone());
+    }
+
+    Err(YtdError::Input(format!(
+        "Visibility group not found: {group_name}"
+    )))
+}
+
 fn cmd_comment<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
-    let text = args.positional.get(1..)
+    let text = args
+        .positional
+        .get(1..)
         .map(|s| s.join(" "))
         .filter(|s| !s.is_empty())
         .ok_or_else(|| YtdError::Input("Comment text is required".into()))?;
@@ -102,12 +207,16 @@ fn cmd_comment<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Res
 
 fn cmd_tag<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
-    let tag_name = args.positional.get(1)
+    let tag_name = args
+        .positional
+        .get(1)
         .ok_or_else(|| YtdError::Input("Tag name is required".into()))?;
 
     // Find the tag by name to get its ID
     let tags = client.list_tags()?;
-    let tag = tags.iter().find(|t| t.name.eq_ignore_ascii_case(tag_name))
+    let tag = tags
+        .iter()
+        .find(|t| t.name.eq_ignore_ascii_case(tag_name))
         .ok_or_else(|| YtdError::Input(format!("Tag not found: {tag_name}")))?;
 
     client.add_issue_tag(id, tag)?;
@@ -116,15 +225,22 @@ fn cmd_tag<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<
 
 fn cmd_untag<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
-    let tag_name = args.positional.get(1)
+    let tag_name = args
+        .positional
+        .get(1)
         .ok_or_else(|| YtdError::Input("Tag name is required".into()))?;
 
     // Get issue to find the tag ID
     let issue = client.get_issue(id)?;
-    let tag = issue.tags.iter().find(|t| t.name.eq_ignore_ascii_case(tag_name))
+    let tag = issue
+        .tags
+        .iter()
+        .find(|t| t.name.eq_ignore_ascii_case(tag_name))
         .ok_or_else(|| YtdError::Input(format!("Tag not found on issue: {tag_name}")))?;
 
-    let tag_id = tag.id.as_ref()
+    let tag_id = tag
+        .id
+        .as_ref()
         .ok_or_else(|| YtdError::Input("Tag has no ID".into()))?;
     client.remove_issue_tag(id, tag_id)?;
     Ok(())
@@ -132,16 +248,26 @@ fn cmd_untag<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resul
 
 fn cmd_link<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
-    let target = args.positional.get(1)
+    let target = args
+        .positional
+        .get(1)
         .ok_or_else(|| YtdError::Input("Target ticket ID is required".into()))?;
-    let link_type = args.flags.get("type").map(|s| s.as_str()).unwrap_or("relates to");
+    let link_type = args
+        .flags
+        .get("type")
+        .map(|s| s.as_str())
+        .unwrap_or("relates to");
 
     let command = format!("{link_type} {target}");
     client.apply_command(id, &command)?;
     Ok(())
 }
 
-fn cmd_links<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+fn cmd_links<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let links = client.list_issue_links(id)?;
     if matches!(opts.format, format::Format::Text) {
@@ -153,8 +279,14 @@ fn cmd_links<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &O
 }
 
 fn render_issue_links_text(links: &[IssueLink]) -> String {
-    let populated: Vec<&IssueLink> = links.iter()
-        .filter(|link| link.issues.as_ref().map(|issues| !issues.is_empty()).unwrap_or(false))
+    let populated: Vec<&IssueLink> = links
+        .iter()
+        .filter(|link| {
+            link.issues
+                .as_ref()
+                .map(|issues| !issues.is_empty())
+                .unwrap_or(false)
+        })
         .collect();
 
     if populated.is_empty() {
@@ -169,7 +301,12 @@ fn render_issue_links_text(links: &[IssueLink]) -> String {
         }
 
         out.push_str("linkType: ");
-        out.push_str(link.link_type.as_ref().and_then(|lt| lt.name.as_deref()).unwrap_or("Unknown"));
+        out.push_str(
+            link.link_type
+                .as_ref()
+                .and_then(|lt| lt.name.as_deref())
+                .unwrap_or("Unknown"),
+        );
         out.push('\n');
         out.push_str("direction: ");
         out.push_str(link.direction.as_deref().unwrap_or("Unknown"));
@@ -202,18 +339,27 @@ fn render_issue_links_text(links: &[IssueLink]) -> String {
 
 fn cmd_attach<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
-    let file = args.positional.get(1)
+    let file = args
+        .positional
+        .get(1)
         .ok_or_else(|| YtdError::Input("File path is required".into()))?;
     let path = Path::new(file);
     if !path.exists() {
         return Err(YtdError::Input(format!("File not found: {file}")));
     }
     client.upload_attachment(id, path)?;
-    println!("Attached {}", path.file_name().and_then(|n| n.to_str()).unwrap_or(file));
+    println!(
+        "Attached {}",
+        path.file_name().and_then(|n| n.to_str()).unwrap_or(file)
+    );
     Ok(())
 }
 
-fn cmd_attachments<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+fn cmd_attachments<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let attachments = client.list_attachments(id)?;
     format::print_items(&attachments, opts);
@@ -222,10 +368,16 @@ fn cmd_attachments<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, op
 
 fn cmd_log<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
-    let dur_str = args.positional.get(1)
+    let dur_str = args
+        .positional
+        .get(1)
         .ok_or_else(|| YtdError::Input("Duration is required (e.g. 30m, 1h, 2h30m)".into()))?;
     let minutes = duration::parse_duration(dur_str)?;
-    let text = args.positional.get(2..).map(|s| s.join(" ")).filter(|s| !s.is_empty());
+    let text = args
+        .positional
+        .get(2..)
+        .map(|s| s.join(" "))
+        .filter(|s| !s.is_empty());
 
     let date = args.flags.get("date").and_then(|d| {
         // Parse YYYY-MM-DD to epoch ms
@@ -238,7 +390,10 @@ fn cmd_log<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<
     });
 
     let input = CreateWorkItemInput {
-        duration: WorkItemDuration { minutes: Some(minutes), presentation: None },
+        duration: WorkItemDuration {
+            minutes: Some(minutes),
+            presentation: None,
+        },
         text,
         date,
         work_type,
@@ -247,7 +402,11 @@ fn cmd_log<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<
     Ok(())
 }
 
-fn cmd_worklog<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+fn cmd_worklog<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let items = client.list_work_items(id)?;
     format::print_items(&items, opts);
@@ -256,9 +415,13 @@ fn cmd_worklog<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: 
 
 fn cmd_set<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
-    let field_name = args.positional.get(1)
+    let field_name = args
+        .positional
+        .get(1)
         .ok_or_else(|| YtdError::Input("Field name is required".into()))?;
-    let value_str = args.positional.get(2..)
+    let value_str = args
+        .positional
+        .get(2..)
         .map(|s| s.join(" "))
         .filter(|s| !s.is_empty())
         .ok_or_else(|| YtdError::Input("Value is required".into()))?;
@@ -267,8 +430,15 @@ fn cmd_set<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<
     let issue = client.get_issue(id)?;
 
     // Find the $type from the issue's existing custom fields
-    let cf_type = issue.custom_fields.iter()
-        .find(|f| f.name.as_deref().map(|n| n.eq_ignore_ascii_case(field_name)).unwrap_or(false))
+    let cf_type = issue
+        .custom_fields
+        .iter()
+        .find(|f| {
+            f.name
+                .as_deref()
+                .map(|n| n.eq_ignore_ascii_case(field_name))
+                .unwrap_or(false)
+        })
         .and_then(|f| f.field_type.as_deref())
         .unwrap_or("");
 
@@ -313,6 +483,62 @@ fn build_field_value(cf_type: &str, value: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::TEST_ENV_LOCK;
+    use crate::types::{ResolvedVisibilityGroup, YtdConfig};
+    use std::cell::RefCell;
+    use std::path::Path;
+
+    struct MockTransport {
+        responses: RefCell<Vec<String>>,
+    }
+
+    impl MockTransport {
+        fn new(responses: Vec<&str>) -> Self {
+            Self {
+                responses: RefCell::new(responses.into_iter().rev().map(String::from).collect()),
+            }
+        }
+    }
+
+    impl HttpTransport for MockTransport {
+        fn get(&self, _url: &str, _token: &str) -> Result<String, YtdError> {
+            self.responses
+                .borrow_mut()
+                .pop()
+                .ok_or_else(|| YtdError::Http("No more mock responses".into()))
+        }
+
+        fn post(&self, _url: &str, _token: &str, _body: &str) -> Result<String, YtdError> {
+            self.responses
+                .borrow_mut()
+                .pop()
+                .ok_or_else(|| YtdError::Http("No more mock responses".into()))
+        }
+
+        fn post_multipart(
+            &self,
+            _url: &str,
+            _token: &str,
+            _file_path: &Path,
+            _file_name: &str,
+        ) -> Result<String, YtdError> {
+            Err(YtdError::Http("unused".into()))
+        }
+
+        fn delete(&self, _url: &str, _token: &str) -> Result<(), YtdError> {
+            Ok(())
+        }
+    }
+
+    fn test_client(responses: Vec<&str>) -> YtClient<MockTransport> {
+        YtClient::new(
+            YtdConfig {
+                url: "https://test.youtrack.cloud".into(),
+                token: "perm:test".into(),
+            },
+            MockTransport::new(responses),
+        )
+    }
 
     fn sample_issue(id: &str, id_readable: Option<&str>, summary: Option<&str>) -> Issue {
         Issue {
@@ -325,27 +551,36 @@ mod tests {
             resolved: None,
             reporter: None,
             project: None,
+            visibility: None,
             tags: vec![],
             comments: vec![],
             custom_fields: vec![],
         }
     }
 
+    fn clear_env() {
+        std::env::remove_var("XDG_CONFIG_HOME");
+        std::env::remove_var("YTD_CONFIG");
+        std::env::remove_var("YTD_VISIBILITY_GROUP");
+    }
+
     #[test]
     fn render_issue_links_text_with_populated_issues() {
-        let links = vec![
-            IssueLink {
+        let links = vec![IssueLink {
+            id: Some("105-0".into()),
+            direction: Some("BOTH".into()),
+            link_type: Some(IssueLinkType {
                 id: Some("105-0".into()),
-                direction: Some("BOTH".into()),
-                link_type: Some(IssueLinkType {
-                    id: Some("105-0".into()),
-                    name: Some("Relates".into()),
-                    source_to_target: Some("relates to".into()),
-                    target_to_source: Some(String::new()),
-                }),
-                issues: Some(vec![sample_issue("2-14252", Some("DWP-14"), Some("Link Target"))]),
-            }
-        ];
+                name: Some("Relates".into()),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some(String::new()),
+            }),
+            issues: Some(vec![sample_issue(
+                "2-14252",
+                Some("DWP-14"),
+                Some("Link Target"),
+            )]),
+        }];
 
         let rendered = render_issue_links_text(&links);
         assert!(rendered.contains("linkType: Relates"));
@@ -355,19 +590,17 @@ mod tests {
 
     #[test]
     fn render_issue_links_text_handles_missing_summaries() {
-        let links = vec![
-            IssueLink {
+        let links = vec![IssueLink {
+            id: Some("105-0".into()),
+            direction: Some("BOTH".into()),
+            link_type: Some(IssueLinkType {
                 id: Some("105-0".into()),
-                direction: Some("BOTH".into()),
-                link_type: Some(IssueLinkType {
-                    id: Some("105-0".into()),
-                    name: Some("Relates".into()),
-                    source_to_target: None,
-                    target_to_source: None,
-                }),
-                issues: Some(vec![sample_issue("2-14252", Some("DWP-14"), None)]),
-            }
-        ];
+                name: Some("Relates".into()),
+                source_to_target: None,
+                target_to_source: None,
+            }),
+            issues: Some(vec![sample_issue("2-14252", Some("DWP-14"), None)]),
+        }];
 
         let rendered = render_issue_links_text(&links);
         assert!(rendered.contains("- DWP-14\n"));
@@ -375,33 +608,150 @@ mod tests {
 
     #[test]
     fn render_issue_links_text_with_no_populated_links() {
-        let links = vec![
-            IssueLink {
+        let links = vec![IssueLink {
+            id: Some("105-0".into()),
+            direction: Some("BOTH".into()),
+            link_type: Some(IssueLinkType {
                 id: Some("105-0".into()),
-                direction: Some("BOTH".into()),
-                link_type: Some(IssueLinkType {
-                    id: Some("105-0".into()),
-                    name: Some("Relates".into()),
-                    source_to_target: None,
-                    target_to_source: None,
-                }),
-                issues: Some(vec![]),
-            }
-        ];
+                name: Some("Relates".into()),
+                source_to_target: None,
+                target_to_source: None,
+            }),
+            issues: Some(vec![]),
+        }];
 
         let rendered = render_issue_links_text(&links);
         assert_eq!(rendered, "No linked tickets.\n");
     }
+
+    #[test]
+    fn build_create_issue_input_uses_resolved_visibility_group() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("create".into()),
+            positional: vec![],
+            flags: [
+                ("project".to_string(), "DEMO".to_string()),
+                ("visibility-group".to_string(), "Team Alpha".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        };
+        let json = serde_json::json!({
+            "summary": "Visible issue",
+            "description": "details"
+        });
+
+        let client = test_client(vec![r#"[{"id":"3-7","name":"Team Alpha"}]"#]);
+        let input = build_create_issue_input(&client, &args, &json).unwrap();
+        let visibility = input.visibility.expect("visibility should be set");
+        assert_eq!(visibility.visibility_type, "LimitedVisibility");
+        assert_eq!(visibility.permitted_groups.len(), 1);
+        assert_eq!(visibility.permitted_groups[0].id, "3-7");
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_update_issue_input_clears_visibility_with_flag() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        std::env::set_var("YTD_VISIBILITY_GROUP", "Env Team");
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("update".into()),
+            positional: vec!["DEMO-1".into()],
+            flags: [("no-visibility-group".to_string(), "true".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let json = serde_json::json!({});
+
+        let client = test_client(vec![]);
+        let input = build_update_issue_input(&client, &args, &json).unwrap();
+        let visibility = input
+            .visibility
+            .expect("visibility clear payload should be set");
+        assert_eq!(visibility.visibility_type, "LimitedVisibility");
+        assert!(visibility.permitted_groups.is_empty());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_visibility_input_omits_clear_for_create() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("create".into()),
+            positional: vec![],
+            flags: [("no-visibility-group".to_string(), "true".to_string())]
+                .into_iter()
+                .collect(),
+        };
+
+        assert_eq!(
+            config::resolve_visibility_group(None, true).unwrap(),
+            ResolvedVisibilityGroup::Clear
+        );
+        let client = test_client(vec![]);
+        assert!(build_visibility_input(&client, &args, false)
+            .unwrap()
+            .is_none());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_create_issue_input_fails_for_unknown_visibility_group() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("create".into()),
+            positional: vec![],
+            flags: [
+                ("project".to_string(), "DEMO".to_string()),
+                ("visibility-group".to_string(), "Missing Team".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        };
+        let json = serde_json::json!({
+            "summary": "Visible issue"
+        });
+        let client = test_client(vec![r#"[{"id":"3-7","name":"Team Alpha"}]"#]);
+
+        let err = build_create_issue_input(&client, &args, &json).unwrap_err();
+        assert_eq!(err.to_string(), "Visibility group not found: Missing Team");
+
+        clear_env();
+    }
 }
 
-fn cmd_fields<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+fn cmd_fields<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let issue = client.get_issue(id)?;
     format::print_items(&issue.custom_fields, opts);
     Ok(())
 }
 
-fn cmd_history<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+fn cmd_history<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let category = args.flags.get("category").map(|s| s.as_str());
     let activities = client.list_activities(id, category)?;
@@ -432,7 +782,9 @@ fn confirm_delete(id: &str) -> Result<bool, YtdError> {
 fn parse_date_to_epoch_ms(date: &str) -> Option<u64> {
     // Parse YYYY-MM-DD
     let parts: Vec<&str> = date.split('-').collect();
-    if parts.len() != 3 { return None; }
+    if parts.len() != 3 {
+        return None;
+    }
     let y: i64 = parts[0].parse().ok()?;
     let m: i64 = parts[1].parse().ok()?;
     let d: i64 = parts[2].parse().ok()?;

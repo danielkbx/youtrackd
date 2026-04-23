@@ -54,3 +54,7 @@ export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh" && export PATH="$HOME/.b
 ## YouTrack API: Issue comment POST requires only text field
 Date: 2026-04-21
 POST /api/issues/{issueID}/comments — required body: `{ text: "..." }`. Optional: visibility object. The muteUpdateNotifications query param suppresses notifications.
+
+## Implementierung: Visibility-Group-Auflösung und Clear-Verhalten
+Date: 2026-04-22
+Verifiziert durch Code und Tests: Die Auflösung für Ticket/Article-Create+Update ist `--visibility-group` → `YTD_VISIBILITY_GROUP` → gespeicherter `config visibility-group`-Wert. `--no-visibility-group` überschreibt geerbte Defaults. Bei `update` wird dann ein `LimitedVisibility`-Payload mit leerem `permittedGroups` gesendet (Clear). Bei `create` wird das `visibility`-Feld stattdessen komplett weggelassen. Die Kombination `--visibility-group` + `--no-visibility-group` ist ein Input-Fehler.

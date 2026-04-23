@@ -1,9 +1,14 @@
 pub mod article;
 pub mod board;
+pub mod config;
+pub mod group;
 pub mod login;
 pub mod logout;
+pub mod open;
+pub mod open_target;
 pub mod project;
 pub mod search;
 pub mod tag;
 pub mod ticket;
+pub mod url;
 pub mod whoami;

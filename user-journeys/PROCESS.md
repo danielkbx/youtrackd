@@ -16,6 +16,8 @@
 3. Die **Bestätigung des Users abwarten** — niemals selbstständig ein Projekt wählen
 4. Das bestätigte Projekt-Kürzel (z.B. `TESTPROJ`) für alle Journeys verwenden
 
+Für Journeys mit Visibility-Defaults muss der Agent zusätzlich vor dem Start einen gültigen Visibility-Gruppennamen erfragen, den der aktuelle Nutzer auf Tickets und Artikeln setzen und wieder entfernen darf. Diese Bestätigung ebenfalls abwarten.
+
 ### 2. Journey- und Guard-Ausführung
 
 Die Markdown-Dateien in diesem Verzeichnis fallen in zwei Gruppen:
@@ -50,6 +52,8 @@ So sind Test-Entities sofort erkennbar und können bei Bedarf manuell aufgeräum
 | Artikel | `ytd article delete <id> -y` |
 | Tags | Wieder entfernen, wenn im Test hinzugefügt (vor dem Delete) |
 | Links | Werden mit dem Ticket gelöscht |
+| Temp-Config-Dateien | Mit `rm -f` löschen |
+| Temporäre Env Vars | Mit `unset` entfernen |
 
 ### 5. Fehlerbehandlung
 
@@ -73,3 +77,4 @@ Empfohlene Reihenfolge:
 8. `08-search-and-boards.md` — Saved Searches, Boards
 9. `09-history.md` — Activity-Log
 10. `10-api-compat-guard.md` — technische Absicherung gegen API-Drift und dokumentationskritische Integrationspunkte
+11. `11-visibility-defaults.md` — Visibility-Defaults, `YTD_CONFIG`-Isolation und Override-Reihenfolge

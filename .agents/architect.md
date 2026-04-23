@@ -16,6 +16,8 @@ src/
   types.rs          ← all data structures (serde Serialize/Deserialize)
   commands/
     mod.rs          ← module declarations
+    config.rs       ← stored non-auth settings (visibility-group)
+    group.rs        ← group list
     login.rs        ← interactive login flow
     logout.rs       ← clear credentials
     whoami.rs       ← current user display
@@ -55,10 +57,18 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 
 ## Config Module
 
-`config.rs` owns all credential logic:
+`config.rs` owns credential loading plus stored CLI defaults:
 - `get_config()` — resolves env vars → `~/.config/ytd/config.json` → error
 - `save_config(c)` — writes file with `OpenOptionsExt::mode(0o600)` (no race condition)
 - `clear_config()` — deletes file
+- `resolve_visibility_group()` — resolves CLI flag → `YTD_VISIBILITY_GROUP` → stored config, with `--no-visibility-group` as explicit override
+
+## Visibility Defaults
+
+- Stored config is `StoredConfig` in `types.rs` with optional `url`, `token`, and `visibility_group`
+- Serialized config uses camelCase JSON keys, so the file stores `visibilityGroup`
+- Ticket/article create and update handlers build `LimitedVisibilityInput` in `commands/ticket.rs` and `commands/article.rs`
+- `ResolvedVisibilityGroup::Clear` becomes an empty `permittedGroups` payload only for updates; creates omit the `visibility` field
 
 ## Adding a Command
 
@@ -76,4 +86,3 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 - Always set `$top` explicitly (server default is 42)
 - Attachments: manual multipart/form-data body building
 - Errors: HTTP status + detail to stderr, exit non-zero
-

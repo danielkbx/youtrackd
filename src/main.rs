@@ -36,7 +36,10 @@ fn run() -> Result<(), YtdError> {
         return Ok(());
     }
     if args.action.as_deref() == Some("help") {
-        help::print_help(args.resource.as_deref(), args.positional.first().map(|s| s.as_str()));
+        help::print_help(
+            args.resource.as_deref(),
+            args.positional.first().map(|s| s.as_str()),
+        );
         return Ok(());
     }
 
@@ -45,17 +48,29 @@ fn run() -> Result<(), YtdError> {
 
     // Validate command before loading config
     if !is_known_command(resource, action) {
-        return Err(YtdError::Input(format!("Unknown command: ytd {}{}", resource, action.map(|a| format!(" {a}")).unwrap_or_default())));
+        return Err(YtdError::Input(format!(
+            "Unknown command: ytd {}{}",
+            resource,
+            action.map(|a| format!(" {a}")).unwrap_or_default()
+        )));
     }
 
     // Auth commands don't need config
     match resource {
         "login" => return commands::login::run(&args),
         "logout" => return commands::logout::run(),
+        "config" => return commands::config::run(&args),
         _ => {}
     }
 
     let cfg = config::get_config()?;
+
+    match resource {
+        "open" => return commands::open::run(&cfg, &args),
+        "url" => return commands::url::run(&cfg, &args),
+        _ => {}
+    }
+
     let transport = client::UreqTransport;
     let mut client = client::YtClient::new(cfg, transport);
     if args.flags.contains_key("verbose") {
@@ -66,6 +81,7 @@ fn run() -> Result<(), YtdError> {
 
     match resource {
         "whoami" => commands::whoami::run(&client, &opts),
+        "group" => commands::group::run(&client, &args, &opts),
         "project" => commands::project::run(&client, &args, &opts),
         "article" => commands::article::run(&client, &args, &opts),
         "ticket" => commands::ticket::run(&client, &args, &opts),
@@ -79,12 +95,82 @@ fn run() -> Result<(), YtdError> {
 fn is_known_command(resource: &str, action: Option<&str>) -> bool {
     matches!(
         (resource, action),
-        ("login", None) | ("logout", None) | ("whoami", None)
+        ("login", None)
+            | ("logout", None)
+            | ("open", None)
+            | ("url", None)
+            | ("whoami", None)
+            | ("config", Some("set" | "get" | "unset"))
+            | ("group", Some("list"))
             | ("project", Some("list" | "get"))
-            | ("article", Some("search" | "list" | "get" | "create" | "update" | "append" | "comment" | "comments" | "attach" | "attachments" | "delete"))
-            | ("ticket", Some("search" | "list" | "get" | "create" | "update" | "comment" | "tag" | "untag" | "link" | "links" | "attach" | "attachments" | "log" | "worklog" | "set" | "fields" | "history" | "delete"))
+            | (
+                "article",
+                Some(
+                    "search"
+                        | "list"
+                        | "get"
+                        | "create"
+                        | "update"
+                        | "append"
+                        | "comment"
+                        | "comments"
+                        | "attach"
+                        | "attachments"
+                        | "delete"
+                )
+            )
+            | (
+                "ticket",
+                Some(
+                    "search"
+                        | "list"
+                        | "get"
+                        | "create"
+                        | "update"
+                        | "comment"
+                        | "tag"
+                        | "untag"
+                        | "link"
+                        | "links"
+                        | "attach"
+                        | "attachments"
+                        | "log"
+                        | "worklog"
+                        | "set"
+                        | "fields"
+                        | "history"
+                        | "delete"
+                )
+            )
             | ("tag", Some("list"))
             | ("search", Some("list" | "run"))
             | ("board", Some("list" | "get"))
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_known_command;
+
+    #[test]
+    fn knows_config_commands() {
+        assert!(is_known_command("config", Some("set")));
+        assert!(is_known_command("config", Some("get")));
+        assert!(is_known_command("config", Some("unset")));
+        assert!(!is_known_command("config", None));
+    }
+
+    #[test]
+    fn knows_group_commands() {
+        assert!(is_known_command("group", Some("list")));
+        assert!(!is_known_command("group", None));
+    }
+
+    #[test]
+    fn knows_open_and_url_commands() {
+        assert!(is_known_command("open", None));
+        assert!(is_known_command("url", None));
+        assert!(!is_known_command("open", Some("now")));
+        assert!(!is_known_command("url", Some("raw")));
+    }
 }

@@ -15,8 +15,15 @@ pub struct OutputOptions {
 }
 
 const META_FIELDS: &[&str] = &[
-    "id", "idReadable", "created", "updated", "resolved",
-    "reporter", "updatedBy", "author", "project",
+    "id",
+    "idReadable",
+    "created",
+    "updated",
+    "resolved",
+    "reporter",
+    "updatedBy",
+    "author",
+    "project",
 ];
 
 impl OutputOptions {
@@ -34,7 +41,10 @@ impl OutputOptions {
 pub fn print_value(value: &Value, opts: &OutputOptions) {
     match opts.format {
         Format::Raw => {
-            println!("{}", serde_json::to_string_pretty(value).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(value).unwrap_or_default()
+            );
         }
         Format::Md => {
             print_md(value);
@@ -49,7 +59,10 @@ pub fn print_items<T: serde::Serialize>(items: &[T], opts: &OutputOptions) {
     let value = serde_json::to_value(items).unwrap_or(Value::Array(vec![]));
     match opts.format {
         Format::Raw => {
-            println!("{}", serde_json::to_string_pretty(&value).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&value).unwrap_or_default()
+            );
         }
         Format::Md => {
             if let Value::Array(arr) = &value {
@@ -82,7 +95,10 @@ pub fn print_single<T: serde::Serialize>(item: &T, opts: &OutputOptions) {
 fn print_md(value: &Value) {
     let obj = match value {
         Value::Object(map) => map,
-        _ => { println!("{value}"); return; }
+        _ => {
+            println!("{value}");
+            return;
+        }
     };
 
     // Title: summary (articles) or summary (tickets)
@@ -93,7 +109,9 @@ fn print_md(value: &Value) {
     }
 
     // Body: content (articles) or description (tickets)
-    let body = obj.get("content").and_then(|v| v.as_str())
+    let body = obj
+        .get("content")
+        .and_then(|v| v.as_str())
         .or_else(|| obj.get("description").and_then(|v| v.as_str()));
     if let Some(body) = body {
         println!("{body}");
@@ -108,7 +126,8 @@ fn print_md(value: &Value) {
             println!();
             println!("## Comments");
             for comment in comments {
-                let author = comment.get("author")
+                let author = comment
+                    .get("author")
                     .and_then(|a| a.get("fullName"))
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown");
@@ -158,15 +177,20 @@ fn format_value(key: &str, val: &Value) -> String {
         Value::String(s) => s.clone(),
         Value::Array(arr) => {
             // Array of tags or simple objects
-            let parts: Vec<String> = arr.iter().filter_map(|v| {
-                if let Value::Object(m) = v {
-                    m.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())
-                } else if let Value::String(s) = v {
-                    Some(s.clone())
-                } else {
-                    None
-                }
-            }).collect();
+            let parts: Vec<String> = arr
+                .iter()
+                .filter_map(|v| {
+                    if let Value::Object(m) = v {
+                        m.get("name")
+                            .and_then(|n| n.as_str())
+                            .map(|s| s.to_string())
+                    } else if let Value::String(s) = v {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             parts.join(", ")
         }
         Value::Object(map) => {
@@ -190,7 +214,10 @@ fn format_value(key: &str, val: &Value) -> String {
 }
 
 fn is_time_field(key: &str) -> bool {
-    matches!(key, "created" | "updated" | "resolved" | "date" | "start" | "finish" | "timestamp")
+    matches!(
+        key,
+        "created" | "updated" | "resolved" | "date" | "start" | "finish" | "timestamp"
+    )
 }
 
 fn format_timestamp(ms: u64) -> String {

@@ -35,12 +35,18 @@ pub fn parse_args(argv: &[String]) -> ParsedArgs {
     }
 
     let resource = positional.first().cloned();
-    let action = positional.get(1).cloned();
-    let rest = if positional.len() > 2 {
+    let mut action = positional.get(1).cloned();
+    let mut rest = if positional.len() > 2 {
         positional[2..].to_vec()
     } else {
         vec![]
     };
+
+    if matches!(resource.as_deref(), Some("open" | "url")) && action.as_deref() != Some("help") {
+        if let Some(target) = action.take() {
+            rest.insert(0, target);
+        }
+    }
 
     ParsedArgs {
         resource,
@@ -109,6 +115,30 @@ mod tests {
         let a = args(&["help", "ticket"]);
         assert_eq!(a.resource.as_deref(), Some("help"));
         assert_eq!(a.action.as_deref(), Some("ticket"));
+    }
+
+    #[test]
+    fn parse_open_command_target() {
+        let a = args(&["open", "DWP-12"]);
+        assert_eq!(a.resource.as_deref(), Some("open"));
+        assert_eq!(a.action, None);
+        assert_eq!(a.positional, vec!["DWP-12"]);
+    }
+
+    #[test]
+    fn parse_url_command_target() {
+        let a = args(&["url", "DWP-12"]);
+        assert_eq!(a.resource.as_deref(), Some("url"));
+        assert_eq!(a.action, None);
+        assert_eq!(a.positional, vec!["DWP-12"]);
+    }
+
+    #[test]
+    fn parse_open_help_without_rewriting_help_action() {
+        let a = args(&["open", "help"]);
+        assert_eq!(a.resource.as_deref(), Some("open"));
+        assert_eq!(a.action.as_deref(), Some("help"));
+        assert!(a.positional.is_empty());
     }
 
     #[test]

@@ -3,7 +3,11 @@ use crate::client::{HttpTransport, YtClient};
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 
-pub fn run<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+pub fn run<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     match args.action.as_deref() {
         Some("list") => {
             let mut agiles = client.list_agiles()?;
@@ -12,7 +16,10 @@ pub fn run<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &Out
             if let Some(project) = args.flags.get("project") {
                 agiles.retain(|a| {
                     a.projects.iter().any(|p| {
-                        p.short_name.as_deref().map(|s| s.eq_ignore_ascii_case(project)).unwrap_or(false)
+                        p.short_name
+                            .as_deref()
+                            .map(|s| s.eq_ignore_ascii_case(project))
+                            .unwrap_or(false)
                             || p.id == *project
                     })
                 });
@@ -22,7 +29,9 @@ pub fn run<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &Out
             Ok(())
         }
         Some("get") => {
-            let id = args.positional.first()
+            let id = args
+                .positional
+                .first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd board get <id>".into()))?;
             let agile = client.get_agile(id)?;
             format::print_single(&agile, opts);

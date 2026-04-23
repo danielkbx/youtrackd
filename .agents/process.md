@@ -39,6 +39,7 @@ Before implementing any non-trivial task, read all files in `.agents/` and inclu
 | Variable | Purpose |
 |---|---|
 | `YTD_CONFIG` | Custom config file path (overrides XDG) |
+| `YTD_VISIBILITY_GROUP` | Default visibility group for ticket/article create and update |
 | `YOUTRACK_URL` | Override config URL |
 | `YOUTRACK_TOKEN` | Override config token |
 | `YOUTRACK_TEST_URL` | Integration test target |

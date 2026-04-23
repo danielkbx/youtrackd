@@ -20,5 +20,7 @@ pub fn read_json_input(flags: &HashMap<String, String>) -> Result<Value, YtdErro
         return serde_json::from_str(json_str).map_err(YtdError::from);
     }
 
-    Err(YtdError::Input("No JSON input provided. Use --json '{...}' or pipe via stdin.".into()))
+    Err(YtdError::Input(
+        "No JSON input provided. Use --json '{...}' or pipe via stdin.".into(),
+    ))
 }

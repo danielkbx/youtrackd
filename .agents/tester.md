@@ -17,6 +17,7 @@ Rust's built-in test framework. Run with `cargo test`.
 Inline `#[cfg(test)]` modules in each source file. Mock the HTTP layer via `MockTransport` — never mock business logic.
 
 - `config.rs` — config read/write/clear (uses tempfile, Mutex for env var isolation)
+- `commands/config.rs` — config set/get/unset for `visibility-group`
 - `args.rs` — argument parsing variants
 - `format.rs` — output options, timestamp formatting, user/bool formatting
 - `duration.rs` — duration parsing (30m, 1h, 2h30m, edge cases)
@@ -32,6 +33,15 @@ For each command, verify:
 3. Create/update commands print only the ID on stdout
 4. Invalid input exits non-zero with a message on stderr
 5. Stdin JSON input works equivalently to `--json` flag
+
+Visibility-specific coverage:
+1. `config set|get|unset visibility-group` works without login and persists only stored config fields
+2. Visibility resolution precedence is CLI flag → `YTD_VISIBILITY_GROUP` → stored config
+3. `--visibility-group` combined with `--no-visibility-group` is rejected as input error
+4. Update builders turn `--no-visibility-group` into a clear payload; create builders omit `visibility`
+
+Group-specific coverage:
+1. `group list` requests `usersCount`
 
 ## Rust-specific Test Notes
 
@@ -61,6 +71,9 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | History | `09-history.md` | ticket history |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
+
+When extending the ticket/article journeys, include visibility coverage for inherited defaults, explicit `--visibility-group`, and `--no-visibility-group` override/clear behavior.
+
 
 **Naming**: Alle Test-Entities verwenden Prefix `[YTD-TEST]` in Summary/Kommentaren.
 

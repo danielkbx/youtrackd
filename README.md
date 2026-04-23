@@ -64,6 +64,8 @@ ytd whoami
 ```
 ytd project list
 ytd ticket list --project MYPROJECT
+ytd config set visibility-group "Engineering"
+ytd group list
 ```
 
 ## Commands
@@ -74,13 +76,18 @@ ytd project list
 ytd project get <shortName>
 ```
 
+### Groups
+```
+ytd group list
+```
+
 ### Tickets
 ```
 ytd ticket list --project <id>
 ytd ticket get <id>
 ytd ticket search "<query>" [--project <id>]
-ytd ticket create --project <id> --json '{"summary":"...","description":"..."}'
-ytd ticket update <id> --json '{"summary":"..."}'
+ytd ticket create --project <id> --json '{"summary":"...","description":"..."}' [--visibility-group <group> | --no-visibility-group]
+ytd ticket update <id> --json '{"summary":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd ticket comment <id> "text"
 ytd ticket delete <id> [-y]
 ```
@@ -105,8 +112,8 @@ ytd ticket history <id> [--category <cat>]   # Activity log
 ytd article list --project <id>
 ytd article get <id>
 ytd article search "<query>" [--project <id>]
-ytd article create --project <id> --json '{"summary":"...","content":"..."}'
-ytd article update <id> --json '{"content":"..."}'
+ytd article create --project <id> --json '{"summary":"...","content":"..."}' [--visibility-group <group> | --no-visibility-group]
+ytd article update <id> --json '{"content":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd article append <id> "text"
 ytd article comment <id> "text"
 ytd article comments <id>
@@ -117,6 +124,10 @@ ytd article delete <id> [-y]
 
 ### Tags, Searches, Boards
 ```
+ytd config set visibility-group <group>
+ytd config get visibility-group
+ytd config unset visibility-group
+ytd group list
 ytd tag list [--project <id>]
 ytd search list [--project <id>]
 ytd search run <name-or-id>
@@ -171,13 +182,22 @@ ytd ticket delete PROJ-42 -y
 
 ## Configuration
 
-Config file: `~/.config/ytd/config.json` (created by `ytd login`)
+Config file: `~/.config/ytd/config.json` (used for stored credentials and CLI settings)
 
 Alternatively, set environment variables:
 - `YOUTRACK_URL` — Your YouTrack instance URL
 - `YOUTRACK_TOKEN` — Your permanent token
+- `YTD_VISIBILITY_GROUP` — Default group for ticket/article visibility
 
 Environment variables take precedence over the config file.
+
+### Visibility Defaults
+
+`ticket create|update` and `article create|update` accept `--visibility-group <group>` to send limited visibility for that group.
+
+`--no-visibility-group` disables inherited defaults from `YTD_VISIBILITY_GROUP` or `ytd config set visibility-group ...`. On `update`, it clears the existing visibility restriction. On `create`, it sends no visibility restriction.
+
+Resolution order is: `--visibility-group` → `YTD_VISIBILITY_GROUP` → stored `visibility-group` config. Combining `--visibility-group` and `--no-visibility-group` is an input error.
 
 ### Multiple Instances
 

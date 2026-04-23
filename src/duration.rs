@@ -28,7 +28,9 @@ pub fn parse_duration(input: &str) -> Result<u32, YtdError> {
             if num_buf.is_empty() {
                 return Err(YtdError::Input(format!("Invalid duration: {input}")));
             }
-            hours = num_buf.parse().map_err(|_| YtdError::Input(format!("Invalid duration: {input}")))?;
+            hours = num_buf
+                .parse()
+                .map_err(|_| YtdError::Input(format!("Invalid duration: {input}")))?;
             num_buf.clear();
             found_any = true;
         } else if c == 'm' {
@@ -36,7 +38,9 @@ pub fn parse_duration(input: &str) -> Result<u32, YtdError> {
                 return Err(YtdError::Input(format!("Invalid duration: {input}")));
             }
             if !num_buf.is_empty() {
-                minutes = num_buf.parse().map_err(|_| YtdError::Input(format!("Invalid duration: {input}")))?;
+                minutes = num_buf
+                    .parse()
+                    .map_err(|_| YtdError::Input(format!("Invalid duration: {input}")))?;
                 num_buf.clear();
             }
             found_any = true;
@@ -47,7 +51,9 @@ pub fn parse_duration(input: &str) -> Result<u32, YtdError> {
 
     // Trailing number without unit after 'h' = minutes
     if !num_buf.is_empty() && found_any {
-        minutes = num_buf.parse().map_err(|_| YtdError::Input(format!("Invalid duration: {input}")))?;
+        minutes = num_buf
+            .parse()
+            .map_err(|_| YtdError::Input(format!("Invalid duration: {input}")))?;
     } else if !num_buf.is_empty() {
         return Err(YtdError::Input(format!("Invalid duration: {input}")));
     }

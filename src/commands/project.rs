@@ -3,7 +3,11 @@ use crate::client::{HttpTransport, YtClient};
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 
-pub fn run<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &OutputOptions) -> Result<(), YtdError> {
+pub fn run<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
     match args.action.as_deref() {
         Some("list") => {
             let projects = client.list_projects()?;
@@ -11,7 +15,9 @@ pub fn run<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs, opts: &Out
             Ok(())
         }
         Some("get") => {
-            let id = args.positional.first()
+            let id = args
+                .positional
+                .first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd project get <shortName>".into()))?;
             let project = client.get_project(id)?;
             format::print_single(&project, opts);

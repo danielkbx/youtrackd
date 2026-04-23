@@ -6,6 +6,30 @@ pub struct YtdConfig {
     pub token: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResolvedVisibilityGroup {
+    Group(String),
+    Clear,
+    None,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_group: Option<String>,
+}
+
+impl StoredConfig {
+    pub fn is_empty(&self) -> bool {
+        self.url.is_none() && self.token.is_none() && self.visibility_group.is_none()
+    }
+}
+
 // --- Users ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +78,7 @@ pub struct Article {
     pub updated: Option<u64>,
     pub reporter: Option<User>,
     pub project: Option<ProjectRef>,
+    pub visibility: Option<LimitedVisibility>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +106,7 @@ pub struct Issue {
     pub resolved: Option<u64>,
     pub reporter: Option<User>,
     pub project: Option<ProjectRef>,
+    pub visibility: Option<LimitedVisibility>,
     #[serde(default)]
     pub tags: Vec<Tag>,
     #[serde(default)]
@@ -105,6 +131,26 @@ pub struct IssueComment {
 pub struct Tag {
     pub id: Option<String>,
     pub name: String,
+}
+
+// --- Groups ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserGroup {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub users_count: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LimitedVisibility {
+    #[serde(rename = "$type")]
+    pub visibility_type: Option<String>,
+    #[serde(default)]
+    pub permitted_groups: Vec<UserGroup>,
 }
 
 // --- Issue Links ---
@@ -186,7 +232,6 @@ pub struct CustomField {
     pub value: Option<serde_json::Value>,
 }
 
-
 // --- Saved Searches ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,6 +302,8 @@ pub struct CreateArticleInput {
     pub summary: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<LimitedVisibilityInput>,
 }
 
 #[derive(Debug, Serialize)]
@@ -266,6 +313,8 @@ pub struct UpdateArticleInput {
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<LimitedVisibilityInput>,
 }
 
 #[derive(Debug, Serialize)]
@@ -275,6 +324,8 @@ pub struct CreateIssueInput {
     pub summary: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<LimitedVisibilityInput>,
 }
 
 #[derive(Debug, Serialize)]
@@ -284,6 +335,22 @@ pub struct UpdateIssueInput {
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<LimitedVisibilityInput>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LimitedVisibilityInput {
+    #[serde(rename = "$type")]
+    pub visibility_type: &'static str,
+    pub permitted_groups: Vec<UserGroupInput>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserGroupInput {
+    pub id: String,
 }
 
 #[derive(Debug, Serialize)]

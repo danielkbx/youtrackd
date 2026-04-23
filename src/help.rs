@@ -1,13 +1,21 @@
 pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
     match resource {
         None | Some("help") => print_global_help(),
-        Some("login") => println!("Usage: ytd login\n\nInteractively configure YouTrack URL and token."),
+        Some("login") => {
+            println!("Usage: ytd login\n\nInteractively configure YouTrack URL and token.")
+        }
         Some("logout") => println!("Usage: ytd logout\n\nRemove stored credentials."),
+        Some("open") => print_open_help(),
         Some("whoami") => println!("Usage: ytd whoami\n\nShow current user info."),
+        Some("config") => print_config_help(),
+        Some("group") => print_group_help(),
         Some("project") => print_project_help(),
         Some("article") => print_article_help(),
         Some("ticket") => print_ticket_help(),
-        Some("tag") => println!("Usage:\n  ytd tag list [--project <id>]\n\nList tags. --project filters client-side."),
+        Some("url") => print_url_help(),
+        Some("tag") => println!(
+            "Usage:\n  ytd tag list [--project <id>]\n\nList tags. --project filters client-side."
+        ),
         Some("search") => print_search_help(),
         Some("board") => print_board_help(),
         Some(other) => println!("Unknown command: {other}\nRun `ytd help` for a list of commands."),
@@ -15,14 +23,24 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
 }
 
 fn print_global_help() {
-    println!("ytd - YouTrack CLI
+    println!(
+        "ytd - YouTrack CLI
 
 Usage: ytd <command> [options]
 
 Commands:
   login                     Configure credentials
   logout                    Remove credentials
+  url <target>              Print web URL
+  open <target>             Open web URL in browser
   whoami                    Show current user
+  config set visibility-group <group>
+                            Store default visibility group
+  config get visibility-group
+                            Show stored visibility group
+  config unset visibility-group
+                            Remove stored visibility group
+  group list                List visibility groups
 
   project list              List projects
   project get <id>          Get project details
@@ -69,22 +87,83 @@ Global flags:
   --no-meta                 Suppress IDs, dates, author
   -y                        Skip delete confirmation
 
-Run `ytd help <command>` for command-specific help.");
+Run `ytd help <command>` for command-specific help."
+    );
+}
+
+fn print_config_help() {
+    println!(
+        "Usage:
+  ytd config set visibility-group <group>
+  ytd config get visibility-group
+  ytd config unset visibility-group
+
+Manage stored CLI settings without requiring login.
+Currently supported key: visibility-group"
+    );
+}
+
+fn print_url_help() {
+    println!(
+        "Usage:
+  ytd url <target>
+
+Print the YouTrack web URL for a target.
+
+Examples:
+  ytd url ABC-12
+  ytd url ABC-A-12
+  ytd url ABC
+  ytd url ABC-A"
+    );
+}
+
+fn print_open_help() {
+    println!(
+        "Usage:
+  ytd open <target>
+
+Open the YouTrack web URL for a target in the default browser and print the URL.
+
+Supported targets:
+  <PROJECT>-<NUMBER>       Ticket, e.g. ABC-12
+  <PROJECT>-A-<NUMBER>     Article, opens in project context, e.g. ABC-A-1
+  <PROJECT>                Project overview, e.g. ABC
+  <PROJECT>-A              Project knowledge base, e.g. ABC-A
+
+Examples:
+  ytd open ABC-12
+  ytd open ABC-A-12
+  ytd open ABC
+  ytd open ABC-A"
+    );
 }
 
 fn print_project_help() {
-    println!("Usage:
+    println!(
+        "Usage:
   ytd project list [--format raw] [--no-meta]
-  ytd project get <shortName> [--format raw] [--no-meta]");
+  ytd project get <shortName> [--format raw] [--no-meta]"
+    );
+}
+
+fn print_group_help() {
+    println!(
+        "Usage:
+  ytd group list [--format raw] [--no-meta]
+
+List known YouTrack groups. Useful for visibility-group selection."
+    );
 }
 
 fn print_article_help() {
-    println!("Usage:
+    println!(
+        "Usage:
   ytd article search <query> [--project <id>]
   ytd article list --project <id>
   ytd article get <id>
-  ytd article create --project <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}'
-  ytd article update <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}'
+  ytd article create --project <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
+  ytd article update <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd article append <id> <text>
   ytd article comment <id> <text>
   ytd article comments <id>
@@ -92,16 +171,18 @@ fn print_article_help() {
   ytd article attachments <id>
   ytd article delete <id> [-y]
 
-Create/update print only the article ID on stdout.");
+Create/update print only the article ID on stdout."
+    );
 }
 
 fn print_ticket_help() {
-    println!("Usage:
+    println!(
+        "Usage:
   ytd ticket search <query> [--project <id>]
   ytd ticket list --project <id>
   ytd ticket get <id>
-  ytd ticket create --project <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}'
-  ytd ticket update <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}'
+  ytd ticket create --project <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
+  ytd ticket update <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd ticket comment <id> <text>
   ytd ticket tag <id> <tag>
   ytd ticket untag <id> <tag>
@@ -117,21 +198,26 @@ fn print_ticket_help() {
   ytd ticket delete <id> [-y]
 
 Durations: 30m, 1h, 2h30m, 90 (plain number = minutes)
-Create/update print only the ticket ID on stdout.");
+Create/update print only the ticket ID on stdout."
+    );
 }
 
 fn print_search_help() {
-    println!("Usage:
+    println!(
+        "Usage:
   ytd search list [--project <id>]
   ytd search run <name-or-id>
 
-'search run' accepts a saved search ID or name (case-insensitive).");
+'search run' accepts a saved search ID or name (case-insensitive)."
+    );
 }
 
 fn print_board_help() {
-    println!("Usage:
+    println!(
+        "Usage:
   ytd board list [--project <id>]
   ytd board get <id>
 
---project filters boards client-side by project membership.");
+--project filters boards client-side by project membership."
+    );
 }
