@@ -119,7 +119,6 @@ jobs:
 
           cd "$(mktemp -d)"
           git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/danielkbx/homebrew-tap.git" .
-          rm -rf Casks
           mkdir -p Formula
           cp "${GITHUB_WORKSPACE}/ytd.rb" Formula/ytd.rb
           git config user.name "github-actions[bot]"
