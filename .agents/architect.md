@@ -24,6 +24,7 @@ src/
     project.rs      ← project list/get
     article.rs      ← article CRUD + comments + attachments + delete
     ticket.rs       ← ticket CRUD + tags + links + attachments + time + custom fields + history + delete
+    comment.rs      ← global comment get/update/delete
     tag.rs          ← tag list (client-side project filter)
     search.rs       ← saved search list/run
     board.rs        ← agile board list/get (client-side project filter)
@@ -33,6 +34,8 @@ src/
 
 Core modules (`client.rs`, `config.rs`, `types.rs`, `error.rs`) have no CLI dependencies.
 `commands/` own all I/O (stdout, stderr, stdin prompts). Boundary enforced by Rust module DAG.
+
+API structs may contain raw YouTrack comment IDs. Any CLI-facing comment output must normalize comment IDs before formatting: `id` is the encoded ytd ID, while the raw YouTrack ID is exposed only as `ytId`.
 
 ## HttpTransport Trait
 
@@ -76,7 +79,7 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 2. Handler in `commands/<resource>.rs`
 3. Register in `is_known_command()` and `match` in `main.rs`
 4. Unit tests (inline `#[cfg(test)]` or MockTransport)
-5. Update command table in `CLAUDE.md`
+5. Update `help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys when public CLI behavior changes
 
 ## YouTrack API Client
 

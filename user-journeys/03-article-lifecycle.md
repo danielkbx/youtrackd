@@ -124,7 +124,23 @@ ytd article comments $ARTICLE_ID
 
 **Erwartung**: Enthält `[YTD-TEST] Kommentar zum Test-Artikel.`
 
-### 15. Artikel suchen
+### 15. Artikel-Kommentar-ID verifizieren
+
+```
+ytd article comments $ARTICLE_ID --format raw
+```
+
+**Erwartung**: Valides JSON-Array. Der Test-Kommentar ist enthalten. Seine `id` beginnt mit `$ARTICLE_ID:`, `ytId` ist vorhanden, `parentType` ist `article`, `parentId` ist `$ARTICLE_ID`.
+
+**Merke** die Kommentar-ID als `$ARTICLE_COMMENT_ID`.
+
+```
+ytd comment get $ARTICLE_COMMENT_ID --format raw
+```
+
+**Erwartung**: Der Kommentar wird geladen und enthält `[YTD-TEST] Kommentar zum Test-Artikel.`
+
+### 16. Artikel suchen
 
 ```
 ytd article search "[YTD-TEST] Article Lifecycle" --project $PROJECT
@@ -132,7 +148,7 @@ ytd article search "[YTD-TEST] Article Lifecycle" --project $PROJECT
 
 **Erwartung**: Ergebnis enthält `$ARTICLE_ID` und `$DEFAULT_ARTICLE_ID`.
 
-### 16. Artikel auflisten
+### 17. Artikel auflisten
 
 ```
 ytd article list --project $PROJECT
@@ -140,7 +156,7 @@ ytd article list --project $PROJECT
 
 **Erwartung**: `$ARTICLE_ID` und `$DEFAULT_ARTICLE_ID` sind in der Liste enthalten.
 
-### 17. Artikel als Markdown abrufen
+### 18. Artikel als Markdown abrufen
 
 ```
 ytd article get $ARTICLE_ID --format md
@@ -148,7 +164,7 @@ ytd article get $ARTICLE_ID --format md
 
 **Erwartung**: Ausgabe beginnt mit `# [YTD-TEST] Article Lifecycle Test (updated)` (H1 aus Summary). Danach folgt der Content als Markdown-Body.
 
-### 18. Artikel als Markdown in Datei schreiben
+### 19. Artikel als Markdown in Datei schreiben
 
 ```
 ytd article get $ARTICLE_ID --format md > /tmp/ytd-test-article.md

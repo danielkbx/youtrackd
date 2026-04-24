@@ -4,7 +4,7 @@ A CLI tool for reading and editing YouTrack tickets and knowledge base articles.
 
 ## Project Status
 
-Implemented in Rust. All commands functional, 36 unit tests passing, binary builds to 1.3 MB.
+Implemented in Rust. All commands functional, Rust test suite passing, binary builds to ~1.3 MB.
 
 ## Architecture
 
@@ -64,6 +64,7 @@ ytd ticket get <id>
 ytd ticket create --project <id> --json '...'
 ytd ticket update <id> --json '...'
 ytd ticket comment <id> <text>
+ytd ticket comments <id>
 ytd ticket tag <id> <tag>
 ytd ticket untag <id> <tag>
 ytd ticket link <id> <target> [--type <t>]
@@ -76,6 +77,10 @@ ytd ticket set <id> <field> <value>
 ytd ticket fields <id>
 ytd ticket history <id> [--category <cat>]
 ytd ticket delete <id> [-y]
+
+ytd comment get <comment-id>
+ytd comment update <comment-id> <text>
+ytd comment delete <comment-id> [-y]
 
 ytd tag list [--project <id>]
 ytd search list [--project <id>]
@@ -96,6 +101,11 @@ ytd board get <id>
 
 Create/update commands output only the ID on stdout (pipeable).
 JSON input via `--json '{...}'` or stdin. Stdin takes precedence.
+
+Comment IDs returned by `ytd` encode the parent resource because YouTrack comment operations are parent-scoped:
+`<ticket-id>:<comment-id>` or `<article-id>:<comment-id>`.
+`ytd` infers the parent type from the parent ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, tickets use `<PROJECT>-<NUMBER>`.
+Use the public `id` field with `ytd comment ...`; raw YouTrack comment IDs may appear only as `ytId`.
 
 ## Configuration
 

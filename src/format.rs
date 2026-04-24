@@ -17,6 +17,7 @@ pub struct OutputOptions {
 const META_FIELDS: &[&str] = &[
     "id",
     "idReadable",
+    "ytId",
     "created",
     "updated",
     "resolved",
@@ -24,6 +25,8 @@ const META_FIELDS: &[&str] = &[
     "updatedBy",
     "author",
     "project",
+    "parentType",
+    "parentId",
 ];
 
 impl OutputOptions {

@@ -116,7 +116,31 @@ ytd ticket get $TICKET_ID
 
 **Erwartung**: Kommentar-Sektion enthält den Text `[YTD-TEST] Dies ist ein Test-Kommentar.`
 
-### 14. Ticket suchen
+### 14. Ticket-Kommentar-ID verifizieren
+
+```
+ytd ticket comments $TICKET_ID --format raw
+```
+
+**Erwartung**: Valides JSON-Array. Der Test-Kommentar ist enthalten. Seine `id` beginnt mit `$TICKET_ID:`, `ytId` ist vorhanden, `parentType` ist `ticket`, `parentId` ist `$TICKET_ID`.
+
+**Merke** die Kommentar-ID als `$TICKET_COMMENT_ID`.
+
+```
+ytd comment get $TICKET_COMMENT_ID --format raw
+```
+
+**Erwartung**: Der Kommentar wird geladen und enthält `[YTD-TEST] Dies ist ein Test-Kommentar.`
+
+### 15. Eingebettete Kommentar-IDs verifizieren
+
+```
+ytd ticket get $TICKET_ID --format raw
+```
+
+**Erwartung**: Falls `comments` enthalten ist, haben alle Kommentarobjekte kodierte `id`-Werte, die mit `$TICKET_ID:` beginnen. Keine Kommentar-ID im Feld `id` darf nur wie eine rohe YouTrack-ID aussehen (z.B. `4-17`).
+
+### 16. Ticket suchen
 
 ```
 ytd ticket search "[YTD-TEST] Ticket Lifecycle" --project $PROJECT
@@ -124,7 +148,7 @@ ytd ticket search "[YTD-TEST] Ticket Lifecycle" --project $PROJECT
 
 **Erwartung**: Ergebnis enthält `$TICKET_ID` und `$DEFAULT_TICKET_ID`.
 
-### 15. Tickets auflisten
+### 17. Tickets auflisten
 
 ```
 ytd ticket list --project $PROJECT

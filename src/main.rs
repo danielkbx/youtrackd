@@ -85,6 +85,7 @@ fn run() -> Result<(), YtdError> {
         "project" => commands::project::run(&client, &args, &opts),
         "article" => commands::article::run(&client, &args, &opts),
         "ticket" => commands::ticket::run(&client, &args, &opts),
+        "comment" => commands::comment::run(&client, &args, &opts),
         "tag" => commands::tag::run(&client, &args, &opts),
         "search" => commands::search::run(&client, &args, &opts),
         "board" => commands::board::run(&client, &args, &opts),
@@ -128,6 +129,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "create"
                         | "update"
                         | "comment"
+                        | "comments"
                         | "tag"
                         | "untag"
                         | "link"
@@ -142,6 +144,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "delete"
                 )
             )
+            | ("comment", Some("get" | "update" | "delete"))
             | ("tag", Some("list"))
             | ("search", Some("list" | "run"))
             | ("board", Some("list" | "get"))
@@ -172,5 +175,14 @@ mod tests {
         assert!(is_known_command("url", None));
         assert!(!is_known_command("open", Some("now")));
         assert!(!is_known_command("url", Some("raw")));
+    }
+
+    #[test]
+    fn knows_comment_commands() {
+        assert!(is_known_command("comment", Some("get")));
+        assert!(is_known_command("comment", Some("update")));
+        assert!(is_known_command("comment", Some("delete")));
+        assert!(is_known_command("ticket", Some("comments")));
+        assert!(!is_known_command("comment", Some("create")));
     }
 }

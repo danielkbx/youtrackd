@@ -58,6 +58,8 @@ ytd ticket history $TICKET_ID --format raw
 
 **Erwartung**: Valides JSON-Array. Jeder Eintrag hat `timestamp`, `author`, `field` oder Aktivitätstyp.
 
+Wenn Kommentar-Aktivitäten Kommentarobjekte in `added`, `removed` oder `target` enthalten, dann sind deren `id`-Felder kodierte IDs, die mit `$TICKET_ID:` beginnen. Jede gefundene Kommentar-ID funktioniert mit `ytd comment get <id>`, solange der Kommentar nicht gelöscht wurde.
+
 ## Cleanup
 
 ```

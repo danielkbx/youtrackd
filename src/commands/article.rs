@@ -76,6 +76,10 @@ pub fn run<T: HttpTransport>(
             let id = args.positional.first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd article comments <id>".into()))?;
             let comments = client.list_article_comments(id)?;
+            let comments: Vec<CommentOutput> = comments
+                .into_iter()
+                .map(|comment| article_comment_output(id, comment))
+                .collect();
             format::print_items(&comments, opts);
             Ok(())
         }

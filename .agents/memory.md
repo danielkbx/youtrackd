@@ -58,3 +58,7 @@ POST /api/issues/{issueID}/comments — required body: `{ text: "..." }`. Option
 ## Implementierung: Visibility-Group-Auflösung und Clear-Verhalten
 Date: 2026-04-22
 Verifiziert durch Code und Tests: Die Auflösung für Ticket/Article-Create+Update ist `--visibility-group` → `YTD_VISIBILITY_GROUP` → gespeicherter `config visibility-group`-Wert. `--no-visibility-group` überschreibt geerbte Defaults. Bei `update` wird dann ein `LimitedVisibility`-Payload mit leerem `permittedGroups` gesendet (Clear). Bei `create` wird das `visibility`-Feld stattdessen komplett weggelassen. Die Kombination `--visibility-group` + `--no-visibility-group` ist ein Input-Fehler.
+
+## YouTrack API: Comment operations are parent-scoped
+Date: 2026-04-24
+Specific comment get/update/delete operations require the parent resource path: `/api/issues/{issueID}/comments/{commentID}` or `/api/articles/{articleID}/comments/{commentID}`. `ytd` therefore exposes encoded comment IDs as `<ticket-id>:<comment-id>` and `<article-id>:<comment-id>`. Parent type is inferred from ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, ticket IDs use `<PROJECT>-<NUMBER>`. The public `id` field for any CLI comment output must always be encoded; raw YouTrack comment IDs may only appear as `ytId`.

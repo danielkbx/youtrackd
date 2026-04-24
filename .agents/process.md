@@ -4,6 +4,8 @@
 
 Before implementing any non-trivial task, read all files in `.agents/` and include that step explicitly in the plan.
 
+For public CLI changes, update `help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys. Public comment outputs must document and preserve reusable encoded comment IDs.
+
 ## Tooling
 
 | Task | Command |

@@ -21,6 +21,7 @@ pub fn run<T: HttpTransport>(
         Some("create") => cmd_create(client, args),
         Some("update") => cmd_update(client, args),
         Some("comment") => cmd_comment(client, args),
+        Some("comments") => cmd_comments(client, args, opts),
         Some("tag") => cmd_tag(client, args),
         Some("untag") => cmd_untag(client, args),
         Some("link") => cmd_link(client, args),
@@ -33,7 +34,7 @@ pub fn run<T: HttpTransport>(
         Some("fields") => cmd_fields(client, args, opts),
         Some("history") => cmd_history(client, args, opts),
         Some("delete") => cmd_delete(client, args),
-        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|delete>".into())),
+        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|delete>".into())),
     }
 }
 
@@ -80,7 +81,9 @@ fn cmd_get<T: HttpTransport>(
 ) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let issue = client.get_issue(id)?;
-    format::print_single(&issue, opts);
+    let mut value = serde_json::to_value(&issue)?;
+    normalize_comment_array(&mut value, "comments", CommentParentType::Ticket, id);
+    format::print_value(&value, opts);
     Ok(())
 }
 
@@ -202,6 +205,21 @@ fn cmd_comment<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Res
         .filter(|s| !s.is_empty())
         .ok_or_else(|| YtdError::Input("Comment text is required".into()))?;
     client.add_comment(id, &text)?;
+    Ok(())
+}
+
+fn cmd_comments<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    let id = require_id(args)?;
+    let comments = client.list_issue_comments(id)?;
+    let comments: Vec<CommentOutput> = comments
+        .into_iter()
+        .map(|comment| issue_comment_output(id, comment))
+        .collect();
+    format::print_items(&comments, opts);
     Ok(())
 }
 
@@ -625,6 +643,50 @@ mod tests {
     }
 
     #[test]
+    fn normalize_comment_array_encodes_embedded_ticket_comment_ids() {
+        let mut value = serde_json::json!({
+            "id": "2-1",
+            "idReadable": "DWP-12",
+            "comments": [
+                {"id": "4-17", "text": "Hello"}
+            ]
+        });
+
+        normalize_comment_array(&mut value, "comments", CommentParentType::Ticket, "DWP-12");
+
+        let comment = &value["comments"][0];
+        assert_eq!(comment["id"], "DWP-12:4-17");
+        assert_eq!(comment["ytId"], "4-17");
+        assert_eq!(comment["parentType"], "ticket");
+        assert_eq!(comment["parentId"], "DWP-12");
+    }
+
+    #[test]
+    fn normalize_activity_comment_ids_encodes_comment_category_payloads() {
+        let mut value = serde_json::json!([
+            {
+                "id": "act-1",
+                "category": {"id": "CommentCategory"},
+                "added": [
+                    {
+                        "id": "4-17",
+                        "text": "Hello",
+                        "author": {"id": "1-51", "login": "wetzel"}
+                    }
+                ]
+            }
+        ]);
+
+        normalize_activity_comment_ids(&mut value, "DWP-12");
+
+        let comment = &value[0]["added"][0];
+        assert_eq!(comment["id"], "DWP-12:4-17");
+        assert_eq!(comment["ytId"], "4-17");
+        assert_eq!(comment["author"]["id"], "1-51");
+        assert!(comment["author"]["ytId"].is_null());
+    }
+
+    #[test]
     fn build_create_issue_input_uses_resolved_visibility_group() {
         let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
         clear_env();
@@ -755,8 +817,116 @@ fn cmd_history<T: HttpTransport>(
     let id = require_id(args)?;
     let category = args.flags.get("category").map(|s| s.as_str());
     let activities = client.list_activities(id, category)?;
-    format::print_items(&activities, opts);
+    let mut value = serde_json::to_value(&activities)?;
+    normalize_activity_comment_ids(&mut value, id);
+    format::print_value(&value, opts);
     Ok(())
+}
+
+fn normalize_comment_array(
+    value: &mut serde_json::Value,
+    field: &str,
+    parent_type: CommentParentType,
+    parent_id: &str,
+) {
+    let Some(comments) = value.get_mut(field).and_then(|v| v.as_array_mut()) else {
+        return;
+    };
+
+    for comment in comments {
+        normalize_comment_object(comment, parent_type, parent_id);
+    }
+}
+
+fn normalize_activity_comment_ids(value: &mut serde_json::Value, ticket_id: &str) {
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                normalize_activity_comment_ids(item, ticket_id);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            let is_comment_activity = map
+                .get("category")
+                .and_then(|v| v.get("id"))
+                .and_then(|v| v.as_str())
+                .map(|id| id == "CommentCategory")
+                .unwrap_or(false);
+
+            if is_comment_activity {
+                for field in ["added", "removed", "target"] {
+                    if let Some(value) = map.get_mut(field) {
+                        normalize_nested_comment_ids(value, ticket_id);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn normalize_nested_comment_ids(value: &mut serde_json::Value, ticket_id: &str) {
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                normalize_nested_comment_ids(item, ticket_id);
+            }
+        }
+        serde_json::Value::Object(_) => {
+            normalize_comment_object(value, CommentParentType::Ticket, ticket_id);
+            if let serde_json::Value::Object(map) = value {
+                for child in map.values_mut() {
+                    normalize_nested_comment_ids(child, ticket_id);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn normalize_comment_object(
+    value: &mut serde_json::Value,
+    parent_type: CommentParentType,
+    parent_id: &str,
+) {
+    let serde_json::Value::Object(map) = value else {
+        return;
+    };
+    let Some(raw_id) = map
+        .get("id")
+        .and_then(|v| v.as_str())
+        .map(|id| id.to_string())
+    else {
+        return;
+    };
+
+    if raw_id.contains(':') {
+        return;
+    }
+    if !looks_like_comment_object(map) {
+        return;
+    }
+
+    map.insert("ytId".into(), serde_json::Value::String(raw_id.clone()));
+    map.insert(
+        "id".into(),
+        serde_json::Value::String(encode_comment_id(parent_id, &raw_id)),
+    );
+    map.insert(
+        "parentType".into(),
+        serde_json::Value::String(parent_type.as_str().into()),
+    );
+    map.insert(
+        "parentId".into(),
+        serde_json::Value::String(parent_id.to_string()),
+    );
+}
+
+fn looks_like_comment_object(map: &serde_json::Map<String, serde_json::Value>) -> bool {
+    map.contains_key("text")
+        || map.contains_key("created")
+        || map.contains_key("updated")
+        || map.contains_key("author")
 }
 
 fn cmd_delete<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {

@@ -1,5 +1,6 @@
 pub mod article;
 pub mod board;
+pub mod comment;
 pub mod config;
 pub mod group;
 pub mod login;

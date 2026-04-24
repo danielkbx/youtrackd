@@ -69,6 +69,7 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Custom Fields | `07-custom-fields.md` | ticket fields/set |
 | Searches & Boards | `08-search-and-boards.md` | search list/run, board list/get |
 | History | `09-history.md` | ticket history |
+| Kommentare | `12-comments.md` | ticket/article comments, global comment get/update/delete, encoded comment IDs |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
 
@@ -76,6 +77,8 @@ When extending the ticket/article journeys, include visibility coverage for inhe
 
 
 **Naming**: Alle Test-Entities verwenden Prefix `[YTD-TEST]` in Summary/Kommentaren.
+
+**Comment IDs**: Any command that exposes comment objects must return a reusable encoded `id` accepted by `ytd comment get`. Raw YouTrack comment IDs may appear only as `ytId`.
 
 ## Conventions
 

@@ -12,6 +12,7 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
         Some("project") => print_project_help(),
         Some("article") => print_article_help(),
         Some("ticket") => print_ticket_help(),
+        Some("comment") => print_comment_help(),
         Some("url") => print_url_help(),
         Some("tag") => println!(
             "Usage:\n  ytd tag list [--project <id>]\n\nList tags. --project filters client-side."
@@ -63,6 +64,7 @@ Commands:
   ticket create             Create ticket (--project, --json)
   ticket update <id>        Update ticket (--json)
   ticket comment <id> <t>   Add comment
+  ticket comments <id>      List ticket comments
   ticket tag <id> <tag>     Add tag
   ticket untag <id> <tag>   Remove tag
   ticket link <id> <t>      Link to another ticket
@@ -75,6 +77,10 @@ Commands:
   ticket fields <id>        Show field values
   ticket history <id>       Show activity log
   ticket delete <id>        Delete ticket
+
+  comment get <id>          Get comment details
+  comment update <id> <t>   Update comment text
+  comment delete <id>       Delete comment
 
   tag list                  List tags
   search list               List saved searches
@@ -184,6 +190,7 @@ fn print_ticket_help() {
   ytd ticket create --project <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd ticket update <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd ticket comment <id> <text>
+  ytd ticket comments <id>
   ytd ticket tag <id> <tag>
   ytd ticket untag <id> <tag>
   ytd ticket link <id> <target> [--type <linktype>]
@@ -199,6 +206,23 @@ fn print_ticket_help() {
 
 Durations: 30m, 1h, 2h30m, 90 (plain number = minutes)
 Create/update print only the ticket ID on stdout."
+    );
+}
+
+fn print_comment_help() {
+    println!(
+        "Usage:
+  ytd comment get <comment-id>
+  ytd comment update <comment-id> <text>
+  ytd comment delete <comment-id> [-y]
+
+Comment IDs are returned by:
+  ytd ticket comments <ticket-id>
+  ytd article comments <article-id>
+
+Use the returned id field, for example:
+  ABC-12:4-17
+  ABC-A-1:251-0"
     );
 }
 

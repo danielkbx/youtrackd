@@ -89,6 +89,7 @@ ytd ticket search "<query>" [--project <id>]
 ytd ticket create --project <id> --json '{"summary":"...","description":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd ticket update <id> --json '{"summary":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd ticket comment <id> "text"
+ytd ticket comments <id>
 ytd ticket delete <id> [-y]
 ```
 
@@ -121,6 +122,15 @@ ytd article attach <id> <file>
 ytd article attachments <id>
 ytd article delete <id> [-y]
 ```
+
+### Comments
+```
+ytd comment get <comment-id>
+ytd comment update <comment-id> "text"
+ytd comment delete <comment-id> [-y]
+```
+
+Comment IDs are returned by `ytd ticket comments` and `ytd article comments`. Use the returned `id` field with `ytd comment ...`; `ytId` is the raw YouTrack comment ID and is only included for reference.
 
 ### Tags, Searches, Boards
 ```
@@ -175,10 +185,38 @@ ytd ticket set PROJ-42 Assignee alice.smith
 ytd article get PROJ-A-1 --format md > article.md
 ```
 
+### Update a comment
+```bash
+COMMENT_ID=$(ytd ticket comments PROJ-42 --format raw | jq -r '.[0].id')
+ytd comment get "$COMMENT_ID"
+ytd comment update "$COMMENT_ID" "Updated comment text"
+```
+
 ### Delete with confirmation skip
 ```bash
 ytd ticket delete PROJ-42 -y
 ```
+
+## Good to know
+
+### Comment IDs
+
+YouTrack comment operations are scoped to their parent ticket or article. A raw YouTrack comment ID like `4-17` is not enough to load, update, or delete the comment because the API also needs the parent resource.
+
+For that reason, `ytd` returns reusable comment IDs in this format:
+
+```
+<parent-id>:<comment-id>
+```
+
+Examples:
+
+```
+PROJ-42:4-17       # comment on ticket PROJ-42
+PROJ-A-1:187-62   # comment on article PROJ-A-1
+```
+
+Use the `id` field returned by `ytd ticket comments` or `ytd article comments` with `ytd comment get|update|delete`. The `ytId` field is only the raw YouTrack comment ID and is included for reference.
 
 ## Configuration
 
@@ -220,6 +258,9 @@ YTD_CONFIG=~/.config/ytd/oss.json ytd login
 | Project | Short name | `MYPROJECT` |
 | Ticket | Project-Number | `MYPROJECT-42` |
 | Article | Project-A-Number | `MYPROJECT-A-1` |
+| Comment | Parent ID + YouTrack comment ID | `MYPROJECT-42:4-17` or `MYPROJECT-A-1:187-62` |
+
+Comment IDs encode their parent because YouTrack comment operations are scoped to either an issue or an article. `ytd` infers whether the parent is a ticket or article from the parent ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, tickets use `<PROJECT>-<NUMBER>`. Use the `id` returned by `ytd`; do not pass `ytId` to `ytd comment`.
 
 ## License
 

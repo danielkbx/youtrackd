@@ -489,8 +489,52 @@ impl<T: HttpTransport> YtClient<T> {
         self.post(
             &format!("/articles/{article_id}/comments"),
             &input,
-            &[("fields", "id,text,created,author(id,login,fullName)")],
+            &[(
+                "fields",
+                "id,text,created,updated,author(id,login,fullName)",
+            )],
         )
+    }
+
+    pub fn get_article_comment(
+        &self,
+        article_id: &str,
+        comment_id: &str,
+    ) -> Result<ArticleComment, YtdError> {
+        self.get(
+            &format!("/articles/{article_id}/comments/{comment_id}"),
+            &[(
+                "fields",
+                "id,text,created,updated,author(id,login,fullName)",
+            )],
+        )
+    }
+
+    pub fn update_article_comment(
+        &self,
+        article_id: &str,
+        comment_id: &str,
+        text: &str,
+    ) -> Result<ArticleComment, YtdError> {
+        let input = CommentInput {
+            text: text.to_string(),
+        };
+        self.post(
+            &format!("/articles/{article_id}/comments/{comment_id}"),
+            &input,
+            &[(
+                "fields",
+                "id,text,created,updated,author(id,login,fullName)",
+            )],
+        )
+    }
+
+    pub fn delete_article_comment(
+        &self,
+        article_id: &str,
+        comment_id: &str,
+    ) -> Result<(), YtdError> {
+        self.delete(&format!("/articles/{article_id}/comments/{comment_id}"))
     }
 
     // --- Article Attachments ---
@@ -561,7 +605,7 @@ impl<T: HttpTransport> YtClient<T> {
 
     pub fn get_issue(&self, id: &str) -> Result<Issue, YtdError> {
         self.get(&format!("/issues/{id}"), &[
-            ("fields", "id,idReadable,summary,description,created,updated,resolved,reporter(id,login,fullName),project(id,shortName,name),visibility($type,permittedGroups(id,name)),tags(id,name),comments(id,text,created,author(id,login,fullName)),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type))"),
+            ("fields", "id,idReadable,summary,description,created,updated,resolved,reporter(id,login,fullName),project(id,shortName,name),visibility($type,permittedGroups(id,name)),tags(id,name),comments(id,text,created,updated,author(id,login,fullName)),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type))"),
         ])
     }
 
@@ -590,8 +634,61 @@ impl<T: HttpTransport> YtClient<T> {
         self.post(
             &format!("/issues/{issue_id}/comments"),
             &input,
-            &[("fields", "id,text,created,author(id,login,fullName)")],
+            &[(
+                "fields",
+                "id,text,created,updated,author(id,login,fullName)",
+            )],
         )
+    }
+
+    pub fn list_issue_comments(&self, issue_id: &str) -> Result<Vec<IssueComment>, YtdError> {
+        self.get(
+            &format!("/issues/{issue_id}/comments"),
+            &[
+                (
+                    "fields",
+                    "id,text,created,updated,author(id,login,fullName)",
+                ),
+                ("$top", "500"),
+            ],
+        )
+    }
+
+    pub fn get_issue_comment(
+        &self,
+        issue_id: &str,
+        comment_id: &str,
+    ) -> Result<IssueComment, YtdError> {
+        self.get(
+            &format!("/issues/{issue_id}/comments/{comment_id}"),
+            &[(
+                "fields",
+                "id,text,created,updated,author(id,login,fullName)",
+            )],
+        )
+    }
+
+    pub fn update_issue_comment(
+        &self,
+        issue_id: &str,
+        comment_id: &str,
+        text: &str,
+    ) -> Result<IssueComment, YtdError> {
+        let input = CommentInput {
+            text: text.to_string(),
+        };
+        self.post(
+            &format!("/issues/{issue_id}/comments/{comment_id}"),
+            &input,
+            &[(
+                "fields",
+                "id,text,created,updated,author(id,login,fullName)",
+            )],
+        )
+    }
+
+    pub fn delete_issue_comment(&self, issue_id: &str, comment_id: &str) -> Result<(), YtdError> {
+        self.delete(&format!("/issues/{issue_id}/comments/{comment_id}"))
     }
 
     // --- Tags ---
@@ -1024,6 +1121,76 @@ mod tests {
         let client = test_client(vec![r#"[]"#]);
         let issues = client.search_issues("bug", Some("TEST")).unwrap();
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn list_issue_comments_uses_issue_comments_endpoint() {
+        let client = test_client(vec![
+            r#"[{"id":"4-17","text":"Hi","created":1,"updated":2}]"#,
+        ]);
+
+        let comments = client.list_issue_comments("DWP-12").unwrap();
+
+        assert_eq!(comments[0].id, "4-17");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/comments?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29&%24top=500"
+        );
+    }
+
+    #[test]
+    fn update_issue_comment_posts_text() {
+        let client = test_client(vec![
+            r#"{"id":"4-17","text":"Updated","created":1,"updated":2}"#,
+        ]);
+
+        client
+            .update_issue_comment("DWP-12", "4-17", "Updated")
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/comments/4-17?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29"
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            serde_json::json!({"text": "Updated"})
+        );
+    }
+
+    #[test]
+    fn delete_article_comment_uses_article_comment_endpoint() {
+        let client = test_client(vec![r#""#]);
+
+        client.delete_article_comment("DWP-A-1", "251-0").unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "DELETE");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/articles/DWP-A-1/comments/251-0"
+        );
+    }
+
+    #[test]
+    fn get_article_comment_uses_article_comment_endpoint() {
+        let client = test_client(vec![
+            r#"{"id":"251-0","text":"Hi","created":1,"updated":2}"#,
+        ]);
+
+        let comment = client.get_article_comment("DWP-A-1", "251-0").unwrap();
+
+        assert_eq!(comment.id, "251-0");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/articles/DWP-A-1/comments/251-0?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29"
+        );
     }
 
     #[test]
