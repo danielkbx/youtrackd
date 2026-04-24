@@ -12,4 +12,5 @@ pub mod search;
 pub mod tag;
 pub mod ticket;
 pub mod url;
+pub mod visibility;
 pub mod whoami;

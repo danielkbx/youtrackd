@@ -1,6 +1,6 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
-use crate::config;
+use crate::commands::visibility;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::input;
@@ -69,7 +69,8 @@ pub fn run<T: HttpTransport>(
                 .map(|s| s.join(" "))
                 .filter(|s| !s.is_empty())
                 .ok_or_else(|| YtdError::Input("Comment text is required".into()))?;
-            client.add_article_comment(id, &text)?;
+            let visibility = visibility::build_create_visibility_input(client, args)?;
+            client.add_article_comment(id, &text, visibility)?;
             Ok(())
         }
         Some("comments") => {
@@ -141,7 +142,7 @@ fn build_create_article_input<T: HttpTransport>(
             .get("content")
             .and_then(|v| v.as_str())
             .map(String::from),
-        visibility: build_visibility_input(client, args, false)?,
+        visibility: visibility::build_create_visibility_input(client, args)?,
     })
 }
 
@@ -159,53 +160,8 @@ fn build_update_article_input<T: HttpTransport>(
             .get("content")
             .and_then(|v| v.as_str())
             .map(String::from),
-        visibility: build_visibility_input(client, args, true)?,
+        visibility: visibility::build_update_visibility_input(client, args)?,
     })
-}
-
-fn build_visibility_input<T: HttpTransport>(
-    client: &YtClient<T>,
-    args: &ParsedArgs,
-    is_update: bool,
-) -> Result<Option<LimitedVisibilityInput>, YtdError> {
-    match config::resolve_visibility_group(
-        args.flags.get("visibility-group").map(|s| s.as_str()),
-        args.flags.contains_key("no-visibility-group"),
-    )? {
-        ResolvedVisibilityGroup::Group(group) => Ok(Some(LimitedVisibilityInput {
-            visibility_type: "LimitedVisibility",
-            permitted_groups: vec![UserGroupInput {
-                id: resolve_group_id(client, &group)?,
-            }],
-        })),
-        ResolvedVisibilityGroup::Clear if is_update => Ok(Some(LimitedVisibilityInput {
-            visibility_type: "LimitedVisibility",
-            permitted_groups: vec![],
-        })),
-        ResolvedVisibilityGroup::Clear | ResolvedVisibilityGroup::None => Ok(None),
-    }
-}
-
-fn resolve_group_id<T: HttpTransport>(
-    client: &YtClient<T>,
-    group_name: &str,
-) -> Result<String, YtdError> {
-    let groups = client.list_groups()?;
-
-    if let Some(group) = groups.iter().find(|group| group.name == group_name) {
-        return Ok(group.id.clone());
-    }
-
-    if let Some(group) = groups
-        .iter()
-        .find(|group| group.name.eq_ignore_ascii_case(group_name))
-    {
-        return Ok(group.id.clone());
-    }
-
-    Err(YtdError::Input(format!(
-        "Visibility group not found: {group_name}"
-    )))
 }
 
 fn confirm_delete(entity_type: &str, id: &str) -> Result<bool, YtdError> {

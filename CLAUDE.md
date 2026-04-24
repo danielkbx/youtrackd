@@ -52,7 +52,7 @@ ytd article get <id>
 ytd article create --project <id> --json '...'
 ytd article update <id> --json '...'
 ytd article append <id> <text>
-ytd article comment <id> <text>
+ytd article comment <id> <text> [--visibility-group <group> | --no-visibility-group]
 ytd article comments <id>
 ytd article attach <id> <file>
 ytd article attachments <id>
@@ -63,7 +63,7 @@ ytd ticket list --project <id>
 ytd ticket get <id>
 ytd ticket create --project <id> --json '...'
 ytd ticket update <id> --json '...'
-ytd ticket comment <id> <text>
+ytd ticket comment <id> <text> [--visibility-group <group> | --no-visibility-group]
 ytd ticket comments <id>
 ytd ticket tag <id> <tag>
 ytd ticket untag <id> <tag>
@@ -79,7 +79,7 @@ ytd ticket history <id> [--category <cat>]
 ytd ticket delete <id> [-y]
 
 ytd comment get <comment-id>
-ytd comment update <comment-id> <text>
+ytd comment update <comment-id> <text> [--visibility-group <group> | --no-visibility-group]
 ytd comment delete <comment-id> [-y]
 
 ytd tag list [--project <id>]
@@ -106,6 +106,7 @@ Comment IDs returned by `ytd` encode the parent resource because YouTrack commen
 `<ticket-id>:<comment-id>` or `<article-id>:<comment-id>`.
 `ytd` infers the parent type from the parent ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, tickets use `<PROJECT>-<NUMBER>`.
 Use the public `id` field with `ytd comment ...`; raw YouTrack comment IDs may appear only as `ytId`.
+New comments apply configured visibility defaults. `ytd comment update` preserves existing visibility unless `--visibility-group` or `--no-visibility-group` is passed explicitly.
 
 ## Configuration
 

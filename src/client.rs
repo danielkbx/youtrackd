@@ -482,16 +482,18 @@ impl<T: HttpTransport> YtClient<T> {
         &self,
         article_id: &str,
         text: &str,
+        visibility: Option<LimitedVisibilityInput>,
     ) -> Result<ArticleComment, YtdError> {
         let input = CommentInput {
             text: text.to_string(),
+            visibility,
         };
         self.post(
             &format!("/articles/{article_id}/comments"),
             &input,
             &[(
                 "fields",
-                "id,text,created,updated,author(id,login,fullName)",
+                "id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))",
             )],
         )
     }
@@ -505,7 +507,7 @@ impl<T: HttpTransport> YtClient<T> {
             &format!("/articles/{article_id}/comments/{comment_id}"),
             &[(
                 "fields",
-                "id,text,created,updated,author(id,login,fullName)",
+                "id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))",
             )],
         )
     }
@@ -515,16 +517,18 @@ impl<T: HttpTransport> YtClient<T> {
         article_id: &str,
         comment_id: &str,
         text: &str,
+        visibility: Option<LimitedVisibilityInput>,
     ) -> Result<ArticleComment, YtdError> {
         let input = CommentInput {
             text: text.to_string(),
+            visibility,
         };
         self.post(
             &format!("/articles/{article_id}/comments/{comment_id}"),
             &input,
             &[(
                 "fields",
-                "id,text,created,updated,author(id,login,fullName)",
+                "id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))",
             )],
         )
     }
@@ -605,7 +609,7 @@ impl<T: HttpTransport> YtClient<T> {
 
     pub fn get_issue(&self, id: &str) -> Result<Issue, YtdError> {
         self.get(&format!("/issues/{id}"), &[
-            ("fields", "id,idReadable,summary,description,created,updated,resolved,reporter(id,login,fullName),project(id,shortName,name),visibility($type,permittedGroups(id,name)),tags(id,name),comments(id,text,created,updated,author(id,login,fullName)),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type))"),
+            ("fields", "id,idReadable,summary,description,created,updated,resolved,reporter(id,login,fullName),project(id,shortName,name),visibility($type,permittedGroups(id,name)),tags(id,name),comments(id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type))"),
         ])
     }
 
@@ -627,16 +631,22 @@ impl<T: HttpTransport> YtClient<T> {
 
     // --- Issue Comments ---
 
-    pub fn add_comment(&self, issue_id: &str, text: &str) -> Result<IssueComment, YtdError> {
+    pub fn add_comment(
+        &self,
+        issue_id: &str,
+        text: &str,
+        visibility: Option<LimitedVisibilityInput>,
+    ) -> Result<IssueComment, YtdError> {
         let input = CommentInput {
             text: text.to_string(),
+            visibility,
         };
         self.post(
             &format!("/issues/{issue_id}/comments"),
             &input,
             &[(
                 "fields",
-                "id,text,created,updated,author(id,login,fullName)",
+                "id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))",
             )],
         )
     }
@@ -647,7 +657,7 @@ impl<T: HttpTransport> YtClient<T> {
             &[
                 (
                     "fields",
-                    "id,text,created,updated,author(id,login,fullName)",
+                    "id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))",
                 ),
                 ("$top", "500"),
             ],
@@ -663,7 +673,7 @@ impl<T: HttpTransport> YtClient<T> {
             &format!("/issues/{issue_id}/comments/{comment_id}"),
             &[(
                 "fields",
-                "id,text,created,updated,author(id,login,fullName)",
+                "id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))",
             )],
         )
     }
@@ -673,16 +683,18 @@ impl<T: HttpTransport> YtClient<T> {
         issue_id: &str,
         comment_id: &str,
         text: &str,
+        visibility: Option<LimitedVisibilityInput>,
     ) -> Result<IssueComment, YtdError> {
         let input = CommentInput {
             text: text.to_string(),
+            visibility,
         };
         self.post(
             &format!("/issues/{issue_id}/comments/{comment_id}"),
             &input,
             &[(
                 "fields",
-                "id,text,created,updated,author(id,login,fullName)",
+                "id,text,created,updated,author(id,login,fullName),visibility($type,permittedGroups(id,name))",
             )],
         )
     }
@@ -1136,29 +1148,149 @@ mod tests {
         assert_eq!(request.method, "GET");
         assert_eq!(
             request.url,
-            "https://test.youtrack.cloud/api/issues/DWP-12/comments?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29&%24top=500"
+            "https://test.youtrack.cloud/api/issues/DWP-12/comments?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29%2Cvisibility%28%24type%2CpermittedGroups%28id%2Cname%29%29&%24top=500"
         );
     }
 
     #[test]
-    fn update_issue_comment_posts_text() {
+    fn update_issue_comment_without_visibility_posts_only_text() {
         let client = test_client(vec![
             r#"{"id":"4-17","text":"Updated","created":1,"updated":2}"#,
         ]);
 
         client
-            .update_issue_comment("DWP-12", "4-17", "Updated")
+            .update_issue_comment("DWP-12", "4-17", "Updated", None)
             .unwrap();
 
         let request = client.transport.request(0);
         assert_eq!(request.method, "POST");
         assert_eq!(
             request.url,
-            "https://test.youtrack.cloud/api/issues/DWP-12/comments/4-17?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29"
+            "https://test.youtrack.cloud/api/issues/DWP-12/comments/4-17?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29%2Cvisibility%28%24type%2CpermittedGroups%28id%2Cname%29%29"
         );
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
             serde_json::json!({"text": "Updated"})
+        );
+    }
+
+    #[test]
+    fn add_issue_comment_serializes_visibility_payload() {
+        let client = test_client(vec![r#"{"id":"4-17","text":"Hi"}"#]);
+
+        client
+            .add_comment(
+                "DWP-12",
+                "Hi",
+                Some(LimitedVisibilityInput {
+                    visibility_type: "LimitedVisibility",
+                    permitted_groups: vec![UserGroupInput { id: "3-7".into() }],
+                }),
+            )
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            serde_json::json!({
+                "text": "Hi",
+                "visibility": {
+                    "$type": "LimitedVisibility",
+                    "permittedGroups": [{"id": "3-7"}]
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn add_article_comment_serializes_visibility_payload() {
+        let client = test_client(vec![r#"{"id":"251-0","text":"Hi"}"#]);
+
+        client
+            .add_article_comment(
+                "DWP-A-1",
+                "Hi",
+                Some(LimitedVisibilityInput {
+                    visibility_type: "LimitedVisibility",
+                    permitted_groups: vec![UserGroupInput { id: "3-7".into() }],
+                }),
+            )
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            serde_json::json!({
+                "text": "Hi",
+                "visibility": {
+                    "$type": "LimitedVisibility",
+                    "permittedGroups": [{"id": "3-7"}]
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn update_issue_comment_serializes_visibility_payload() {
+        let client = test_client(vec![
+            r#"{"id":"4-17","text":"Updated","created":1,"updated":2}"#,
+        ]);
+
+        client
+            .update_issue_comment(
+                "DWP-12",
+                "4-17",
+                "Updated",
+                Some(LimitedVisibilityInput {
+                    visibility_type: "LimitedVisibility",
+                    permitted_groups: vec![UserGroupInput { id: "3-7".into() }],
+                }),
+            )
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            serde_json::json!({
+                "text": "Updated",
+                "visibility": {
+                    "$type": "LimitedVisibility",
+                    "permittedGroups": [{"id": "3-7"}]
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn update_article_comment_serializes_visibility_clear_payload() {
+        let client = test_client(vec![
+            r#"{"id":"251-0","text":"Updated","created":1,"updated":2}"#,
+        ]);
+
+        client
+            .update_article_comment(
+                "DWP-A-1",
+                "251-0",
+                "Updated",
+                Some(LimitedVisibilityInput {
+                    visibility_type: "LimitedVisibility",
+                    permitted_groups: vec![],
+                }),
+            )
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            serde_json::json!({
+                "text": "Updated",
+                "visibility": {
+                    "$type": "LimitedVisibility",
+                    "permittedGroups": []
+                }
+            })
         );
     }
 
@@ -1189,7 +1321,7 @@ mod tests {
         assert_eq!(request.method, "GET");
         assert_eq!(
             request.url,
-            "https://test.youtrack.cloud/api/articles/DWP-A-1/comments/251-0?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29"
+            "https://test.youtrack.cloud/api/articles/DWP-A-1/comments/251-0?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29%2Cvisibility%28%24type%2CpermittedGroups%28id%2Cname%29%29"
         );
     }
 

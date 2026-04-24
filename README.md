@@ -88,7 +88,7 @@ ytd ticket get <id>
 ytd ticket search "<query>" [--project <id>]
 ytd ticket create --project <id> --json '{"summary":"...","description":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd ticket update <id> --json '{"summary":"..."}' [--visibility-group <group> | --no-visibility-group]
-ytd ticket comment <id> "text"
+ytd ticket comment <id> "text" [--visibility-group <group> | --no-visibility-group]
 ytd ticket comments <id>
 ytd ticket delete <id> [-y]
 ```
@@ -116,7 +116,7 @@ ytd article search "<query>" [--project <id>]
 ytd article create --project <id> --json '{"summary":"...","content":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd article update <id> --json '{"content":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd article append <id> "text"
-ytd article comment <id> "text"
+ytd article comment <id> "text" [--visibility-group <group> | --no-visibility-group]
 ytd article comments <id>
 ytd article attach <id> <file>
 ytd article attachments <id>
@@ -126,7 +126,7 @@ ytd article delete <id> [-y]
 ### Comments
 ```
 ytd comment get <comment-id>
-ytd comment update <comment-id> "text"
+ytd comment update <comment-id> "text" [--visibility-group <group> | --no-visibility-group]
 ytd comment delete <comment-id> [-y]
 ```
 
@@ -217,6 +217,12 @@ PROJ-A-1:187-62   # comment on article PROJ-A-1
 ```
 
 Use the `id` field returned by `ytd ticket comments` or `ytd article comments` with `ytd comment get|update|delete`. The `ytId` field is only the raw YouTrack comment ID and is included for reference.
+
+### Comment visibility
+
+New comments follow the configured visibility default from `YTD_VISIBILITY_GROUP` or `ytd config set visibility-group ...`. Use `--visibility-group <group>` to set a group explicitly or `--no-visibility-group` to create the comment without inherited default visibility.
+
+For existing comments, `ytd comment update` does not apply defaults automatically. Without visibility flags it only changes the text and preserves the current visibility. Use `--visibility-group <group>` to set visibility or `--no-visibility-group` to clear it.
 
 ## Configuration
 

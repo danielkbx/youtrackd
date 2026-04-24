@@ -78,4 +78,4 @@ Empfohlene Reihenfolge:
 9. `09-history.md` — Activity-Log
 10. `10-api-compat-guard.md` — technische Absicherung gegen API-Drift und dokumentationskritische Integrationspunkte
 11. `11-visibility-defaults.md` — Visibility-Defaults, `YTD_CONFIG`-Isolation und Override-Reihenfolge
-12. `12-comments.md` — globale Kommentar-Kommandos und kodierte Kommentar-IDs
+12. `12-comments.md` — globale Kommentar-Kommandos, kodierte Kommentar-IDs und Kommentar-Visibility (`$VIS_GROUP` erforderlich)

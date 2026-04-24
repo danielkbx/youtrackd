@@ -1,5 +1,6 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
+use crate::commands::visibility;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::types::{
@@ -60,13 +61,14 @@ fn cmd_update<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resu
         .map(|s| s.join(" "))
         .filter(|s| !s.is_empty())
         .ok_or_else(|| YtdError::Input("Comment text is required".into()))?;
+    let visibility = visibility::build_comment_update_visibility_input(client, args)?;
 
     match id.parent_type {
         CommentParentType::Ticket => {
-            client.update_issue_comment(&id.parent_id, &id.comment_id, &text)?;
+            client.update_issue_comment(&id.parent_id, &id.comment_id, &text, visibility)?;
         }
         CommentParentType::Article => {
-            client.update_article_comment(&id.parent_id, &id.comment_id, &text)?;
+            client.update_article_comment(&id.parent_id, &id.comment_id, &text, visibility)?;
         }
     }
 

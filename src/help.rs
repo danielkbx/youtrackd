@@ -171,7 +171,7 @@ fn print_article_help() {
   ytd article create --project <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd article update <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd article append <id> <text>
-  ytd article comment <id> <text>
+  ytd article comment <id> <text> [--visibility-group <group> | --no-visibility-group]
   ytd article comments <id>
   ytd article attach <id> <file>
   ytd article attachments <id>
@@ -189,7 +189,7 @@ fn print_ticket_help() {
   ytd ticket get <id>
   ytd ticket create --project <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd ticket update <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
-  ytd ticket comment <id> <text>
+  ytd ticket comment <id> <text> [--visibility-group <group> | --no-visibility-group]
   ytd ticket comments <id>
   ytd ticket tag <id> <tag>
   ytd ticket untag <id> <tag>
@@ -213,7 +213,7 @@ fn print_comment_help() {
     println!(
         "Usage:
   ytd comment get <comment-id>
-  ytd comment update <comment-id> <text>
+  ytd comment update <comment-id> <text> [--visibility-group <group> | --no-visibility-group]
   ytd comment delete <comment-id> [-y]
 
 Comment IDs are returned by:
@@ -222,7 +222,9 @@ Comment IDs are returned by:
 
 Use the returned id field, for example:
   ABC-12:4-17
-  ABC-A-1:251-0"
+  ABC-A-1:251-0
+
+New comments use configured visibility defaults. Comment updates change visibility only with explicit visibility flags."
     );
 }
 

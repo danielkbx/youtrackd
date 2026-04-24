@@ -80,6 +80,8 @@ When extending the ticket/article journeys, include visibility coverage for inhe
 
 **Comment IDs**: Any command that exposes comment objects must return a reusable encoded `id` accepted by `ytd comment get`. Raw YouTrack comment IDs may appear only as `ytId`.
 
+**Comment visibility**: Journey 12 requires `$VIS_GROUP`. It must verify that comment creation applies defaults, `comment update` without visibility flags preserves existing visibility, `--no-visibility-group` clears it, and `--visibility-group` sets it again.
+
 ## Conventions
 
 No shared test utilities unless used in 3+ test files.

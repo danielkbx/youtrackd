@@ -1,6 +1,6 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
-use crate::config;
+use crate::commands::visibility;
 use crate::duration;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
@@ -129,7 +129,7 @@ fn build_create_issue_input<T: HttpTransport>(
             .get("description")
             .and_then(|v| v.as_str())
             .map(String::from),
-        visibility: build_visibility_input(client, args, false)?,
+        visibility: visibility::build_create_visibility_input(client, args)?,
     })
 }
 
@@ -147,53 +147,8 @@ fn build_update_issue_input<T: HttpTransport>(
             .get("description")
             .and_then(|v| v.as_str())
             .map(String::from),
-        visibility: build_visibility_input(client, args, true)?,
+        visibility: visibility::build_update_visibility_input(client, args)?,
     })
-}
-
-fn build_visibility_input<T: HttpTransport>(
-    client: &YtClient<T>,
-    args: &ParsedArgs,
-    is_update: bool,
-) -> Result<Option<LimitedVisibilityInput>, YtdError> {
-    match config::resolve_visibility_group(
-        args.flags.get("visibility-group").map(|s| s.as_str()),
-        args.flags.contains_key("no-visibility-group"),
-    )? {
-        ResolvedVisibilityGroup::Group(group) => Ok(Some(LimitedVisibilityInput {
-            visibility_type: "LimitedVisibility",
-            permitted_groups: vec![UserGroupInput {
-                id: resolve_group_id(client, &group)?,
-            }],
-        })),
-        ResolvedVisibilityGroup::Clear if is_update => Ok(Some(LimitedVisibilityInput {
-            visibility_type: "LimitedVisibility",
-            permitted_groups: vec![],
-        })),
-        ResolvedVisibilityGroup::Clear | ResolvedVisibilityGroup::None => Ok(None),
-    }
-}
-
-fn resolve_group_id<T: HttpTransport>(
-    client: &YtClient<T>,
-    group_name: &str,
-) -> Result<String, YtdError> {
-    let groups = client.list_groups()?;
-
-    if let Some(group) = groups.iter().find(|group| group.name == group_name) {
-        return Ok(group.id.clone());
-    }
-
-    if let Some(group) = groups
-        .iter()
-        .find(|group| group.name.eq_ignore_ascii_case(group_name))
-    {
-        return Ok(group.id.clone());
-    }
-
-    Err(YtdError::Input(format!(
-        "Visibility group not found: {group_name}"
-    )))
 }
 
 fn cmd_comment<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
@@ -204,7 +159,8 @@ fn cmd_comment<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Res
         .map(|s| s.join(" "))
         .filter(|s| !s.is_empty())
         .ok_or_else(|| YtdError::Input("Comment text is required".into()))?;
-    client.add_comment(id, &text)?;
+    let visibility = visibility::build_create_visibility_input(client, args)?;
+    client.add_comment(id, &text, visibility)?;
     Ok(())
 }
 
@@ -502,7 +458,7 @@ fn build_field_value(cf_type: &str, value: &str) -> serde_json::Value {
 mod tests {
     use super::*;
     use crate::config::TEST_ENV_LOCK;
-    use crate::types::{ResolvedVisibilityGroup, YtdConfig};
+    use crate::types::YtdConfig;
     use std::cell::RefCell;
     use std::path::Path;
 
@@ -758,14 +714,125 @@ mod tests {
                 .collect(),
         };
 
-        assert_eq!(
-            config::resolve_visibility_group(None, true).unwrap(),
-            ResolvedVisibilityGroup::Clear
-        );
         let client = test_client(vec![]);
-        assert!(build_visibility_input(&client, &args, false)
+        assert!(visibility::build_create_visibility_input(&client, &args)
             .unwrap()
             .is_none());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_comment_create_visibility_uses_env_default() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        std::env::set_var("YTD_VISIBILITY_GROUP", "Team Alpha");
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("comment".into()),
+            positional: vec!["DEMO-1".into(), "hello".into()],
+            flags: Default::default(),
+        };
+        let client = test_client(vec![r#"[{"id":"3-7","name":"Team Alpha"}]"#]);
+
+        let visibility = visibility::build_create_visibility_input(&client, &args)
+            .unwrap()
+            .expect("visibility should be set");
+        assert_eq!(visibility.permitted_groups[0].id, "3-7");
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_comment_create_visibility_no_visibility_group_omits_default() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        std::env::set_var("YTD_VISIBILITY_GROUP", "Team Alpha");
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("comment".into()),
+            positional: vec!["DEMO-1".into(), "hello".into()],
+            flags: [("no-visibility-group".to_string(), "true".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let client = test_client(vec![]);
+
+        assert!(visibility::build_create_visibility_input(&client, &args)
+            .unwrap()
+            .is_none());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_comment_update_visibility_ignores_env_default_without_flags() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        std::env::set_var("YTD_VISIBILITY_GROUP", "Team Alpha");
+
+        let args = ParsedArgs {
+            resource: Some("comment".into()),
+            action: Some("update".into()),
+            positional: vec!["DEMO-1:4-17".into(), "hello".into()],
+            flags: Default::default(),
+        };
+        let client = test_client(vec![]);
+
+        assert!(
+            visibility::build_comment_update_visibility_input(&client, &args)
+                .unwrap()
+                .is_none()
+        );
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_comment_update_visibility_sets_group_with_flag() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+
+        let args = ParsedArgs {
+            resource: Some("comment".into()),
+            action: Some("update".into()),
+            positional: vec!["DEMO-1:4-17".into(), "hello".into()],
+            flags: [("visibility-group".to_string(), "Team Alpha".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let client = test_client(vec![r#"[{"id":"3-7","name":"Team Alpha"}]"#]);
+
+        let visibility = visibility::build_comment_update_visibility_input(&client, &args)
+            .unwrap()
+            .expect("visibility should be set");
+        assert_eq!(visibility.permitted_groups[0].id, "3-7");
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_comment_update_visibility_clears_with_flag() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        std::env::set_var("YTD_VISIBILITY_GROUP", "Team Alpha");
+
+        let args = ParsedArgs {
+            resource: Some("comment".into()),
+            action: Some("update".into()),
+            positional: vec!["DEMO-1:4-17".into(), "hello".into()],
+            flags: [("no-visibility-group".to_string(), "true".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let client = test_client(vec![]);
+
+        let visibility = visibility::build_comment_update_visibility_input(&client, &args)
+            .unwrap()
+            .expect("visibility clear payload should be set");
+        assert!(visibility.permitted_groups.is_empty());
 
         clear_env();
     }

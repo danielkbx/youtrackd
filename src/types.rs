@@ -90,6 +90,7 @@ pub struct ArticleComment {
     pub created: Option<u64>,
     pub updated: Option<u64>,
     pub author: Option<User>,
+    pub visibility: Option<LimitedVisibility>,
 }
 
 // --- Issues ---
@@ -124,6 +125,7 @@ pub struct IssueComment {
     pub created: Option<u64>,
     pub updated: Option<u64>,
     pub author: Option<User>,
+    pub visibility: Option<LimitedVisibility>,
 }
 
 // --- Comments ---
@@ -161,6 +163,7 @@ pub struct CommentOutput {
     pub created: Option<u64>,
     pub updated: Option<u64>,
     pub author: Option<User>,
+    pub visibility: Option<LimitedVisibility>,
 }
 
 pub fn encode_comment_id(parent_id: &str, comment_id: &str) -> String {
@@ -219,6 +222,7 @@ where
         created: comment.created,
         updated: comment.updated,
         author: comment.author,
+        visibility: comment.visibility,
     }
 }
 
@@ -228,6 +232,7 @@ struct CommentParts {
     created: Option<u64>,
     updated: Option<u64>,
     author: Option<User>,
+    visibility: Option<LimitedVisibility>,
 }
 
 impl From<IssueComment> for CommentParts {
@@ -238,6 +243,7 @@ impl From<IssueComment> for CommentParts {
             created: comment.created,
             updated: comment.updated,
             author: comment.author,
+            visibility: comment.visibility,
         }
     }
 }
@@ -250,6 +256,7 @@ impl From<ArticleComment> for CommentParts {
             created: comment.created,
             updated: comment.updated,
             author: comment.author,
+            visibility: comment.visibility,
         }
     }
 }
@@ -505,6 +512,8 @@ pub struct CreateWorkItemInput {
 #[serde(rename_all = "camelCase")]
 pub struct CommentInput {
     pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<LimitedVisibilityInput>,
 }
 
 #[cfg(test)]

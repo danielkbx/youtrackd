@@ -62,3 +62,7 @@ Verifiziert durch Code und Tests: Die Auflösung für Ticket/Article-Create+Upda
 ## YouTrack API: Comment operations are parent-scoped
 Date: 2026-04-24
 Specific comment get/update/delete operations require the parent resource path: `/api/issues/{issueID}/comments/{commentID}` or `/api/articles/{articleID}/comments/{commentID}`. `ytd` therefore exposes encoded comment IDs as `<ticket-id>:<comment-id>` and `<article-id>:<comment-id>`. Parent type is inferred from ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, ticket IDs use `<PROJECT>-<NUMBER>`. The public `id` field for any CLI comment output must always be encoded; raw YouTrack comment IDs may only appear as `ytId`.
+
+## Implementierung: Comment visibility semantics
+Date: 2026-04-24
+New comments (`ticket comment`, `article comment`) apply the configured visibility default from `--visibility-group`, `YTD_VISIBILITY_GROUP`, or stored `config visibility-group`. `--no-visibility-group` suppresses inherited defaults for comment creation. Existing comment updates (`comment update`) intentionally ignore env/config defaults unless an explicit visibility flag is present. `comment update --visibility-group <group>` sets comment visibility; `comment update --no-visibility-group` clears it with an empty `permittedGroups` payload.
