@@ -93,6 +93,9 @@ Commands:
   search run <name-or-id>   Run saved search
   board list                List agile boards
   board get <id>            Get board details
+  board create              Create agile board
+  board update <id>         Update agile board
+  board delete <id>         Delete agile board
 
 Global flags:
   --format text|raw|md      Output format (default: text)
@@ -269,7 +272,13 @@ fn print_board_help() {
         "Usage:
   ytd board list [--project <id>]
   ytd board get <id>
+  ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '...']
+  ytd board update <id> [--name <name>] [--json '...']
+  ytd board delete <id> [-y]
 
---project filters boards client-side by project membership."
+--project filters boards client-side by project membership for list.
+For create, --project sets the board projects and accepts short names or database IDs.
+Templates: kanban, scrum, version, custom, personal.
+Use --json or stdin for advanced YouTrack Agile fields."
     );
 }

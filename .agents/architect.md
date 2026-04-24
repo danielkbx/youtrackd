@@ -28,7 +28,7 @@ src/
     attachment.rs   ← global attachment get/delete/download
     tag.rs          ← tag list (client-side project filter)
     search.rs       ← saved search list/run
-    board.rs        ← agile board list/get (client-side project filter)
+    board.rs        ← agile board list/get/create/update/delete (client-side project filter)
 ```
 
 ## Module Boundary

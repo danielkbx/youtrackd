@@ -543,10 +543,21 @@ pub struct ActivityCategory {
 pub struct Agile {
     pub id: String,
     pub name: Option<String>,
+    pub owner: Option<User>,
     #[serde(default)]
     pub projects: Vec<ProjectRef>,
     #[serde(default)]
     pub sprints: Vec<Sprint>,
+    pub current_sprint: Option<Sprint>,
+    pub orphans_at_the_top: Option<bool>,
+    pub hide_orphans_swimlane: Option<bool>,
+    pub estimation_field: Option<serde_json::Value>,
+    pub original_estimation_field: Option<serde_json::Value>,
+    pub column_settings: Option<serde_json::Value>,
+    pub swimlane_settings: Option<serde_json::Value>,
+    pub sprints_settings: Option<serde_json::Value>,
+    pub color_coding: Option<serde_json::Value>,
+    pub status: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -554,9 +565,20 @@ pub struct Agile {
 pub struct Sprint {
     pub id: String,
     pub name: Option<String>,
+    pub agile: Option<AgileRef>,
+    pub goal: Option<String>,
     pub start: Option<u64>,
     pub finish: Option<u64>,
     pub archived: Option<bool>,
+    pub is_default: Option<bool>,
+    pub unresolved_issues_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgileRef {
+    pub id: String,
+    pub name: Option<String>,
 }
 
 // --- Input structs ---

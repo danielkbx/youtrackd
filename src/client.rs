@@ -340,7 +340,7 @@ impl<T: HttpTransport> YtClient<T> {
         )
     }
 
-    fn resolve_project_id(&self, project_ref: &str) -> Result<String, YtdError> {
+    pub fn resolve_project_id(&self, project_ref: &str) -> Result<String, YtdError> {
         if Self::is_project_database_id(project_ref) {
             return Ok(project_ref.to_string());
         }
@@ -921,24 +921,51 @@ impl<T: HttpTransport> YtClient<T> {
 
     // --- Agile Boards ---
 
+    const AGILE_LIST_FIELDS: &'static str = "id,name,owner(id,login,fullName),projects(id,shortName,name),currentSprint(id,name,start,finish,archived),sprints(id,name,start,finish,archived)";
+    const AGILE_DETAIL_FIELDS: &'static str = "id,name,owner(id,login,fullName),projects(id,shortName,name),currentSprint(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),sprints(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),orphansAtTheTop,hideOrphansSwimlane,estimationField(id,name),originalEstimationField(id,name)";
+
     pub fn list_agiles(&self) -> Result<Vec<Agile>, YtdError> {
         self.get(
             "/agiles",
-            &[
-                ("fields", "id,name,projects(id,shortName,name)"),
-                ("$top", "500"),
-            ],
+            &[("fields", Self::AGILE_LIST_FIELDS), ("$top", "500")],
         )
     }
 
     pub fn get_agile(&self, id: &str) -> Result<Agile, YtdError> {
         self.get(
             &format!("/agiles/{id}"),
-            &[(
-                "fields",
-                "id,name,projects(id,shortName,name),sprints(id,name,start,finish,archived)",
-            )],
+            &[("fields", Self::AGILE_DETAIL_FIELDS)],
         )
+    }
+
+    pub fn create_agile(
+        &self,
+        template: Option<&str>,
+        body: &serde_json::Value,
+    ) -> Result<Agile, YtdError> {
+        let mut params = vec![("fields", Self::AGILE_DETAIL_FIELDS)];
+        if let Some(template) = template {
+            params.push(("template", template));
+        }
+        let url = self.url("/agiles", &params);
+        let json = serde_json::to_string(body)?;
+        let response = self.transport.post(&url, &self.token, &json)?;
+        serde_json::from_str(&response).map_err(YtdError::from)
+    }
+
+    pub fn update_agile(&self, id: &str, body: &serde_json::Value) -> Result<Agile, YtdError> {
+        let url = self.url(
+            &format!("/agiles/{id}"),
+            &[("fields", Self::AGILE_DETAIL_FIELDS)],
+        );
+        let json = serde_json::to_string(body)?;
+        let response = self.transport.post(&url, &self.token, &json)?;
+        serde_json::from_str(&response).map_err(YtdError::from)
+    }
+
+    pub fn delete_agile(&self, id: &str) -> Result<(), YtdError> {
+        let url = self.url(&format!("/agiles/{id}"), &[]);
+        self.transport.delete(&url, &self.token)
     }
 }
 
@@ -1079,6 +1106,81 @@ mod tests {
         let projects = client.list_projects().unwrap();
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0].short_name, "TEST");
+    }
+
+    #[test]
+    fn create_agile_with_template_posts_body() {
+        let client = test_client(vec![
+            r#"{"id":"108-4","name":"Board","projects":[{"id":"0-96","shortName":"DWP","name":"DW Playground"}],"sprints":[]}"#,
+        ]);
+        let body = serde_json::json!({"name":"Board","projects":[{"id":"0-96"}]});
+
+        let agile = client.create_agile(Some("scrum"), &body).unwrap();
+
+        assert_eq!(agile.id, "108-4");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles?fields="));
+        assert!(request.url.contains("&template=scrum"));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            body
+        );
+    }
+
+    #[test]
+    fn create_agile_without_template_omits_template_param() {
+        let client = test_client(vec![
+            r#"{"id":"108-4","name":"Board","projects":[{"id":"0-96","shortName":"DWP","name":"DW Playground"}],"sprints":[]}"#,
+        ]);
+
+        client
+            .create_agile(
+                None,
+                &serde_json::json!({"name":"Board","projects":[{"id":"0-96"}]}),
+            )
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles?fields="));
+        assert!(!request.url.contains("template="));
+    }
+
+    #[test]
+    fn update_agile_posts_to_board_id() {
+        let client = test_client(vec![
+            r#"{"id":"108-4","name":"Renamed","projects":[{"id":"0-96","shortName":"DWP","name":"DW Playground"}],"sprints":[]}"#,
+        ]);
+        let body = serde_json::json!({"name":"Renamed"});
+
+        let agile = client.update_agile("108-4", &body).unwrap();
+
+        assert_eq!(agile.id, "108-4");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles/108-4?fields="));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            body
+        );
+    }
+
+    #[test]
+    fn delete_agile_uses_board_id() {
+        let client = test_client(vec![""]);
+
+        client.delete_agile("108-4").unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "DELETE");
+        assert_eq!(request.url, "https://test.youtrack.cloud/api/agiles/108-4");
     }
 
     #[test]

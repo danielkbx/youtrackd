@@ -24,3 +24,25 @@ pub fn read_json_input(flags: &HashMap<String, String>) -> Result<Value, YtdErro
         "No JSON input provided. Use --json '{...}' or pipe via stdin.".into(),
     ))
 }
+
+/// Read optional JSON input from stdin or --json. Stdin takes precedence.
+pub fn read_optional_json_input(
+    flags: &HashMap<String, String>,
+) -> Result<Option<Value>, YtdError> {
+    if !io::stdin().is_terminal() {
+        let mut buf = String::new();
+        io::stdin().read_to_string(&mut buf)?;
+        let buf = buf.trim();
+        if !buf.is_empty() {
+            return serde_json::from_str(buf).map(Some).map_err(YtdError::from);
+        }
+    }
+
+    if let Some(json_str) = flags.get("json") {
+        return serde_json::from_str(json_str)
+            .map(Some)
+            .map_err(YtdError::from);
+    }
+
+    Ok(None)
+}

@@ -149,7 +149,10 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
             | ("attachment", Some("get" | "delete" | "download"))
             | ("tag", Some("list"))
             | ("search", Some("list" | "run"))
-            | ("board", Some("list" | "get"))
+            | (
+                "board",
+                Some("list" | "get" | "create" | "update" | "delete")
+            )
     )
 }
 
@@ -196,5 +199,15 @@ mod tests {
         assert!(is_known_command("attachment", Some("delete")));
         assert!(is_known_command("attachment", Some("download")));
         assert!(!is_known_command("attachment", Some("create")));
+    }
+
+    #[test]
+    fn knows_board_commands() {
+        assert!(is_known_command("board", Some("list")));
+        assert!(is_known_command("board", Some("get")));
+        assert!(is_known_command("board", Some("create")));
+        assert!(is_known_command("board", Some("update")));
+        assert!(is_known_command("board", Some("delete")));
+        assert!(!is_known_command("board", Some("sprint")));
     }
 }

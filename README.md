@@ -153,7 +153,12 @@ ytd search list [--project <id>]
 ytd search run <name-or-id>
 ytd board list [--project <id>]
 ytd board get <id>
+ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
+ytd board update <id> [--name <name>] [--json '{...}']
+ytd board delete <id> [-y]
 ```
+
+Board commands use YouTrack's Agile API. For existing boards, `get`, `update`, and `delete` require only the board ID. For `create`, YouTrack requires a board name and at least one project; `--project` accepts project short names or database IDs.
 
 ## Output Flags
 
@@ -163,6 +168,73 @@ ytd board get <id>
 | `--format text` | Plain text (default) |
 | `--format md` | Markdown (title + body + comments) |
 | `--no-meta` | Hide IDs, dates, author |
+
+## JSON Input
+
+Many create and update commands accept JSON via `--json` or stdin. Stdin takes precedence over `--json` when both are present.
+
+Commands that accept JSON input:
+
+| Command | Required fields | Optional/common fields |
+|---|---|---|
+| `ticket create` | `summary` plus `--project` | `description` |
+| `ticket update` | at least one field | `summary`, `description` |
+| `article create` | `summary` plus `--project` | `content` |
+| `article update` | at least one field | `summary`, `content` |
+| `board create` | `name` and `projects`, or `--name` and `--project` | YouTrack Agile fields such as `visibleForProjectBased` |
+| `board update` | at least one field or `--name` | YouTrack Agile fields such as `orphansAtTheTop` |
+
+JSON input must be valid JSON:
+
+```bash
+ytd ticket create --project PROJ --json '{"summary":"Fix login","description":"Details"}'
+```
+
+Create and update commands print only the resulting entity ID on stdout, so they can be used in scripts:
+
+```bash
+ID=$(ytd ticket create --project PROJ --json '{"summary":"Fix login bug"}')
+```
+
+Ticket and article commands use the project short name from `--project`:
+
+```bash
+ytd ticket update PROJ-42 --json '{"summary":"New title"}'
+ytd article create --project PROJ --json '{"summary":"Runbook","content":"Steps..."}'
+ytd article update PROJ-A-1 --json '{"content":"Updated steps..."}'
+```
+
+You can also pipe JSON through stdin:
+
+```bash
+printf '%s\n' '{"summary":"New article","content":"..."}' | ytd article create --project PROJ
+```
+
+Boards are exposed as `board` commands, but YouTrack calls them Agile boards in the REST API. Basic board creation uses flags for the required fields:
+
+```bash
+ytd board create --name "Team Scrum Board" --project PROJ --template scrum
+```
+
+Use `--json` or stdin for advanced Agile fields. The JSON object is merged with the flag-derived payload; `--name` wins over JSON `name`.
+
+```bash
+ytd board create --name "Team Scrum Board" --project PROJ --template scrum --json '{"visibleForProjectBased":true}'
+ytd board update 108-4 --name "Renamed Board"
+ytd board update 108-4 --json '{"orphansAtTheTop":true}'
+```
+
+For `board create`, `--project PROJ` is resolved to the YouTrack project database ID required by the API. Multi-project boards use a comma-separated list:
+
+```bash
+ytd board create --name "Multi Project Board" --project PROJ,OPS --template kanban
+```
+
+Advanced users may provide the complete board create payload as JSON:
+
+```bash
+ytd board create --template scrum --json '{"name":"Team Scrum Board","projects":[{"id":"0-0"}]}'
+```
 
 ## Examples
 

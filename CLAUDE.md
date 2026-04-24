@@ -92,6 +92,9 @@ ytd search list [--project <id>]
 ytd search run <name-or-id>
 ytd board list [--project <id>]
 ytd board get <id>
+ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
+ytd board update <id> [--name <name>] [--json '{...}']
+ytd board delete <id> [-y]
 ```
 
 ### Output flags (global)

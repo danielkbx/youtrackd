@@ -70,8 +70,10 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Searches & Boards | `08-search-and-boards.md` | search list/run, board list/get |
 | History | `09-history.md` | ticket history |
 | Kommentare | `12-comments.md` | ticket/article comments, global comment get/update/delete/attachments, encoded comment IDs |
+| Board CRUD | `13-board-crud.md` | board create/update/get/list/delete, JSON/stdin input, validation |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
+Boards per `board delete -y` löschen.
 
 When extending the ticket/article journeys, include visibility coverage for inherited defaults, explicit `--visibility-group`, and `--no-visibility-group` override/clear behavior.
 

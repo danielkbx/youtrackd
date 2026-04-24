@@ -54,6 +54,7 @@ So sind Test-Entities sofort erkennbar und können bei Bedarf manuell aufgeräum
 | Links | Werden mit dem Ticket gelöscht |
 | Temp-Config-Dateien | Mit `rm -f` löschen |
 | Temporäre Env Vars | Mit `unset` entfernen |
+| Boards | `ytd board delete <id> -y` |
 
 ### 5. Fehlerbehandlung
 
@@ -79,3 +80,4 @@ Empfohlene Reihenfolge:
 10. `10-api-compat-guard.md` — technische Absicherung gegen API-Drift und dokumentationskritische Integrationspunkte
 11. `11-visibility-defaults.md` — Visibility-Defaults, `YTD_CONFIG`-Isolation und Override-Reihenfolge
 12. `12-comments.md` — globale Kommentar-Kommandos, kodierte Kommentar-IDs und Kommentar-Visibility (`$VIS_GROUP` erforderlich)
+13. `13-board-crud.md` — Board anlegen, aktualisieren, JSON/stdin-Eingabe, Validierung, löschen
