@@ -86,6 +86,7 @@ fn run() -> Result<(), YtdError> {
         "article" => commands::article::run(&client, &args, &opts),
         "ticket" => commands::ticket::run(&client, &args, &opts),
         "comment" => commands::comment::run(&client, &args, &opts),
+        "attachment" => commands::attachment::run(&client, &args, &opts),
         "tag" => commands::tag::run(&client, &args, &opts),
         "search" => commands::search::run(&client, &args, &opts),
         "board" => commands::board::run(&client, &args, &opts),
@@ -144,7 +145,8 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "delete"
                 )
             )
-            | ("comment", Some("get" | "update" | "delete"))
+            | ("comment", Some("get" | "update" | "delete" | "attachments"))
+            | ("attachment", Some("get" | "delete" | "download"))
             | ("tag", Some("list"))
             | ("search", Some("list" | "run"))
             | ("board", Some("list" | "get"))
@@ -182,7 +184,17 @@ mod tests {
         assert!(is_known_command("comment", Some("get")));
         assert!(is_known_command("comment", Some("update")));
         assert!(is_known_command("comment", Some("delete")));
+        assert!(is_known_command("comment", Some("attachments")));
         assert!(is_known_command("ticket", Some("comments")));
+        assert!(!is_known_command("comment", Some("attach")));
         assert!(!is_known_command("comment", Some("create")));
+    }
+
+    #[test]
+    fn knows_attachment_commands() {
+        assert!(is_known_command("attachment", Some("get")));
+        assert!(is_known_command("attachment", Some("delete")));
+        assert!(is_known_command("attachment", Some("download")));
+        assert!(!is_known_command("attachment", Some("create")));
     }
 }

@@ -336,6 +336,10 @@ fn cmd_attachments<T: HttpTransport>(
 ) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let attachments = client.list_attachments(id)?;
+    let attachments: Vec<AttachmentOutput> = attachments
+        .into_iter()
+        .map(|attachment| issue_attachment_output(id, attachment))
+        .collect();
     format::print_items(&attachments, opts);
     Ok(())
 }
@@ -480,6 +484,10 @@ mod tests {
                 .borrow_mut()
                 .pop()
                 .ok_or_else(|| YtdError::Http("No more mock responses".into()))
+        }
+
+        fn get_bytes(&self, _url: &str, _token: &str) -> Result<Vec<u8>, YtdError> {
+            Err(YtdError::Http("unused".into()))
         }
 
         fn post(&self, _url: &str, _token: &str, _body: &str) -> Result<String, YtdError> {

@@ -24,7 +24,8 @@ src/
     project.rs      ← project list/get
     article.rs      ← article CRUD + comments + attachments + delete
     ticket.rs       ← ticket CRUD + tags + links + attachments + time + custom fields + history + delete
-    comment.rs      ← global comment get/update/delete
+    comment.rs      ← global comment get/update/delete + comment attachment listing
+    attachment.rs   ← global attachment get/delete/download
     tag.rs          ← tag list (client-side project filter)
     search.rs       ← saved search list/run
     board.rs        ← agile board list/get (client-side project filter)
@@ -37,11 +38,14 @@ Core modules (`client.rs`, `config.rs`, `types.rs`, `error.rs`) have no CLI depe
 
 API structs may contain raw YouTrack comment IDs. Any CLI-facing comment output must normalize comment IDs before formatting: `id` is the encoded ytd ID, while the raw YouTrack ID is exposed only as `ytId`.
 
+API structs may contain raw YouTrack attachment IDs. Any CLI-facing attachment output must normalize attachment IDs before formatting: `id` is the encoded ytd ID, while the raw YouTrack ID is exposed only as `ytId`.
+
 ## HttpTransport Trait
 
 ```rust
 pub trait HttpTransport {
     fn get(&self, url: &str, token: &str) -> Result<String, YtdError>;
+    fn get_bytes(&self, url: &str, token: &str) -> Result<Vec<u8>, YtdError>;
     fn post(&self, url: &str, token: &str, body: &str) -> Result<String, YtdError>;
     fn post_multipart(&self, url: &str, token: &str, file_path: &Path, file_name: &str) -> Result<String, YtdError>;
     fn delete(&self, url: &str, token: &str) -> Result<(), YtdError>;
@@ -87,5 +91,5 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 - All requests: `Authorization: Bearer <token>`, `Accept: application/json`
 - Always use `?fields=` to request only needed fields
 - Always set `$top` explicitly (server default is 42)
-- Attachments: manual multipart/form-data body building
+- Attachments: manual multipart/form-data body building; downloads use signed attachment `url` values
 - Errors: HTTP status + detail to stderr, exit non-zero

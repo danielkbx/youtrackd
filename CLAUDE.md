@@ -80,7 +80,12 @@ ytd ticket delete <id> [-y]
 
 ytd comment get <comment-id>
 ytd comment update <comment-id> <text> [--visibility-group <group> | --no-visibility-group]
+ytd comment attachments <comment-id>
 ytd comment delete <comment-id> [-y]
+
+ytd attachment get <attachment-id>
+ytd attachment delete <attachment-id> [-y]
+ytd attachment download <attachment-id> [--output <path>]
 
 ytd tag list [--project <id>]
 ytd search list [--project <id>]
@@ -107,6 +112,11 @@ Comment IDs returned by `ytd` encode the parent resource because YouTrack commen
 `ytd` infers the parent type from the parent ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, tickets use `<PROJECT>-<NUMBER>`.
 Use the public `id` field with `ytd comment ...`; raw YouTrack comment IDs may appear only as `ytId`.
 New comments apply configured visibility defaults. `ytd comment update` preserves existing visibility unless `--visibility-group` or `--no-visibility-group` is passed explicitly.
+
+Attachment IDs returned by `ytd` also encode the parent resource because YouTrack attachment operations are parent-scoped:
+`<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>`.
+Use the public `id` field with `ytd attachment ...`; raw YouTrack attachment IDs may appear only as `ytId`.
+Comment attachments can be listed, but adding files to existing comments is not implemented because the verified REST API flow does not assign uploaded parent attachments to comments.
 
 ## Configuration
 

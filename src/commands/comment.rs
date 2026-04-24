@@ -4,8 +4,8 @@ use crate::commands::visibility;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::types::{
-    article_comment_output, issue_comment_output, parse_comment_id, CommentParentType,
-    ParsedCommentId,
+    article_attachment_output, article_comment_output, issue_attachment_output,
+    issue_comment_output, parse_comment_id, AttachmentOutput, CommentParentType, ParsedCommentId,
 };
 use std::io::{self, BufRead, IsTerminal, Write};
 
@@ -18,8 +18,9 @@ pub fn run<T: HttpTransport>(
         Some("get") => cmd_get(client, args, opts),
         Some("update") => cmd_update(client, args),
         Some("delete") => cmd_delete(client, args),
+        Some("attachments") => cmd_attachments(client, args, opts),
         _ => Err(YtdError::Input(
-            "Usage: ytd comment <get|update|delete>".into(),
+            "Usage: ytd comment <get|update|delete|attachments>".into(),
         )),
     }
 }
@@ -90,6 +91,30 @@ fn cmd_delete<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resu
         }
         println!("{encoded}");
     }
+    Ok(())
+}
+
+fn cmd_attachments<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    let id = require_comment_id(args, "Usage: ytd comment attachments <comment-id>")?;
+    let attachments: Vec<AttachmentOutput> = match id.parent_type {
+        CommentParentType::Ticket => client
+            .get_issue_comment_with_attachments(&id.parent_id, &id.comment_id)?
+            .attachments
+            .into_iter()
+            .map(|attachment| issue_attachment_output(&id.parent_id, attachment))
+            .collect(),
+        CommentParentType::Article => client
+            .get_article_comment_with_attachments(&id.parent_id, &id.comment_id)?
+            .attachments
+            .into_iter()
+            .map(|attachment| article_attachment_output(&id.parent_id, attachment))
+            .collect(),
+    };
+    format::print_items(&attachments, opts);
     Ok(())
 }
 

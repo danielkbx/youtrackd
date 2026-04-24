@@ -66,3 +66,11 @@ Specific comment get/update/delete operations require the parent resource path: 
 ## Implementierung: Comment visibility semantics
 Date: 2026-04-24
 New comments (`ticket comment`, `article comment`) apply the configured visibility default from `--visibility-group`, `YTD_VISIBILITY_GROUP`, or stored `config visibility-group`. `--no-visibility-group` suppresses inherited defaults for comment creation. Existing comment updates (`comment update`) intentionally ignore env/config defaults unless an explicit visibility flag is present. `comment update --visibility-group <group>` sets comment visibility; `comment update --no-visibility-group` clears it with an empty `permittedGroups` payload.
+
+## YouTrack API: Existing comment attachment upload unsupported via comment update
+Date: 2026-04-24
+Curl probe in DWP showed that updating an existing issue comment with `attachments:[{id}]` returns HTTP 200 but does not assign the attachment to the comment. The attachment remains a parent issue attachment with `comment: null`, and the comment response returns `attachments: []`. `ytd` does not implement `comment attach` until a supported API flow is found. Follow-up ticket: DWP-24.
+
+## Implementierung: Attachment IDs are parent-scoped
+Date: 2026-04-24
+YouTrack attachment get/delete endpoints are scoped to tickets or articles, even when an attachment belongs to a comment. `ytd` therefore exposes encoded attachment IDs as `<ticket-id>:<attachment-id>` and `<article-id>:<attachment-id>`. The public `id` field for any CLI attachment output must always be encoded; raw YouTrack attachment IDs may only appear as `ytId`. Comment-owned attachments include an encoded `commentId` when YouTrack reports `comment(id)`.

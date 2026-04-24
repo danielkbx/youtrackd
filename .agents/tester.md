@@ -64,12 +64,12 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Ticket-Lifecycle | `02-ticket-lifecycle.md` | ticket create/get/update/comment/search/list |
 | Artikel-Lifecycle | `03-article-lifecycle.md` | article create/get/update/append/comment/comments/search/list |
 | Tags & Links | `04-tags-and-links.md` | tag list, ticket tag/untag/link/links |
-| Attachments | `05-attachments.md` | ticket/article attach/attachments |
+| Attachments | `05-attachments.md` | ticket/article attach/attachments, global attachment get/delete/download, comment attachment listing |
 | Time Tracking | `06-time-tracking.md` | ticket log/worklog |
 | Custom Fields | `07-custom-fields.md` | ticket fields/set |
 | Searches & Boards | `08-search-and-boards.md` | search list/run, board list/get |
 | History | `09-history.md` | ticket history |
-| Kommentare | `12-comments.md` | ticket/article comments, global comment get/update/delete, encoded comment IDs |
+| Kommentare | `12-comments.md` | ticket/article comments, global comment get/update/delete/attachments, encoded comment IDs |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
 
@@ -79,6 +79,8 @@ When extending the ticket/article journeys, include visibility coverage for inhe
 **Naming**: Alle Test-Entities verwenden Prefix `[YTD-TEST]` in Summary/Kommentaren.
 
 **Comment IDs**: Any command that exposes comment objects must return a reusable encoded `id` accepted by `ytd comment get`. Raw YouTrack comment IDs may appear only as `ytId`.
+
+**Attachment IDs**: Any command that exposes attachment objects must return a reusable encoded `id` accepted by `ytd attachment get|delete|download`. Raw YouTrack attachment IDs may appear only as `ytId`.
 
 **Comment visibility**: Journey 12 requires `$VIS_GROUP`. It must verify that comment creation applies defaults, `comment update` without visibility flags preserves existing visibility, `--no-visibility-group` clears it, and `--visibility-group` sets it again.
 

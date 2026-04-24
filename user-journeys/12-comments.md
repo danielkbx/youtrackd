@@ -1,8 +1,8 @@
 # Journey 12: Kommentare
 
-Testet: `ticket comments`, `article comments`, `comment get`, `comment update`, `comment delete`, kodierte Kommentar-IDs
+Testet: `ticket comments`, `article comments`, `comment get`, `comment update`, `comment attachments`, `comment delete`, kodierte Kommentar-IDs
 
-Diese Journey prüft die zentrale Kommentar-ID-Invariante: Jede vom Tool ausgegebene Kommentar-ID muss direkt mit `ytd comment get|update|delete` funktionieren.
+Diese Journey prüft die zentrale Kommentar-ID-Invariante: Jede vom Tool ausgegebene Kommentar-ID muss direkt mit `ytd comment get|update|delete|attachments` funktionieren.
 
 ## Zusätzliche Voraussetzung
 
@@ -98,7 +98,23 @@ ytd comment get $ARTICLE_COMMENT_ID --format raw
 
 Die `visibility.permittedGroups` enthält `$VIS_GROUP`.
 
-### 9. Ticket-Kommentar aktualisieren
+### 9. Ticket-Kommentar-Attachments listen
+
+```
+ytd comment attachments $TICKET_COMMENT_ID --format raw
+```
+
+**Erwartung**: Valides JSON-Array. Für diese Journey ist ein leeres Array erlaubt, weil `ytd` kein `comment attach` unterstützt.
+
+### 10. Artikel-Kommentar-Attachments listen
+
+```
+ytd comment attachments $ARTICLE_COMMENT_ID --format raw
+```
+
+**Erwartung**: Valides JSON-Array. Für diese Journey ist ein leeres Array erlaubt, weil `ytd` kein `comment attach` unterstützt.
+
+### 11. Ticket-Kommentar aktualisieren
 
 ```
 ytd comment update $TICKET_COMMENT_ID "[YTD-TEST] Ticket-Kommentar aktualisiert"
@@ -106,7 +122,7 @@ ytd comment update $TICKET_COMMENT_ID "[YTD-TEST] Ticket-Kommentar aktualisiert"
 
 **Erwartung**: Gibt `$TICKET_COMMENT_ID` aus. Exit-Code 0.
 
-### 10. Artikel-Kommentar aktualisieren
+### 12. Artikel-Kommentar aktualisieren
 
 ```
 ytd comment update $ARTICLE_COMMENT_ID "[YTD-TEST] Artikel-Kommentar aktualisiert"
@@ -114,7 +130,7 @@ ytd comment update $ARTICLE_COMMENT_ID "[YTD-TEST] Artikel-Kommentar aktualisier
 
 **Erwartung**: Gibt `$ARTICLE_COMMENT_ID` aus. Exit-Code 0.
 
-### 11. Updates verifizieren
+### 13. Updates verifizieren
 
 ```
 ytd comment get $TICKET_COMMENT_ID --format raw
@@ -125,7 +141,7 @@ ytd comment get $ARTICLE_COMMENT_ID --format raw
 
 Die `visibility.permittedGroups` enthält weiterhin `$VIS_GROUP`. `comment update` ohne Visibility-Flags darf die bestehende Visibility nicht verändern.
 
-### 12. Visibility löschen
+### 14. Visibility löschen
 
 ```
 ytd comment update $TICKET_COMMENT_ID "[YTD-TEST] Ticket-Kommentar public" --no-visibility-group
@@ -141,7 +157,7 @@ ytd comment get $ARTICLE_COMMENT_ID --format raw
 
 **Erwartung**: Es bleibt keine eingeschränkte Visibility mit `$VIS_GROUP` vorhanden. Je nach YouTrack-Antwort ist `visibility` unlimited, leer oder ohne `permittedGroups`.
 
-### 13. Visibility explizit setzen
+### 15. Visibility explizit setzen
 
 ```
 ytd comment update $TICKET_COMMENT_ID "[YTD-TEST] Ticket-Kommentar restricted again" --visibility-group "$VIS_GROUP"
@@ -157,7 +173,7 @@ ytd comment get $ARTICLE_COMMENT_ID --format raw
 
 **Erwartung**: Beide Kommentare enthalten `$VIS_GROUP` in `visibility.permittedGroups`.
 
-### 14. Eingebettete Ticket-Kommentar-ID prüfen
+### 16. Eingebettete Ticket-Kommentar-ID prüfen
 
 ```
 ytd ticket get $TICKET_ID --format raw
@@ -165,7 +181,7 @@ ytd ticket get $TICKET_ID --format raw
 
 **Erwartung**: Falls `comments` Kommentarobjekte enthält, ist deren `id` kodiert und beginnt mit `$TICKET_ID:`. Jede gefundene Kommentar-`id` funktioniert mit `ytd comment get`.
 
-### 15. Ticket-Kommentar löschen
+### 17. Ticket-Kommentar löschen
 
 ```
 ytd comment delete $TICKET_COMMENT_ID -y
@@ -173,7 +189,7 @@ ytd comment delete $TICKET_COMMENT_ID -y
 
 **Erwartung**: Gibt `$TICKET_COMMENT_ID` aus. Exit-Code 0.
 
-### 16. Artikel-Kommentar löschen
+### 18. Artikel-Kommentar löschen
 
 ```
 ytd comment delete $ARTICLE_COMMENT_ID -y
@@ -181,7 +197,7 @@ ytd comment delete $ARTICLE_COMMENT_ID -y
 
 **Erwartung**: Gibt `$ARTICLE_COMMENT_ID` aus. Exit-Code 0.
 
-### 17. Deletes verifizieren
+### 19. Deletes verifizieren
 
 ```
 ytd comment get $TICKET_COMMENT_ID

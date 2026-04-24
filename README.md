@@ -102,7 +102,7 @@ ytd ticket links <id>                        # Show links
 ytd ticket set <id> <field> <value>          # Set custom field
 ytd ticket fields <id>                       # Show field values
 ytd ticket attach <id> <file>                # Upload file
-ytd ticket attachments <id>                  # List files
+ytd ticket attachments <id>                  # List files with reusable attachment IDs
 ytd ticket log <id> <duration> [text]        # Log time
 ytd ticket worklog <id>                      # Show time log
 ytd ticket history <id> [--category <cat>]   # Activity log
@@ -127,10 +127,20 @@ ytd article delete <id> [-y]
 ```
 ytd comment get <comment-id>
 ytd comment update <comment-id> "text" [--visibility-group <group> | --no-visibility-group]
+ytd comment attachments <comment-id>
 ytd comment delete <comment-id> [-y]
 ```
 
 Comment IDs are returned by `ytd ticket comments` and `ytd article comments`. Use the returned `id` field with `ytd comment ...`; `ytId` is the raw YouTrack comment ID and is only included for reference.
+
+### Attachments
+```
+ytd attachment get <attachment-id>
+ytd attachment delete <attachment-id> [-y]
+ytd attachment download <attachment-id> [--output <path>]
+```
+
+Attachment IDs are returned by `ytd ticket attachments`, `ytd article attachments`, and `ytd comment attachments`. Use the returned `id` field with `ytd attachment ...`; `ytId` is the raw YouTrack attachment ID and is only included for reference.
 
 ### Tags, Searches, Boards
 ```
@@ -192,6 +202,13 @@ ytd comment get "$COMMENT_ID"
 ytd comment update "$COMMENT_ID" "Updated comment text"
 ```
 
+### Download an attachment
+```bash
+ATTACHMENT_ID=$(ytd ticket attachments PROJ-42 --format raw | jq -r '.[0].id')
+ytd attachment get "$ATTACHMENT_ID"
+ytd attachment download "$ATTACHMENT_ID" --output /tmp/
+```
+
 ### Delete with confirmation skip
 ```bash
 ytd ticket delete PROJ-42 -y
@@ -217,6 +234,25 @@ PROJ-A-1:187-62   # comment on article PROJ-A-1
 ```
 
 Use the `id` field returned by `ytd ticket comments` or `ytd article comments` with `ytd comment get|update|delete`. The `ytId` field is only the raw YouTrack comment ID and is included for reference.
+
+### Attachment IDs
+
+YouTrack attachment operations are scoped to their parent ticket or article, even when an attachment is displayed on a comment. For that reason, `ytd` returns reusable attachment IDs in this format:
+
+```
+<parent-id>:<attachment-id>
+```
+
+Examples:
+
+```
+PROJ-42:8-2897
+PROJ-A-1:237-3
+```
+
+Use the `id` field returned by `ytd ticket attachments`, `ytd article attachments`, or `ytd comment attachments` with `ytd attachment get|delete|download`. The `commentId` field is included when YouTrack reports that an attachment belongs to a comment.
+
+`ytd` does not support adding files to existing comments. A Curl probe against YouTrack showed that updating a comment with `attachments:[{id}]` returns success but does not assign the attachment to the comment.
 
 ### Comment visibility
 

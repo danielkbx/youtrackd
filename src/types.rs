@@ -91,6 +91,8 @@ pub struct ArticleComment {
     pub updated: Option<u64>,
     pub author: Option<User>,
     pub visibility: Option<LimitedVisibility>,
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
 }
 
 // --- Issues ---
@@ -126,6 +128,8 @@ pub struct IssueComment {
     pub updated: Option<u64>,
     pub author: Option<User>,
     pub visibility: Option<LimitedVisibility>,
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
 }
 
 // --- Comments ---
@@ -328,6 +332,125 @@ pub struct Attachment {
     pub mime_type: Option<String>,
     pub created: Option<u64>,
     pub author: Option<User>,
+    pub comment: Option<CommentRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommentRef {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttachmentParentType {
+    Ticket,
+    Article,
+}
+
+impl AttachmentParentType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ticket => "ticket",
+            Self::Article => "article",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedAttachmentId {
+    pub parent_type: AttachmentParentType,
+    pub parent_id: String,
+    pub attachment_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentOutput {
+    pub id: String,
+    pub yt_id: String,
+    pub parent_type: String,
+    pub parent_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment_id: Option<String>,
+    pub name: Option<String>,
+    pub url: Option<String>,
+    pub size: Option<u64>,
+    pub mime_type: Option<String>,
+    pub created: Option<u64>,
+    pub author: Option<User>,
+}
+
+pub fn encode_attachment_id(parent_id: &str, attachment_id: &str) -> String {
+    format!("{parent_id}:{attachment_id}")
+}
+
+pub fn parse_attachment_id(value: &str) -> Result<ParsedAttachmentId, YtdError> {
+    let parts: Vec<&str> = value.split(':').collect();
+    if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
+        return Err(invalid_attachment_id());
+    }
+
+    let parent_type = infer_attachment_parent_type(parts[0])?;
+
+    Ok(ParsedAttachmentId {
+        parent_type,
+        parent_id: parts[0].to_string(),
+        attachment_id: parts[1].to_string(),
+    })
+}
+
+fn infer_attachment_parent_type(parent_id: &str) -> Result<AttachmentParentType, YtdError> {
+    let parts: Vec<&str> = parent_id.split('-').collect();
+    if parts.len() == 3
+        && !parts[0].is_empty()
+        && parts[1] == "A"
+        && parts[2].parse::<u64>().is_ok()
+    {
+        return Ok(AttachmentParentType::Article);
+    }
+    if parts.len() == 2 && !parts[0].is_empty() && parts[1].parse::<u64>().is_ok() {
+        return Ok(AttachmentParentType::Ticket);
+    }
+    Err(invalid_attachment_id())
+}
+
+pub fn issue_attachment_output(issue_id: &str, attachment: Attachment) -> AttachmentOutput {
+    attachment_output(AttachmentParentType::Ticket, issue_id, attachment)
+}
+
+pub fn article_attachment_output(article_id: &str, attachment: Attachment) -> AttachmentOutput {
+    attachment_output(AttachmentParentType::Article, article_id, attachment)
+}
+
+fn attachment_output(
+    parent_type: AttachmentParentType,
+    parent_id: &str,
+    attachment: Attachment,
+) -> AttachmentOutput {
+    let comment_id = attachment
+        .comment
+        .as_ref()
+        .map(|comment| encode_comment_id(parent_id, &comment.id));
+    AttachmentOutput {
+        id: encode_attachment_id(parent_id, &attachment.id),
+        yt_id: attachment.id,
+        parent_type: parent_type.as_str().to_string(),
+        parent_id: parent_id.to_string(),
+        comment_id,
+        name: attachment.name,
+        url: attachment.url,
+        size: attachment.size,
+        mime_type: attachment.mime_type,
+        created: attachment.created,
+        author: attachment.author,
+    }
+}
+
+fn invalid_attachment_id() -> YtdError {
+    YtdError::Input(
+        "Invalid attachment ID. Expected <ticket-id>:<attachment-id> or <article-id>:<attachment-id>"
+            .into(),
+    )
 }
 
 // --- Time Tracking ---
@@ -554,5 +677,62 @@ mod tests {
         ] {
             assert!(parse_comment_id(value).is_err(), "{value} should fail");
         }
+    }
+
+    #[test]
+    fn encodes_ticket_attachment_id() {
+        assert_eq!(encode_attachment_id("DWP-12", "8-2897"), "DWP-12:8-2897");
+    }
+
+    #[test]
+    fn parses_ticket_attachment_id() {
+        let parsed = parse_attachment_id("DWP-12:8-2897").unwrap();
+        assert_eq!(parsed.parent_type, AttachmentParentType::Ticket);
+        assert_eq!(parsed.parent_id, "DWP-12");
+        assert_eq!(parsed.attachment_id, "8-2897");
+    }
+
+    #[test]
+    fn parses_article_attachment_id() {
+        let parsed = parse_attachment_id("DWP-A-3:237-3").unwrap();
+        assert_eq!(parsed.parent_type, AttachmentParentType::Article);
+        assert_eq!(parsed.parent_id, "DWP-A-3");
+        assert_eq!(parsed.attachment_id, "237-3");
+    }
+
+    #[test]
+    fn rejects_invalid_attachment_ids() {
+        for value in [
+            "issue:DWP-12:8-2897",
+            "DWP-A-3",
+            "DWP-A-B:237-3",
+            "DWP-ABC:8-2897",
+            "DWP-12:8-2897:extra",
+        ] {
+            assert!(parse_attachment_id(value).is_err(), "{value} should fail");
+        }
+    }
+
+    #[test]
+    fn attachment_output_preserves_raw_id_and_encodes_comment_id() {
+        let output = issue_attachment_output(
+            "DWP-12",
+            Attachment {
+                id: "8-2897".into(),
+                name: Some("log.txt".into()),
+                url: None,
+                size: Some(12),
+                mime_type: Some("text/plain".into()),
+                created: Some(1),
+                author: None,
+                comment: Some(CommentRef { id: "4-17".into() }),
+            },
+        );
+
+        assert_eq!(output.id, "DWP-12:8-2897");
+        assert_eq!(output.yt_id, "8-2897");
+        assert_eq!(output.parent_type, "ticket");
+        assert_eq!(output.parent_id, "DWP-12");
+        assert_eq!(output.comment_id.as_deref(), Some("DWP-12:4-17"));
     }
 }

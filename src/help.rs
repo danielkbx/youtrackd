@@ -13,6 +13,7 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
         Some("article") => print_article_help(),
         Some("ticket") => print_ticket_help(),
         Some("comment") => print_comment_help(),
+        Some("attachment") => print_attachment_help(),
         Some("url") => print_url_help(),
         Some("tag") => println!(
             "Usage:\n  ytd tag list [--project <id>]\n\nList tags. --project filters client-side."
@@ -80,7 +81,12 @@ Commands:
 
   comment get <id>          Get comment details
   comment update <id> <t>   Update comment text
+  comment attachments <id>  List comment attachments
   comment delete <id>       Delete comment
+
+  attachment get <id>       Get attachment details
+  attachment delete <id>    Delete attachment
+  attachment download <id>  Download attachment
 
   tag list                  List tags
   search list               List saved searches
@@ -214,6 +220,7 @@ fn print_comment_help() {
         "Usage:
   ytd comment get <comment-id>
   ytd comment update <comment-id> <text> [--visibility-group <group> | --no-visibility-group]
+  ytd comment attachments <comment-id>
   ytd comment delete <comment-id> [-y]
 
 Comment IDs are returned by:
@@ -224,7 +231,26 @@ Use the returned id field, for example:
   ABC-12:4-17
   ABC-A-1:251-0
 
-New comments use configured visibility defaults. Comment updates change visibility only with explicit visibility flags."
+New comments use configured visibility defaults. Comment updates change visibility only with explicit visibility flags.
+Comment attachment upload is not supported by the YouTrack REST API flow verified for ytd."
+    );
+}
+
+fn print_attachment_help() {
+    println!(
+        "Usage:
+  ytd attachment get <attachment-id>
+  ytd attachment delete <attachment-id> [-y]
+  ytd attachment download <attachment-id> [--output <path>]
+
+Attachment IDs are returned by:
+  ytd ticket attachments <ticket-id>
+  ytd article attachments <article-id>
+  ytd comment attachments <comment-id>
+
+Use the returned id field, for example:
+  ABC-12:8-2897
+  ABC-A-1:237-3"
     );
 }
 

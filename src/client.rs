@@ -7,6 +7,7 @@ use std::path::Path;
 
 pub trait HttpTransport {
     fn get(&self, url: &str, token: &str) -> Result<String, YtdError>;
+    fn get_bytes(&self, url: &str, token: &str) -> Result<Vec<u8>, YtdError>;
     fn post(&self, url: &str, token: &str, body: &str) -> Result<String, YtdError>;
     fn post_multipart(
         &self,
@@ -33,6 +34,20 @@ impl HttpTransport for UreqTransport {
             .call()
             .map_err(|e| YtdError::Http(e.to_string()))?;
         read_response(response)
+    }
+
+    fn get_bytes(&self, url: &str, token: &str) -> Result<Vec<u8>, YtdError> {
+        let mut request = ureq::get(url).header("Cache-Control", "no-cache");
+        if !token.is_empty() {
+            request = request.header("Authorization", &format!("Bearer {token}"));
+        }
+        let response = request
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .call()
+            .map_err(|e| YtdError::Http(e.to_string()))?;
+        read_response_bytes(response)
     }
 
     fn post(&self, url: &str, token: &str, body: &str) -> Result<String, YtdError> {
@@ -123,6 +138,23 @@ fn read_response(mut response: ureq::http::Response<ureq::Body>) -> Result<Strin
     Ok(body)
 }
 
+fn read_response_bytes(
+    mut response: ureq::http::Response<ureq::Body>,
+) -> Result<Vec<u8>, YtdError> {
+    let status = response.status().as_u16();
+    let bytes = response
+        .body_mut()
+        .read_to_vec()
+        .map_err(|e| YtdError::Http(e.to_string()))?;
+
+    if status >= 400 {
+        let detail = String::from_utf8_lossy(&bytes).to_string();
+        return Err(YtdError::from_api(status, extract_api_detail(&detail)));
+    }
+
+    Ok(bytes)
+}
+
 fn extract_api_detail(body: &str) -> String {
     let trimmed = body.trim();
     if trimmed.is_empty() {
@@ -162,6 +194,11 @@ pub struct YtClient<T: HttpTransport> {
     transport: T,
     verbose: bool,
 }
+
+const ATTACHMENT_FIELDS: &str =
+    "id,name,url,size,mimeType,created,author(id,login,fullName),comment(id)";
+const COMMENT_ATTACHMENT_FIELDS: &str =
+    "id,text,created,updated,author(id,login,fullName),attachments(id,name,url,size,mimeType,created,author(id,login,fullName),comment(id))";
 
 impl<T: HttpTransport> YtClient<T> {
     pub fn new(config: YtdConfig, transport: T) -> Self {
@@ -271,6 +308,24 @@ impl<T: HttpTransport> YtClient<T> {
             .post_multipart(&url, &self.token, file_path, name)?;
         self.log_response(&resp);
         Ok(resp)
+    }
+
+    pub fn download_attachment_file(&self, file_url: &str) -> Result<Vec<u8>, YtdError> {
+        let url = self.absolute_file_url(file_url);
+        self.log_request("GET bytes", &url, None);
+        self.transport.get_bytes(&url, "")
+    }
+
+    fn absolute_file_url(&self, file_url: &str) -> String {
+        if file_url.starts_with("http://") || file_url.starts_with("https://") {
+            return file_url.to_string();
+        }
+        let root = self.base_url.trim_end_matches("/api");
+        if file_url.starts_with('/') {
+            format!("{root}{file_url}")
+        } else {
+            format!("{root}/{file_url}")
+        }
     }
 
     fn is_project_database_id(project_ref: &str) -> bool {
@@ -478,6 +533,17 @@ impl<T: HttpTransport> YtClient<T> {
         )
     }
 
+    pub fn get_article_comment_with_attachments(
+        &self,
+        article_id: &str,
+        comment_id: &str,
+    ) -> Result<ArticleComment, YtdError> {
+        self.get(
+            &format!("/articles/{article_id}/comments/{comment_id}"),
+            &[("fields", COMMENT_ATTACHMENT_FIELDS)],
+        )
+    }
+
     pub fn add_article_comment(
         &self,
         article_id: &str,
@@ -546,13 +612,18 @@ impl<T: HttpTransport> YtClient<T> {
     pub fn list_article_attachments(&self, article_id: &str) -> Result<Vec<Attachment>, YtdError> {
         self.get(
             &format!("/articles/{article_id}/attachments"),
-            &[
-                (
-                    "fields",
-                    "id,name,url,size,mimeType,created,author(id,login,fullName)",
-                ),
-                ("$top", "500"),
-            ],
+            &[("fields", ATTACHMENT_FIELDS), ("$top", "500")],
+        )
+    }
+
+    pub fn get_article_attachment(
+        &self,
+        article_id: &str,
+        attachment_id: &str,
+    ) -> Result<Attachment, YtdError> {
+        self.get(
+            &format!("/articles/{article_id}/attachments/{attachment_id}"),
+            &[("fields", ATTACHMENT_FIELDS)],
         )
     }
 
@@ -567,6 +638,16 @@ impl<T: HttpTransport> YtClient<T> {
             &[],
         )?;
         Ok(())
+    }
+
+    pub fn delete_article_attachment(
+        &self,
+        article_id: &str,
+        attachment_id: &str,
+    ) -> Result<(), YtdError> {
+        self.delete(&format!(
+            "/articles/{article_id}/attachments/{attachment_id}"
+        ))
     }
 
     // --- Issues ---
@@ -664,6 +745,17 @@ impl<T: HttpTransport> YtClient<T> {
         )
     }
 
+    pub fn get_issue_comment_with_attachments(
+        &self,
+        issue_id: &str,
+        comment_id: &str,
+    ) -> Result<IssueComment, YtdError> {
+        self.get(
+            &format!("/issues/{issue_id}/comments/{comment_id}"),
+            &[("fields", COMMENT_ATTACHMENT_FIELDS)],
+        )
+    }
+
     pub fn get_issue_comment(
         &self,
         issue_id: &str,
@@ -739,19 +831,32 @@ impl<T: HttpTransport> YtClient<T> {
     pub fn list_attachments(&self, issue_id: &str) -> Result<Vec<Attachment>, YtdError> {
         self.get(
             &format!("/issues/{issue_id}/attachments"),
-            &[
-                (
-                    "fields",
-                    "id,name,url,size,mimeType,created,author(id,login,fullName)",
-                ),
-                ("$top", "500"),
-            ],
+            &[("fields", ATTACHMENT_FIELDS), ("$top", "500")],
+        )
+    }
+
+    pub fn get_issue_attachment(
+        &self,
+        issue_id: &str,
+        attachment_id: &str,
+    ) -> Result<Attachment, YtdError> {
+        self.get(
+            &format!("/issues/{issue_id}/attachments/{attachment_id}"),
+            &[("fields", ATTACHMENT_FIELDS)],
         )
     }
 
     pub fn upload_attachment(&self, issue_id: &str, file_path: &Path) -> Result<(), YtdError> {
         self.upload(&format!("/issues/{issue_id}/attachments"), file_path, &[])?;
         Ok(())
+    }
+
+    pub fn delete_issue_attachment(
+        &self,
+        issue_id: &str,
+        attachment_id: &str,
+    ) -> Result<(), YtdError> {
+        self.delete(&format!("/issues/{issue_id}/attachments/{attachment_id}"))
     }
 
     // --- Time Tracking ---
@@ -894,6 +999,19 @@ mod tests {
                 .borrow_mut()
                 .pop()
                 .ok_or_else(|| YtdError::Http("No more mock responses".into()))
+        }
+        fn get_bytes(&self, url: &str, _token: &str) -> Result<Vec<u8>, YtdError> {
+            self.requests.borrow_mut().push(CapturedRequest {
+                method: "GET bytes".into(),
+                url: url.into(),
+                body: None,
+            });
+            let response = self
+                .responses
+                .borrow_mut()
+                .pop()
+                .ok_or_else(|| YtdError::Http("No more mock responses".into()))?;
+            Ok(response.into_bytes())
         }
         fn post(&self, url: &str, _token: &str, body: &str) -> Result<String, YtdError> {
             self.requests.borrow_mut().push(CapturedRequest {
@@ -1322,6 +1440,105 @@ mod tests {
         assert_eq!(
             request.url,
             "https://test.youtrack.cloud/api/articles/DWP-A-1/comments/251-0?fields=id%2Ctext%2Ccreated%2Cupdated%2Cauthor%28id%2Clogin%2CfullName%29%2Cvisibility%28%24type%2CpermittedGroups%28id%2Cname%29%29"
+        );
+    }
+
+    #[test]
+    fn get_issue_attachment_uses_issue_attachment_endpoint() {
+        let client = test_client(vec![
+            r#"{"id":"8-2897","name":"log.txt","comment":{"id":"4-17"}}"#,
+        ]);
+
+        let attachment = client.get_issue_attachment("DWP-12", "8-2897").unwrap();
+
+        assert_eq!(attachment.id, "8-2897");
+        assert_eq!(
+            attachment.comment.as_ref().map(|c| c.id.as_str()),
+            Some("4-17")
+        );
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/attachments/8-2897?fields=id%2Cname%2Curl%2Csize%2CmimeType%2Ccreated%2Cauthor%28id%2Clogin%2CfullName%29%2Ccomment%28id%29"
+        );
+    }
+
+    #[test]
+    fn get_article_attachment_uses_article_attachment_endpoint() {
+        let client = test_client(vec![r#"{"id":"237-3","name":"logo.png"}"#]);
+
+        client.get_article_attachment("DWP-A-1", "237-3").unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/articles/DWP-A-1/attachments/237-3?fields=id%2Cname%2Curl%2Csize%2CmimeType%2Ccreated%2Cauthor%28id%2Clogin%2CfullName%29%2Ccomment%28id%29"
+        );
+    }
+
+    #[test]
+    fn delete_issue_attachment_uses_issue_attachment_endpoint() {
+        let client = test_client(vec![r#""#]);
+
+        client.delete_issue_attachment("DWP-12", "8-2897").unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "DELETE");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/attachments/8-2897"
+        );
+    }
+
+    #[test]
+    fn delete_article_attachment_uses_article_attachment_endpoint() {
+        let client = test_client(vec![r#""#]);
+
+        client
+            .delete_article_attachment("DWP-A-1", "237-3")
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "DELETE");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/articles/DWP-A-1/attachments/237-3"
+        );
+    }
+
+    #[test]
+    fn get_issue_comment_with_attachments_requests_attachment_fields() {
+        let client = test_client(vec![
+            r#"{"id":"4-17","text":"Hi","attachments":[{"id":"8-2897","name":"log.txt"}]}"#,
+        ]);
+
+        let comment = client
+            .get_issue_comment_with_attachments("DWP-12", "4-17")
+            .unwrap();
+
+        assert_eq!(comment.attachments.len(), 1);
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request.url.contains("/api/issues/DWP-12/comments/4-17?"));
+        assert!(request.url.contains("attachments%28id%2Cname%2Curl%2Csize%2CmimeType%2Ccreated%2Cauthor%28id%2Clogin%2CfullName%29%2Ccomment%28id%29%29"));
+    }
+
+    #[test]
+    fn download_attachment_file_resolves_relative_urls() {
+        let client = test_client(vec!["file bytes"]);
+
+        let bytes = client
+            .download_attachment_file("/api/files/8-2897?sign=fake")
+            .unwrap();
+
+        assert_eq!(bytes, b"file bytes");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET bytes");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/files/8-2897?sign=fake"
         );
     }
 
