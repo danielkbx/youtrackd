@@ -102,6 +102,9 @@ ytd sprint get <sprint-id>
 ytd sprint create --board <board-id> --name <name> [--json '{...}']
 ytd sprint update <sprint-id> [--name <name>] [--json '{...}']
 ytd sprint delete <sprint-id> [-y]
+ytd sprint ticket list <sprint-id>
+ytd sprint ticket add <sprint-id> <ticket-id>
+ytd sprint ticket remove <sprint-id> <ticket-id>
 ```
 
 ### Output flags (global)
@@ -130,8 +133,9 @@ Comment attachments can be listed, but adding files to existing comments is not 
 
 Sprint IDs returned by `ytd` encode the board because YouTrack sprint operations are board-scoped:
 `<board-id>:<sprint-id>`.
-Use the public `id` field with `ytd sprint get|update|delete`; raw YouTrack sprint IDs may appear only as `ytId`.
+Use the public `id` field with `ytd sprint get|update|delete` and `ytd sprint ticket ...`; raw YouTrack sprint IDs may appear only as `ytId`.
 Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
+Sprint ticket assignment is board-scoped. The public sprint ID must be `<board-id>:<sprint-id>`. `ytd` resolves readable ticket IDs to YouTrack internal issue database IDs before calling the Agile Sprint issues API.
 
 ## Configuration
 

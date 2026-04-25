@@ -81,3 +81,9 @@ Empfohlene Reihenfolge:
 11. `11-visibility-defaults.md` — Visibility-Defaults, `YTD_CONFIG`-Isolation und Override-Reihenfolge
 12. `12-comments.md` — globale Kommentar-Kommandos, kodierte Kommentar-IDs und Kommentar-Visibility (`$VIS_GROUP` erforderlich)
 13. `13-board-crud.md` — Board anlegen, aktualisieren, JSON/stdin-Eingabe, Validierung, löschen
+14. `14-sprint-crud.md` — Sprint anlegen, aktualisieren, listen, current prüfen, löschen
+15. `15-current-sprints.md` — aktuelle Sprints über Boards hinweg und wiederverwendbare sprint-ids
+16. `16-ticket-sprints.md` — Ticket-Sprints lesen und sprint-ids wiederverwenden
+17. `17-sprint-ticket-assignment.md` — sprint ticket list/add/remove mit board-scoped sprint IDs
+
+Sprint ticket assignment journeys must remove assigned tickets from test sprints before deleting the sprint when possible, then delete ticket, sprint, and board.

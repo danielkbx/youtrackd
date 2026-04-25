@@ -157,7 +157,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
             )
             | (
                 "sprint",
-                Some("list" | "current" | "get" | "create" | "update" | "delete")
+                Some("list" | "current" | "get" | "create" | "update" | "delete" | "ticket")
             )
     )
 }
@@ -225,6 +225,7 @@ mod tests {
         assert!(is_known_command("sprint", Some("create")));
         assert!(is_known_command("sprint", Some("update")));
         assert!(is_known_command("sprint", Some("delete")));
+        assert!(is_known_command("sprint", Some("ticket")));
         assert!(is_known_command("ticket", Some("sprints")));
         assert!(!is_known_command("sprint", Some("attach")));
     }

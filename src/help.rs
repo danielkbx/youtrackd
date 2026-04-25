@@ -145,6 +145,9 @@ fn print_global_help() {
             ("sprint create", "Create sprint"),
             ("sprint update <id>", "Update sprint"),
             ("sprint delete <id>", "Delete sprint"),
+            ("sprint ticket list <id>", "List sprint tickets"),
+            ("sprint ticket add <id> <t>", "Add ticket to sprint"),
+            ("sprint ticket remove <id> <t>", "Remove ticket from sprint"),
         ],
     );
 
@@ -358,10 +361,14 @@ fn print_sprint_help() {
   ytd sprint create --board <board-id> --name <name> [--json '...']
   ytd sprint update <sprint-id> [--name <name>] [--json '...']
   ytd sprint delete <sprint-id> [-y]
+  ytd sprint ticket list <sprint-id>
+  ytd sprint ticket add <sprint-id> <ticket-id>
+  ytd sprint ticket remove <sprint-id> <ticket-id>
 
-Use the returned id field with sprint get, update, and delete. The ytId field is the raw YouTrack sprint ID.
+Use the returned id field with sprint get, update, delete, and sprint ticket commands. The ytId field is the raw YouTrack sprint ID.
 Use ytd sprint current to list current sprints across boards, or --board for one board.
 current is not accepted as a sprint-id.
+Sprint ticket commands accept readable ticket IDs and resolve YouTrack internal issue IDs automatically.
 Use --json or stdin for advanced YouTrack sprint fields."
     );
 }

@@ -19,8 +19,9 @@ pub fn run<T: HttpTransport>(
         Some("create") => cmd_create(client, args),
         Some("update") => cmd_update(client, args),
         Some("delete") => cmd_delete(client, args),
+        Some("ticket") => cmd_ticket(client, args, opts),
         _ => Err(YtdError::Input(
-            "Usage: ytd sprint <list|current|get|create|update|delete>".into(),
+            "Usage: ytd sprint <list|current|get|create|update|delete|ticket>".into(),
         )),
     }
 }
@@ -121,6 +122,94 @@ fn cmd_delete<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resu
         client.delete_sprint(&id.board_id, &id.sprint_id)?;
         println!("{encoded}");
     }
+    Ok(())
+}
+
+fn cmd_ticket<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    match args.positional.first().map(|s| s.as_str()) {
+        Some("list") => cmd_ticket_list(client, args, opts),
+        Some("add") => cmd_ticket_add(client, args),
+        Some("remove") => cmd_ticket_remove(client, args),
+        _ => Err(YtdError::Input(
+            "Usage: ytd sprint ticket <list|add|remove>".into(),
+        )),
+    }
+}
+
+fn require_nested_sprint_id(
+    args: &ParsedArgs,
+    index: usize,
+    usage: &str,
+) -> Result<crate::types::ParsedSprintId, YtdError> {
+    let id = args
+        .positional
+        .get(index)
+        .ok_or_else(|| YtdError::Input(usage.into()))?;
+    parse_sprint_id(id)
+}
+
+fn require_nested_ticket_id<'a>(
+    args: &'a ParsedArgs,
+    index: usize,
+    usage: &str,
+) -> Result<&'a str, YtdError> {
+    args.positional
+        .get(index)
+        .map(|s| s.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| YtdError::Input(usage.into()))
+}
+
+fn cmd_ticket_list<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    let id = require_nested_sprint_id(args, 1, "Usage: ytd sprint ticket list <sprint-id>")?;
+    let issues = client.list_sprint_issues(&id.board_id, &id.sprint_id)?;
+    format::print_items(&issues, opts);
+    Ok(())
+}
+
+fn cmd_ticket_add<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+) -> Result<(), YtdError> {
+    let id = require_nested_sprint_id(
+        args,
+        1,
+        "Usage: ytd sprint ticket add <sprint-id> <ticket-id>",
+    )?;
+    let ticket_id = require_nested_ticket_id(
+        args,
+        2,
+        "Usage: ytd sprint ticket add <sprint-id> <ticket-id>",
+    )?;
+    let issue = client.add_issue_to_sprint(&id.board_id, &id.sprint_id, ticket_id)?;
+    println!("{}", issue.id_readable.as_deref().unwrap_or(ticket_id));
+    Ok(())
+}
+
+fn cmd_ticket_remove<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+) -> Result<(), YtdError> {
+    let id = require_nested_sprint_id(
+        args,
+        1,
+        "Usage: ytd sprint ticket remove <sprint-id> <ticket-id>",
+    )?;
+    let ticket_id = require_nested_ticket_id(
+        args,
+        2,
+        "Usage: ytd sprint ticket remove <sprint-id> <ticket-id>",
+    )?;
+    let issue = client.remove_issue_from_sprint(&id.board_id, &id.sprint_id, ticket_id)?;
+    println!("{}", issue.id_readable.as_deref().unwrap_or(ticket_id));
     Ok(())
 }
 
@@ -363,6 +452,91 @@ mod tests {
         let mut parsed = args(&[]);
         parsed.positional = vec!["108-4:current".into()];
         assert!(require_sprint_id(&parsed, "usage").is_err());
+    }
+
+    #[test]
+    fn sprint_ticket_requires_nested_action() {
+        let parsed = ParsedArgs {
+            resource: Some("sprint".into()),
+            action: Some("ticket".into()),
+            positional: vec![],
+            flags: HashMap::new(),
+        };
+
+        assert!(cmd_ticket(
+            &client(),
+            &parsed,
+            &OutputOptions {
+                format: format::Format::Raw,
+                no_meta: false,
+            },
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn sprint_ticket_list_requires_sprint_id() {
+        let parsed = ParsedArgs {
+            resource: Some("sprint".into()),
+            action: Some("ticket".into()),
+            positional: vec!["list".into()],
+            flags: HashMap::new(),
+        };
+
+        assert!(cmd_ticket_list(
+            &client(),
+            &parsed,
+            &OutputOptions {
+                format: format::Format::Raw,
+                no_meta: false,
+            },
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn sprint_ticket_add_requires_ticket_id() {
+        let parsed = ParsedArgs {
+            resource: Some("sprint".into()),
+            action: Some("ticket".into()),
+            positional: vec!["add".into(), "108-4:113-6".into()],
+            flags: HashMap::new(),
+        };
+
+        assert!(cmd_ticket_add(&client(), &parsed).is_err());
+    }
+
+    #[test]
+    fn sprint_ticket_remove_requires_ticket_id() {
+        let parsed = ParsedArgs {
+            resource: Some("sprint".into()),
+            action: Some("ticket".into()),
+            positional: vec!["remove".into(), "108-4:113-6".into()],
+            flags: HashMap::new(),
+        };
+
+        assert!(cmd_ticket_remove(&client(), &parsed).is_err());
+    }
+
+    #[test]
+    fn sprint_ticket_commands_reject_current_sprint_id() {
+        for action in ["list", "add", "remove"] {
+            let parsed = ParsedArgs {
+                resource: Some("sprint".into()),
+                action: Some("ticket".into()),
+                positional: vec![action.into(), "108-4:current".into(), "DWP-1".into()],
+                flags: HashMap::new(),
+            };
+            assert!(cmd_ticket(
+                &client(),
+                &parsed,
+                &OutputOptions {
+                    format: format::Format::Raw,
+                    no_meta: false,
+                },
+            )
+            .is_err());
+        }
     }
 
     #[test]

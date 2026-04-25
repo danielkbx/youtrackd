@@ -74,6 +74,7 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Sprint CRUD | `14-sprint-crud.md` | sprint create/update/get/list/delete/current, JSON input, sprint-id validation |
 | Current Sprints | `15-current-sprints.md` | sprint current across all boards and reusable sprint IDs |
 | Ticket Sprints | `16-ticket-sprints.md` | ticket sprints output and reusable sprint IDs |
+| Sprint Ticket Assignment | `17-sprint-ticket-assignment.md` | sprint ticket list/add/remove, board-scoped sprint IDs, duplicate add, remove errors |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
 Boards per `board delete -y` löschen.
@@ -88,6 +89,8 @@ When extending the ticket/article journeys, include visibility coverage for inhe
 **Attachment IDs**: Any command that exposes attachment objects must return a reusable encoded `id` accepted by `ytd attachment get|delete|download`. Raw YouTrack attachment IDs may appear only as `ytId`.
 
 **Sprint IDs**: Any command that exposes sprint objects must return a reusable sprint-id in `id` using `<board-id>:<sprint-id>`, accepted by `ytd sprint get|update|delete`. Raw YouTrack sprint IDs may appear only as `ytId`.
+
+**Sprint ticket assignment**: Use encoded public sprint IDs in the form `<board-id>:<sprint-id>`. Tests must verify that removing from one sprint does not assume anything about other board sprint assignments returned by `ticket sprints`.
 
 **Comment visibility**: Journey 12 requires `$VIS_GROUP`. It must verify that comment creation applies defaults, `comment update` without visibility flags preserves existing visibility, `--no-visibility-group` clears it, and `--visibility-group` sets it again.
 

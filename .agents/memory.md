@@ -78,3 +78,22 @@ YouTrack attachment get/delete endpoints are scoped to tickets or articles, even
 ## Implementierung: Sprint IDs are board-scoped
 Date: 2026-04-24
 YouTrack sprint get/update/delete endpoints are scoped under Agile boards: `/api/agiles/{agileID}/sprints/{sprintID}`. `ytd` therefore exposes sprint IDs as `<board-id>:<sprint-id>`. The public `id` field for CLI sprint output must always use this sprint-id, while the raw YouTrack sprint ID may only appear as `ytId`. `current` is intentionally not accepted as a sprint-id; use `ytd sprint current` or `ytd sprint current --board <board-id>` to resolve current sprints to real IDs.
+
+## YouTrack API: Sprint ticket assignment is Agile/Sprint-scoped
+Date: 2026-04-25
+
+Verified against DWP. Adding an issue to a sprint uses:
+
+`POST /api/agiles/{agileID}/sprints/{sprintID}/issues`
+
+with body:
+
+`{"id":"<issue-database-id>","$type":"Issue"}`
+
+The readable issue ID (`DWP-28`) is not accepted in this body; YouTrack expects the internal issue database ID (`2-14318`). `$type` is accepted but the database ID is the important part.
+
+Removing an issue from a sprint uses:
+
+`DELETE /api/agiles/{agileID}/sprints/{sprintID}/issues/{issueDatabaseID}`
+
+`POST /api/issues/{issueID}/sprints` returned HTTP 405, so issue-scoped sprint writes are not supported. Duplicate add returned HTTP 200. Removing an unassigned issue returned HTTP 404. A ticket can appear in sprints on multiple boards, so CLI write commands must require the encoded public sprint ID `<board-id>:<sprint-id>`.

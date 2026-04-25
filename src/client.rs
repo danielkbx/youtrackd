@@ -925,6 +925,8 @@ impl<T: HttpTransport> YtClient<T> {
     const AGILE_DETAIL_FIELDS: &'static str = "id,name,owner(id,login,fullName),projects(id,shortName,name),currentSprint(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),sprints(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),orphansAtTheTop,hideOrphansSwimlane,estimationField(id,name),originalEstimationField(id,name)";
     const SPRINT_FIELDS: &'static str =
         "id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount";
+    const SPRINT_ISSUES_FIELDS: &'static str = "id,name,issues(id,idReadable,summary,resolved)";
+    const ISSUE_REF_FIELDS: &'static str = "id,idReadable,summary";
     const ISSUE_SPRINT_FIELDS: &'static str =
         "id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount,agile(id,name)";
 
@@ -1025,6 +1027,57 @@ impl<T: HttpTransport> YtClient<T> {
             &format!("/issues/{issue_id}/sprints"),
             &[("fields", Self::ISSUE_SPRINT_FIELDS), ("$top", "500")],
         )
+    }
+
+    pub fn get_issue_ref(&self, issue_id: &str) -> Result<Issue, YtdError> {
+        self.get(
+            &format!("/issues/{issue_id}"),
+            &[("fields", Self::ISSUE_REF_FIELDS)],
+        )
+    }
+
+    pub fn list_sprint_issues(
+        &self,
+        agile_id: &str,
+        sprint_id: &str,
+    ) -> Result<Vec<Issue>, YtdError> {
+        let sprint: Sprint = self.get(
+            &format!("/agiles/{agile_id}/sprints/{sprint_id}"),
+            &[("fields", Self::SPRINT_ISSUES_FIELDS)],
+        )?;
+        Ok(sprint.issues)
+    }
+
+    pub fn add_issue_to_sprint(
+        &self,
+        agile_id: &str,
+        sprint_id: &str,
+        issue_id: &str,
+    ) -> Result<Issue, YtdError> {
+        let issue = self.get_issue_ref(issue_id)?;
+        let body = serde_json::json!({
+            "id": issue.id,
+            "$type": "Issue",
+        });
+        self.post(
+            &format!("/agiles/{agile_id}/sprints/{sprint_id}/issues"),
+            &body,
+            &[("fields", Self::ISSUE_REF_FIELDS)],
+        )
+    }
+
+    pub fn remove_issue_from_sprint(
+        &self,
+        agile_id: &str,
+        sprint_id: &str,
+        issue_id: &str,
+    ) -> Result<Issue, YtdError> {
+        let issue = self.get_issue_ref(issue_id)?;
+        self.delete(&format!(
+            "/agiles/{agile_id}/sprints/{sprint_id}/issues/{}",
+            issue.id
+        ))?;
+        Ok(issue)
     }
 }
 
@@ -1339,6 +1392,78 @@ mod tests {
             .starts_with("https://test.youtrack.cloud/api/issues/DWP-1/sprints?fields="));
         assert!(request.url.contains("agile%28id%2Cname%29"));
         assert!(request.url.contains("%24top=500"));
+    }
+
+    #[test]
+    fn list_sprint_issues_gets_issues_from_board_sprint() {
+        let client = test_client(vec![
+            r#"{"id":"113-6","name":"Sprint 1","issues":[{"id":"2-1","idReadable":"DWP-1","summary":"Issue"}]}"#,
+        ]);
+
+        let issues = client.list_sprint_issues("108-4", "113-6").unwrap();
+
+        assert_eq!(issues[0].id, "2-1");
+        assert_eq!(issues[0].id_readable.as_deref(), Some("DWP-1"));
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles/108-4/sprints/113-6?fields="));
+        assert!(request
+            .url
+            .contains("issues%28id%2CidReadable%2Csummary%2Cresolved%29"));
+    }
+
+    #[test]
+    fn add_issue_to_sprint_resolves_issue_database_id() {
+        let client = test_client(vec![
+            r#"{"id":"2-1","idReadable":"DWP-1","summary":"Issue"}"#,
+            r#"{"id":"2-1","idReadable":"DWP-1","summary":"Issue"}"#,
+        ]);
+
+        let issue = client
+            .add_issue_to_sprint("108-4", "113-6", "DWP-1")
+            .unwrap();
+
+        assert_eq!(issue.id, "2-1");
+        let lookup = client.transport.request(0);
+        assert_eq!(lookup.method, "GET");
+        assert!(lookup
+            .url
+            .starts_with("https://test.youtrack.cloud/api/issues/DWP-1?fields="));
+        let add = client.transport.request(1);
+        assert_eq!(add.method, "POST");
+        assert!(add.url.starts_with(
+            "https://test.youtrack.cloud/api/agiles/108-4/sprints/113-6/issues?fields="
+        ));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&add.body.unwrap()).unwrap(),
+            serde_json::json!({"id":"2-1","$type":"Issue"})
+        );
+    }
+
+    #[test]
+    fn remove_issue_from_sprint_resolves_issue_database_id() {
+        let client = test_client(vec![
+            r#"{"id":"2-1","idReadable":"DWP-1","summary":"Issue"}"#,
+        ]);
+
+        let issue = client
+            .remove_issue_from_sprint("108-4", "113-6", "DWP-1")
+            .unwrap();
+
+        assert_eq!(issue.id, "2-1");
+        let lookup = client.transport.request(0);
+        assert_eq!(lookup.method, "GET");
+        assert!(lookup
+            .url
+            .starts_with("https://test.youtrack.cloud/api/issues/DWP-1?fields="));
+        let delete = client.transport.request(1);
+        assert_eq!(delete.method, "DELETE");
+        assert_eq!(
+            delete.url,
+            "https://test.youtrack.cloud/api/agiles/108-4/sprints/113-6/issues/2-1"
+        );
     }
 
     #[test]

@@ -29,7 +29,7 @@ src/
     tag.rs          ← tag list (client-side project filter)
     search.rs       ← saved search list/run
     board.rs        ← agile board list/get/create/update/delete (client-side project filter)
-    sprint.rs       ← sprint list/current/get/create/update/delete (board-scoped sprint IDs)
+    sprint.rs       ← sprint list/current/get/create/update/delete and nested sprint ticket list/add/remove (board-scoped sprint IDs)
 ```
 
 ## Module Boundary
@@ -96,3 +96,11 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 - Always set `$top` explicitly (server default is 42)
 - Attachments: manual multipart/form-data body building; downloads use signed attachment `url` values
 - Errors: HTTP status + detail to stderr, exit non-zero
+
+Sprint ticket membership uses an Agile/Sprint-scoped API:
+
+- Add: `POST /api/agiles/{agileID}/sprints/{sprintID}/issues`
+- Remove: `DELETE /api/agiles/{agileID}/sprints/{sprintID}/issues/{issueDatabaseID}`
+- List: `GET /api/agiles/{agileID}/sprints/{sprintID}?fields=issues(...)`
+
+The CLI accepts readable ticket IDs but the client resolves them to internal issue database IDs before add/remove.

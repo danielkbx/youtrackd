@@ -163,6 +163,9 @@ ytd sprint get <sprint-id>
 ytd sprint create --board <board-id> --name <name> [--json '{...}']
 ytd sprint update <sprint-id> [--name <name>] [--json '{...}']
 ytd sprint delete <sprint-id> [-y]
+ytd sprint ticket list <sprint-id>
+ytd sprint ticket add <sprint-id> <ticket-id>
+ytd sprint ticket remove <sprint-id> <ticket-id>
 ```
 
 Board commands use YouTrack's Agile API. For existing boards, `get`, `update`, and `delete` require only the board ID. For `create`, YouTrack requires a board name and at least one project; `--project` accepts project short names or database IDs.
@@ -173,7 +176,17 @@ Sprint commands use board-scoped YouTrack Agile endpoints. Sprint IDs returned b
 <board-id>:<sprint-id>
 ```
 
-Use the returned `id` field with `ytd sprint get|update|delete`. The `ytId` field is the raw YouTrack sprint ID. Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
+Use the returned `id` field with `ytd sprint get|update|delete` and `ytd sprint ticket ...`. The `ytId` field is the raw YouTrack sprint ID. Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
+
+Sprint ticket assignment commands use the same board-scoped sprint IDs:
+
+```bash
+ytd sprint ticket list 108-4:113-6
+ytd sprint ticket add 108-4:113-6 DWP-28
+ytd sprint ticket remove 108-4:113-6 DWP-28
+```
+
+YouTrack requires the internal issue database ID for sprint assignment, but `ytd` accepts readable ticket IDs such as `DWP-28` and resolves them automatically. A ticket can be assigned to sprints on multiple boards. `sprint ticket remove` removes only the assignment for the exact board-scoped sprint ID you pass.
 
 ## Output Flags
 
@@ -374,9 +387,23 @@ Example:
 108-4:113-6
 ```
 
-Use the `id` field returned by `ytd sprint list`, `ytd sprint current`, `ytd sprint create`, or `ytd ticket sprints` with `ytd sprint get|update|delete`. The `ytId` field is only the raw YouTrack sprint ID and is included for reference.
+Use the `id` field returned by `ytd sprint list`, `ytd sprint current`, `ytd sprint create`, or `ytd ticket sprints` with `ytd sprint get|update|delete` and `ytd sprint ticket ...`. The `ytId` field is only the raw YouTrack sprint ID and is included for reference.
 
 `current` is not a valid sprint-id. Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board.
+
+### Sprint Ticket Assignment
+
+Sprint ticket operations are scoped to a specific Agile board sprint. Use the public sprint ID returned by `ytd sprint` commands:
+
+```bash
+ytd sprint ticket list 108-4:113-6
+ytd sprint ticket add 108-4:113-6 DWP-28
+ytd sprint ticket remove 108-4:113-6 DWP-28
+```
+
+YouTrack requires the internal issue database ID for sprint assignment, but `ytd` accepts readable ticket IDs such as `DWP-28` and resolves them automatically.
+
+A ticket can be assigned to sprints on multiple boards. `sprint ticket remove` removes only the assignment for the exact board-scoped sprint ID you pass.
 
 ### Comment visibility
 
