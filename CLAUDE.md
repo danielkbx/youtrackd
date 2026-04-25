@@ -1,48 +1,51 @@
-# ytd — YouTrack CLI
+# ytd - YouTrack CLI
 
-A CLI tool for reading and editing YouTrack tickets and knowledge base articles. Designed for both human and AI-agent use, with compact output to minimize context window usage.
-
-## Project Status
-
-Implemented in Rust. All commands functional, Rust test suite passing, binary builds to ~1.3 MB.
+`ytd` is a Rust CLI for reading and editing YouTrack tickets, knowledge base articles, comments, attachments, users, projects, tags, saved searches, Agile boards, sprints, time tracking, and local ticket aliases. It is designed for humans and AI agents, with compact text output and stable normalized JSON.
 
 ## Architecture
 
-```
+```text
 src/
-  main.rs         ← entry point, command routing
-  args.rs         ← argument parsing
-  client.rs       ← HTTP transport trait + YouTrack API client
-  config.rs       ← credential resolution + storage
-  duration.rs     ← duration parsing (30m, 1h, 2h30m)
-  error.rs        ← error types
-  format.rs       ← output formatting (text/JSON/metadata)
-  help.rs         ← help system
-  input.rs        ← JSON input handling
-  types.rs        ← all data structures
-  commands/       ← command handlers (one file per resource)
-user-journeys/    ← end-to-end test scripts for AI agents
-.agents/          ← project context files
+  main.rs         entry point, command routing, command validation
+  args.rs         handwritten argument parsing
+  client.rs       HTTP transport trait and YouTrack API client
+  config.rs       credential resolution and local settings
+  duration.rs     duration parsing
+  error.rs        error types
+  format.rs       output formatting
+  help.rs         help text
+  input.rs        JSON input handling
+  types.rs        shared data structures
+  commands/       command handlers
+user-journeys/    end-to-end test scripts for AI agents
+.agents/          maintainer and agent context
 ```
 
-Core logic (client, config, types) has no CLI dependencies. Command handlers in `commands/` own formatting and I/O. Boundary enforced by Rust module visibility.
+Core modules (`client.rs`, `config.rs`, `types.rs`, `error.rs`) must not depend on CLI command handlers. Command handlers own stdout, stderr, prompts, and command-specific formatting decisions.
 
 ## Tech Stack
 
-- **Language**: Rust
-- **HTTP**: ureq 3 (sync, no async runtime)
-- **JSON**: serde + serde_json
-- **Build**: `cargo build --release` → standalone binary (~1.3 MB)
-- **Distribution**: Binary via GitHub Releases
-- **Auth**: YouTrack Permanent Token
-- **Config**: `~/.config/ytd/config.json` (XDG)
+- Language: Rust 2021
+- HTTP: `ureq` 3, synchronous
+- JSON: `serde` and `serde_json`
+- Markdown-to-terminal rendering: `termimad`
+- Config path: `~/.config/ytd/config.json`, overridden by `YTD_CONFIG`
+- Auth: YouTrack permanent token
+- Distribution: standalone release binary and Homebrew formula
 
-## Commands
+## Command Surface
 
-```
+```text
 ytd help / ytd help <command> / ytd <command> help
 ytd login / logout / whoami
+ytd url <target>
+ytd open <target>
 ytd skill [--scope brief|standard|full] [--project <project>]
+
+ytd config set visibility-group <group>
+ytd config get visibility-group
+ytd config unset visibility-group
+ytd group list
 
 ytd project list
 ytd project get <id>
@@ -71,7 +74,7 @@ ytd ticket comment <id> <text> [--visibility-group <group> | --no-visibility-gro
 ytd ticket comments <id>
 ytd ticket tag <id> <tag>
 ytd ticket untag <id> <tag>
-ytd ticket link <id> <target> [--type <t>]
+ytd ticket link <id> <target> [--type <type>]
 ytd ticket links <id>
 ytd ticket attach <id> <file>
 ytd ticket attachments <id>
@@ -79,7 +82,7 @@ ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
 ytd ticket worklog <id>
 ytd ticket set <id> <field> <value>
 ytd ticket fields <id>
-ytd ticket history <id> [--category <cat>]
+ytd ticket history <id> [--category <category>]
 ytd ticket sprints <id>
 ytd ticket delete <id> [-y]
 
@@ -101,11 +104,13 @@ ytd <alias> list [--all]
 ytd tag list [--project <id>]
 ytd search list [--project <id>]
 ytd search run <name-or-id>
+
 ytd board list [--project <id>]
 ytd board get <id>
 ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
 ytd board update <id> [--name <name>] [--json '{...}']
 ytd board delete <id> [-y]
+
 ytd sprint list [--board <board-id>]
 ytd sprint current [--board <board-id>]
 ytd sprint get <sprint-id>
@@ -117,62 +122,61 @@ ytd sprint ticket add <sprint-id> <ticket-id>
 ytd sprint ticket remove <sprint-id> <ticket-id>
 ```
 
-### Output flags (global)
+## Public CLI Contracts
 
-| Flag | Default | Description |
-|---|---|---|
-| `--format json` | — | ytd-normalized JSON output (same data model as text) |
-| `--format raw` | — | YouTrack API JSON, as original as possible |
-| `--format text` | ✓ | Plain text; Markdown content is rendered as readable terminal text, including ASCII tables |
-| `--format md` | — | Markdown (H1 title + body + comments) |
-| `--no-meta` | — | Suppress metadata (IDs, dates, author) |
-| `-y` | — | Confirm delete without prompting |
+Public command behavior is governed by `.agents/io-consistency.md`.
 
-Create/update commands output only the ID on stdout (pipeable).
-JSON input via `--json '{...}'` or stdin. Stdin takes precedence.
-`--format` accepts only `text`, `raw`, `json`, or `md`; unknown values are input errors.
-Delete commands ask for confirmation when interactive. Non-interactive delete requires `-y`.
-`search list --project <id>` filters saved searches by project reference in the saved query text.
-Input/output consistency rules are documented in `.agents/io-consistency.md`; public CLI changes should follow that checklist.
+- Validate command names and global output formats before loading auth config.
+- Support `ytd help <command>` and `ytd <command> help`.
+- Supported formats are exactly `text`, `json`, `raw`, and `md`.
+- `text` is default and optimized for humans and AI-agent context windows.
+- `json` is the stable ytd-normalized scripting format.
+- `raw` is YouTrack API-shaped JSON.
+- `md` is Markdown export where supported.
+- `--no-meta` suppresses metadata fields where applicable.
+- Successful data goes to stdout; errors, prompts, and diagnostics go to stderr.
+- Tokens and credentials must never be printed.
+- Create/update/delete commands that return one changed resource print only its reusable public ID on stdout.
+- Delete commands require interactive `yes` or `-y`; non-interactive delete without `-y` must not mutate.
 
-`ytd skill` is Markdown-first and prints current SKILL.md guidance for AI agents. Agents can run it themselves instead of relying on stale checked-in instructions. Without `--project`, it requires no login; with `--project`, it resolves the project through YouTrack and embeds project-specific context/examples, including ticket/article ID examples based on the resolved short name. `ytd skill` accepts `--format text` and `--format md`; `--format json` and `--format raw` are rejected. Generated skills prefer `--format json` for agent automation, remind agents to use `ytd help` / `ytd help <command>` before guessing command details, and include the ytd version plus a regeneration command preserving the same project/no-project shape and effective scope.
+## Public IDs
 
-Ticket text output is specialized: `ticket search`, `ticket list`, `search run`, and `sprint ticket list` render compact ticket rows with ID, summary, project, important custom fields, and updated/resolved state. `ticket get` renders a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `--format text` renders Markdown content fields (`content`, `description`, `text`) as readable terminal text with ASCII tables and prints those content fields last after a blank line, without a field label. `--no-comments` omits comments from text, json, raw, and md output. `article get` also accepts `--no-comments`. `ticket links` renders linked issues with the same compact ticket fields. Use `--format json` for stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
+Any CLI-facing `id` must be reusable as input to the corresponding command. Raw YouTrack IDs, when exposed, use `ytId`.
 
-The unlabeled Markdown content layout applies to `article get`, `article search` and `article list` when content is included, `article comments`, `ticket comments`, `comment get`, `ticket history` activity text, and future text output with `content`, `description`, or `text` fields. `ticket get` uses the same layout for its description; embedded ticket comments remain after the parent description.
+| Resource | Public ID |
+|---|---|
+| Ticket | readable issue ID, for example `DWP-28` |
+| Article | readable article ID, for example `DWP-A-1` |
+| Comment | `<ticket-id>:<comment-id>` or `<article-id>:<comment-id>` |
+| Attachment | `<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>` |
+| Sprint | `<board-id>:<sprint-id>` |
 
-Ticket issue outputs expose the reusable ticket ID as `id` (for example `<PROJECT>-<NUMBER>`). Raw YouTrack database IDs, when included, are exposed as `ytId`; ticket issue outputs do not expose `idReadable`.
+Normalized ticket and article outputs do not expose `idReadable`.
 
-Article outputs expose the reusable article ID as `id` (for example `<PROJECT>-A-<NUMBER>`). Raw YouTrack database IDs, when included, are exposed as `ytId`; article outputs do not expose `idReadable`.
+## Text Output
 
-Comment IDs returned by `ytd` encode the parent resource because YouTrack comment operations are parent-scoped:
-`<ticket-id>:<comment-id>` or `<article-id>:<comment-id>`.
-`ytd` infers the parent type from the parent ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, tickets use `<PROJECT>-<NUMBER>`.
-Use the public `id` field with `ytd comment ...`; raw YouTrack comment IDs may appear only as `ytId`.
-Ticket/article creates and new comments apply configured visibility defaults. Ticket/article/comment updates preserve existing visibility unless `--visibility-group` or `--no-visibility-group` is passed explicitly.
+- Markdown content fields (`content`, `description`, `text`) render as readable terminal text in `--format text`.
+- Content fields print after metadata and scalar fields, separated by a blank line, without a field label.
+- `ticket search`, `ticket list`, `search run`, `sprint ticket list`, and linked ticket text output use compact ticket rows.
+- `ticket get` uses a detail report: title, status/custom fields, metadata, blank line, description, then comments.
+- `--no-comments` removes comments from every supported format for commands that document it.
 
-Attachment IDs returned by `ytd` also encode the parent resource because YouTrack attachment operations are parent-scoped:
-`<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>`.
-Use the public `id` field with `ytd attachment ...`; raw YouTrack attachment IDs may appear only as `ytId`.
-Comment attachments can be listed, but adding files to existing comments is not implemented because the verified REST API flow does not assign uploaded parent attachments to comments.
+## Visibility
 
-Sprint IDs returned by `ytd` encode the board because YouTrack sprint operations are board-scoped:
-`<board-id>:<sprint-id>`.
-Use the public `id` field with `ytd sprint get|update|delete` and `ytd sprint ticket ...`; raw YouTrack sprint IDs may appear only as `ytId`.
-Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
-Sprint ticket assignment is board-scoped. The public sprint ID must be `<board-id>:<sprint-id>`. `ytd` resolves readable ticket IDs to YouTrack internal issue database IDs before calling the Agile Sprint issues API.
+- `ticket create`, `article create`, `ticket comment`, and `article comment` apply configured visibility defaults.
+- Default precedence for creates and new comments is CLI flag, then `YTD_VISIBILITY_GROUP`, then stored `visibilityGroup`.
+- `--no-visibility-group` suppresses inherited defaults on creates and new comments.
+- `ticket update`, `article update`, and `comment update` preserve existing visibility unless an explicit visibility flag is passed.
+- `--visibility-group <group>` sets limited visibility.
+- `--no-visibility-group` clears visibility on updates.
+- Combining `--visibility-group` and `--no-visibility-group` is an input error.
 
-Aliases are local config entries for dynamic ticket workflows. `alias create` stores only IDs under `aliases`, for example:
-`{ "aliases": { "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" }, "backlog": { "project": "0-96", "user": "1-51" } } }`.
-The `sprint` field is optional and omitted when none; `--sprint none` clears/omits it. `alias list` is config-backed, not YouTrack API-backed, so `--format json` and `--format raw` intentionally return the same alias data model. Dynamic alias commands are the deliberate exception to command-name validation before config loading: after checking built-in commands, `ytd` may read local config to resolve `ytd <alias> ...`. Dynamic alias listing (`ytd <alias> list [--all]`) uses the shared compact ticket formatter and must match `ticket list` output.
+## Aliases
 
-## Configuration
+Aliases are local config entries under `aliases`, not YouTrack resources. Stored alias values keep only IDs:
 
 ```json
-~/.config/ytd/config.json
 {
-  "url": "https://your-instance.youtrack.cloud",
-  "token": "perm:...",
   "aliases": {
     "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" },
     "backlog": { "project": "0-96", "user": "1-51" }
@@ -180,32 +184,50 @@ The `sprint` field is optional and omitted when none; `--sprint none` clears/omi
 }
 ```
 
-File permissions: `600` (set atomically via `OpenOptionsExt::mode`).
+The `sprint` key is optional. `alias create --sprint none` omits or clears it. `alias list` is config-backed, so `--format json` and `--format raw` intentionally return the same local alias model.
 
-Also readable from env: `YOUTRACK_URL`, `YOUTRACK_TOKEN` (takes precedence over config file).
+Dynamic alias commands are the exception to command-name validation before config loading: after checking built-in commands, `main.rs` may read local config to resolve `ytd <alias> create` and `ytd <alias> list`.
 
-Credential resolution order: env vars → config file → error ("Not logged in. Run `ytd login`.").
+## Agent Skill Generation
 
-Custom config path via `YTD_CONFIG` env var (overrides XDG path):
-```bash
-# Multiple YouTrack instances via shell aliases
-alias ytd-work='YTD_CONFIG=~/.config/ytd/work.json ytd'
-alias ytd-oss='YTD_CONFIG=~/.config/ytd/oss.json ytd'
+`ytd skill` prints generated SKILL.md guidance for AI agents.
+
+- Without `--project`, it must not require login.
+- With `--project`, it resolves the project and embeds project-specific ticket/article examples.
+- It accepts `--format text` and `--format md`.
+- It rejects `--format json` and `--format raw`.
+- Generated skills include the ytd version, regeneration command, JSON-first automation guidance, and reminders to use `ytd help`, `ytd help <command>`, or `ytd <command> help`.
+
+## Configuration
+
+Config file:
+
+```text
+~/.config/ytd/config.json
 ```
 
-## Core Principles
+Environment variables:
 
-### Think Before Coding
-Don't assume. Don't hide confusion. Surface tradeoffs. State assumptions explicitly. Ask clarifying questions before implementing.
+| Variable | Purpose |
+|---|---|
+| `YTD_CONFIG` | Custom config path |
+| `YTD_VISIBILITY_GROUP` | Default visibility group for creates and new comments |
+| `YOUTRACK_URL` | Override config URL |
+| `YOUTRACK_TOKEN` | Override config token |
+| `YOUTRACK_TEST_URL` | Integration test target |
+| `YOUTRACK_TEST_TOKEN` | Integration test token |
+| `YOUTRACK_TEST_PROJECT` | Integration test project ID |
 
-### Simplicity First
-Minimum code that solves the problem. Nothing speculative. No unrequested features, no single-use abstractions, no impossible error handling.
+Credential resolution order is env vars, then config file, then an input error telling the user to run `ytd login`.
 
-### Surgical Changes
-Touch only what you must. Clean up only your own mess. Match existing style. Every changed line must trace to the user's request.
+## YouTrack API Notes
 
-### Goal-Driven Execution
-Define success criteria before coding. Write tests before fixes. Verify refactored code still passes. Loop until verified.
+- Base URL strips trailing slash and appends `/api`.
+- Requests use `Authorization: Bearer <token>` and `Accept: application/json`.
+- API calls should request explicit `fields`.
+- List calls should set `$top` explicitly.
+- Attachments use parent-scoped endpoints; downloads use signed attachment URLs.
+- Sprint ticket assignment uses Agile/Sprint-scoped endpoints and resolves readable ticket IDs to internal issue database IDs.
 
 ## Agent Files
 
@@ -213,8 +235,18 @@ Read these files at the start of any non-trivial task:
 
 | File | Contents |
 |---|---|
-| `.agents/architect.md` | Directory structure, module boundary, plugin setup |
-| `.agents/reviewer.md` | Code review standards and report format |
+| `.agents/architect.md` | Directory structure, module boundaries, command wiring |
+| `.agents/io-consistency.md` | Public CLI contracts |
+| `.agents/reviewer.md` | Code review standards |
 | `.agents/tester.md` | Test types, conventions, user journeys |
-| `.agents/memory.md` | Discovered API quirks and decisions not in the code |
-| `.agents/process.md` | Tooling commands, commit rules, branching, env vars |
+| `.agents/memory.md` | Non-obvious YouTrack API quirks and durable external facts |
+| `.agents/process.md` | Tooling commands, commit rules, env vars |
+
+## Development Rules
+
+- Prefer the existing style and helper APIs.
+- Keep public behavior aligned across `src/help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys.
+- Core modules must stay independent from command handlers.
+- For public CLI changes, update tests and `.agents/io-consistency.md`.
+- Stage specific files; never use `git add .`.
+- Do not commit tokens, `.env`, or `target/`.

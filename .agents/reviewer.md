@@ -2,7 +2,7 @@
 
 ## Non-negotiable
 
-- Core must not import from `src/cli/` — check every new import
+- Core modules must not import from `src/commands/` — check every new import
 - Tokens and credentials must never appear in logs, errors, or stdout
 - Create/update commands print only the resource ID on stdout (nothing else)
 - Errors go to stderr, exit code non-zero

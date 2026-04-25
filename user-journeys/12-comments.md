@@ -33,7 +33,7 @@ ytd article create --project $PROJECT --json '{"summary": "[YTD-TEST] Comment Jo
 ### 3. Ticket-Kommentar erstellen
 
 ```
-env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd ticket comment $TICKET_ID "[YTD-TEST] **Ticket-Kommentar** initial"
+env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd ticket comment $TICKET_ID "[YTD-TEST] **Ticket-Kommentar** erstellt"
 ```
 
 **Erwartung**: Exit-Code 0. Der Kommentar übernimmt die Default-Visibility aus `$VIS_GROUP`.
@@ -41,7 +41,7 @@ env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd ticket comment $TICKET_ID "[YTD-TEST] 
 ### 4. Artikel-Kommentar erstellen
 
 ```
-env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd article comment $ARTICLE_ID "[YTD-TEST] Artikel-Kommentar initial"
+env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd article comment $ARTICLE_ID "[YTD-TEST] Artikel-Kommentar erstellt"
 ```
 
 **Erwartung**: Exit-Code 0. Der Kommentar übernimmt die Default-Visibility aus `$VIS_GROUP`.
@@ -52,7 +52,7 @@ env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd article comment $ARTICLE_ID "[YTD-TEST
 ytd ticket comments $TICKET_ID --format json
 ```
 
-**Erwartung**: Valides JSON-Array. Ein Kommentar enthält `[YTD-TEST] **Ticket-Kommentar** initial`.
+**Erwartung**: Valides JSON-Array. Ein Kommentar enthält `[YTD-TEST] **Ticket-Kommentar** erstellt`.
 
 Für diesen Kommentar gilt:
 - `id` beginnt mit `$TICKET_ID:`
@@ -68,7 +68,7 @@ Für diesen Kommentar gilt:
 ytd article comments $ARTICLE_ID --format json
 ```
 
-**Erwartung**: Valides JSON-Array. Ein Kommentar enthält `[YTD-TEST] Artikel-Kommentar initial`.
+**Erwartung**: Valides JSON-Array. Ein Kommentar enthält `[YTD-TEST] Artikel-Kommentar erstellt`.
 
 Für diesen Kommentar gilt:
 - `id` beginnt mit `$ARTICLE_ID:`
@@ -84,7 +84,7 @@ Für diesen Kommentar gilt:
 ytd comment get $TICKET_COMMENT_ID --format json
 ```
 
-**Erwartung**: `id` entspricht `$TICKET_COMMENT_ID`, `parentType` ist `ticket`, `parentId` ist `$TICKET_ID`, `text` enthält `[YTD-TEST] **Ticket-Kommentar** initial`.
+**Erwartung**: `id` entspricht `$TICKET_COMMENT_ID`, `parentType` ist `ticket`, `parentId` ist `$TICKET_ID`, `text` enthält `[YTD-TEST] **Ticket-Kommentar** erstellt`.
 
 Die `visibility.permittedGroups` enthält `$VIS_GROUP`.
 
@@ -92,7 +92,7 @@ Die `visibility.permittedGroups` enthält `$VIS_GROUP`.
 ytd comment get $TICKET_COMMENT_ID
 ```
 
-**Erwartung**: Text-Output zeigt den Kommentartext als Plain Text, also `[YTD-TEST] Ticket-Kommentar initial` ohne `**`, und der Text steht nach den Metadaten.
+**Erwartung**: Text-Output zeigt den Kommentartext als Plain Text, also `[YTD-TEST] Ticket-Kommentar erstellt` ohne `**`, und der Text steht nach den Metadaten.
 
 ### 8. Artikel-Kommentar per globalem Command abrufen
 
@@ -100,7 +100,7 @@ ytd comment get $TICKET_COMMENT_ID
 ytd comment get $ARTICLE_COMMENT_ID --format json
 ```
 
-**Erwartung**: `id` entspricht `$ARTICLE_COMMENT_ID`, `parentType` ist `article`, `parentId` ist `$ARTICLE_ID`, `text` enthält `[YTD-TEST] Artikel-Kommentar initial`.
+**Erwartung**: `id` entspricht `$ARTICLE_COMMENT_ID`, `parentType` ist `article`, `parentId` ist `$ARTICLE_ID`, `text` enthält `[YTD-TEST] Artikel-Kommentar erstellt`.
 
 Die `visibility.permittedGroups` enthält `$VIS_GROUP`.
 

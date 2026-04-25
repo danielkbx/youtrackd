@@ -17,6 +17,10 @@ src/
   commands/
     mod.rs          ← module declarations + shared command helpers
     config.rs       ← stored non-auth settings (visibility-group)
+    open_target.rs  ← shared web target parsing for open/url
+    open.rs         ← open YouTrack web URL in default browser
+    url.rs          ← print YouTrack web URL
+    visibility.rs   ← shared visibility flag/default handling
     group.rs        ← group list
     login.rs        ← interactive login flow
     logout.rs       ← clear credentials

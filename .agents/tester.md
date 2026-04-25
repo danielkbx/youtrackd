@@ -87,6 +87,8 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Custom Fields | `07-custom-fields.md` | ticket fields/set |
 | Searches & Boards | `08-search-and-boards.md` | search list/run, board list/get |
 | History | `09-history.md` | ticket history |
+| API Compatibility Guard | `10-api-compat-guard.md` | risky YouTrack API assumptions and server behavior |
+| Visibility Defaults | `11-visibility-defaults.md` | visibility config, env, CLI precedence, update preservation |
 | Kommentare | `12-comments.md` | ticket/article comments, global comment get/update/delete/attachments, encoded comment IDs |
 | Board CRUD | `13-board-crud.md` | board create/update/get/list/delete, JSON/stdin input, validation |
 | Sprint CRUD | `14-sprint-crud.md` | sprint create/update/get/list/delete/current, JSON input, sprint-id validation |

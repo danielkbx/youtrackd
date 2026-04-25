@@ -87,5 +87,7 @@ Empfohlene Reihenfolge:
 15. `15-current-sprints.md` — aktuelle Sprints über Boards hinweg und wiederverwendbare sprint-ids
 16. `16-ticket-sprints.md` — Ticket-Sprints lesen und sprint-ids wiederverwenden
 17. `17-sprint-ticket-assignment.md` — sprint ticket list/add/remove mit board-scoped sprint IDs
+18. `18-aliases.md` — User-Auflösung, Alias-Konfiguration und dynamische Alias-Kommandos
+19. `19-skill-generation.md` — generierte Agent-Skills, Scopes und Projektkontext
 
 Sprint ticket assignment journeys must remove assigned tickets from test sprints before deleting the sprint when possible, then delete ticket, sprint, and board.

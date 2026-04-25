@@ -51,7 +51,7 @@ TICKET_ID=$(ytd ticket create --project $PROJECT --json '{"summary":"[YTD-TEST] 
 
 ## Sprint-Tickets listen
 
-### 4. Sprint-Tickets initial als JSON listen
+### 4. Sprint-Tickets vor dem Hinzufügen als JSON listen
 
 ```bash
 ytd sprint ticket list $SPRINT_ID --format json

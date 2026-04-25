@@ -2,11 +2,11 @@
 
 Dies ist keine User Journey.
 
-Diese Datei beschreibt eine technische Absicherungs-Suite für Befehle, deren Implementierung potenziell von der veröffentlichten YouTrack-Dokumentation oder OpenAPI-Beschreibung abweicht oder auf serverseitig toleriertem Verhalten beruht.
+Diese Datei beschreibt eine technische Absicherungs-Suite für Befehle, deren CLI-Verhalten potenziell von der veröffentlichten YouTrack-Dokumentation oder OpenAPI-Beschreibung abweicht oder auf serverseitig toleriertem Verhalten beruht.
 
 Ziel ist nicht primär, einen realistischen Nutzer-Workflow abzubilden, sondern:
 
-- dokumentierte API-Pfade gegen die aktuelle Implementierung abzugleichen
+- dokumentierte API-Pfade gegen das aktuelle CLI-Verhalten abzugleichen
 - instanzspezifisch toleriertes Verhalten sichtbar zu machen
 - Regressionen in risikobehafteten Requests früh zu erkennen
 
@@ -15,7 +15,7 @@ Ein erfolgreicher Lauf bedeutet je nach Fall:
 - dokumentierte API funktioniert wie erwartet
 - oder die Zielinstanz akzeptiert das aktuelle Verhalten weiterhin
 
-Ein erfolgreicher Lauf ist daher nicht automatisch ein Beleg dafür, dass die Implementierung vollständig dokumentationskonform ist.
+Ein erfolgreicher Lauf ist daher nicht automatisch ein Beleg dafür, dass das CLI-Verhalten vollständig dokumentationskonform ist.
 
 ## Fokus
 
@@ -102,7 +102,7 @@ ytd article search "[YTD-TEST] API Compat Guard Article" --project $PROJECT
 
 **Erwartung**: Ergebnis enthält `$ARTICLE_ID`.
 
-**Interpretation bei Fehlschlag**: Kandidat für Doku-/Implementierungsabweichung bei Artikel-Suche, nicht automatisch ein generischer Laufzeitfehler.
+**Interpretation bei Fehlschlag**: Kandidat für Doku-/Verhaltensabweichung bei Artikel-Suche, nicht automatisch ein generischer Laufzeitfehler.
 
 ### 8. Artikelliste für Projekt prüfen
 
@@ -112,7 +112,7 @@ ytd article list --project $PROJECT
 
 **Erwartung**: Ergebnis enthält `$ARTICLE_ID`.
 
-**Interpretation bei Fehlschlag**: Kandidat für Doku-/Implementierungsabweichung bei projektbezogener Artikelliste.
+**Interpretation bei Fehlschlag**: Kandidat für Doku-/Verhaltensabweichung bei projektbezogener Artikelliste.
 
 ### 9. Datei an Ticket anhängen
 
@@ -223,7 +223,7 @@ Ein Fehlschlag in dieser Datei ist nicht automatisch ein Produktfehler in `ytd`.
 
 Mögliche Ursachen:
 
-- tatsächlicher Fehler in der CLI-Implementierung
+- tatsächlicher Fehler im CLI-Verhalten
 - projektspezifische Validierung oder Workflow-Regeln
 - Abweichung zwischen offizieller Dokumentation und tatsächlichem Serververhalten
 - Verhalten, das von der Instanz toleriert wird, aber nicht öffentlich dokumentiert ist

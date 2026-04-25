@@ -1,13 +1,17 @@
-# ytd — YouTrack CLI
+# ytd - YouTrack CLI
 
 [![CI](https://github.com/danielkbx/youtrackd/actions/workflows/ci.yml/badge.svg)](https://github.com/danielkbx/youtrackd/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/danielkbx/youtrackd)](https://github.com/danielkbx/youtrackd/releases/latest)
 
-CLI for YouTrack tickets, articles, time tracking, and more. Single binary, no runtime dependencies.
+`ytd` is a command-line client for YouTrack. It works with tickets, knowledge base articles, comments, attachments, users, projects, tags, saved searches, Agile boards, sprints, time tracking, and local ticket aliases.
+
+The default output is compact plain text for humans and AI agents. Use JSON when you want stable scriptable output.
+
+`ytd` can also generate current `SKILL.md` guidance for AI agents with `ytd skill`. Agents can run that command themselves to fetch up-to-date usage instructions, including project-specific examples with `ytd skill --project <project>`. See [AI Agent Skill File](#ai-agent-skill-file).
 
 ## Installation
 
-### Homebrew (macOS / Linux)
+### Homebrew
 
 ```bash
 brew tap danielkbx/tap
@@ -16,7 +20,7 @@ brew install ytd
 
 ### Download
 
-Grab the latest binary for your platform from the [Releases](../../releases) page:
+Download the latest archive for your platform from the [Releases](../../releases) page.
 
 | Platform | Archive |
 |---|---|
@@ -26,12 +30,11 @@ Grab the latest binary for your platform from the [Releases](../../releases) pag
 | macOS Apple Silicon | `ytd-aarch64-apple-darwin.tar.gz` |
 
 ```bash
-# Example: macOS Apple Silicon
 tar xzf ytd-aarch64-apple-darwin.tar.gz
 sudo mv ytd /usr/local/bin/
 ```
 
-### Build from Source
+### Build From Source
 
 Requires [Rust](https://rustup.rs/) 1.70+.
 
@@ -39,130 +42,185 @@ Requires [Rust](https://rustup.rs/) 1.70+.
 git clone https://github.com/danielkbx/youtrackd.git
 cd youtrackd
 cargo build --release
-# Binary at target/release/ytd
 ```
+
+The binary is written to `target/release/ytd`.
 
 ## Getting Started
 
-### 1. Login
+Configure your YouTrack URL and a permanent token:
 
-```
+```bash
 ytd login
 ```
 
-You'll be prompted for your YouTrack URL and a permanent token.
-To create a token: YouTrack → Profile → Account Security → New Token.
+Create a token in YouTrack under Profile -> Account Security -> New Token.
 
-### 2. Verify
+Check the login:
 
-```
+```bash
 ytd whoami
 ```
 
-### 3. Explore
+Explore your instance:
 
-```
+```bash
 ytd project list
 ytd ticket list --project MYPROJECT
 ytd user list
-ytd alias list
-ytd skill
-ytd config set visibility-group "Engineering"
 ytd group list
+ytd help
 ```
 
-## Commands
+Use command-specific help whenever you need exact syntax:
 
-### Agent Skills
+```bash
+ytd help ticket
+ytd ticket help
+ytd help sprint
 ```
-ytd skill [--scope brief|standard|full] [--project <project>]
+
+### AI Agent Skill File
+
+`ytd` can generate a current `SKILL.md` file for AI agents:
+
+```bash
+ytd skill > SKILL.md
 ```
 
-`ytd skill` prints current `SKILL.md` guidance for AI agents. Agents can run it themselves to fetch the latest `ytd` instructions instead of relying on a stale checked-in skill file. Without `--project`, it works without login. With `--project`, it resolves the project through YouTrack and embeds project-specific context and examples, including realistic ticket/article ID examples using the resolved project short name. The generated skill tells agents to prefer `--format json` for machine-readable work, to use `ytd help` / `ytd help <command>` before guessing command details, and includes the `ytd` version plus a regeneration command using the same project/no-project shape and effective scope.
+Agents can also run `ytd skill` themselves to fetch up-to-date usage guidance instead of relying on stale checked-in instructions. Add `--project <project>` when the agent should receive project-specific examples:
 
-`ytd skill` supports `--format text` and `--format md`; both print the same Markdown. `--format json` and `--format raw` are intentionally rejected because stdout is meant to be directly usable as `SKILL.md`.
-
-### Projects
+```bash
+ytd skill --project MYPROJECT > SKILL.md
+ytd skill --project MYPROJECT --scope full
 ```
+
+## Command Guide
+
+### Authentication And Help
+
+```bash
+ytd login
+ytd logout
+ytd whoami
+ytd help
+ytd help <command>
+ytd <command> help
+ytd url <target>
+ytd open <target>
+```
+
+`url` prints a YouTrack web URL. `open` opens the same URL in your browser and prints it. Targets can be tickets, articles, projects, or project knowledge bases:
+
+```bash
+ytd url ABC-12
+ytd open ABC-A-1
+ytd open ABC
+ytd open ABC-A
+```
+
+### Projects, Users, And Groups
+
+```bash
 ytd project list
-ytd project get <shortName>
-```
+ytd project get <id>
 
-### Groups
-```
-ytd group list
-```
-
-### Users
-```
 ytd user list
 ytd user get <user-id-or-login>
+
+ytd group list
 ```
 
-### Tickets
+Groups are useful when choosing a visibility group for restricted tickets, articles, and comments.
+
+### Configuration Commands
+
+```bash
+ytd config set visibility-group <group>
+ytd config get visibility-group
+ytd config unset visibility-group
 ```
+
+These commands manage stored CLI settings. Authentication settings are created by `ytd login`.
+
+### Tickets
+
+```bash
+ytd ticket search <query> [--project <id>]
 ytd ticket list --project <id>
 ytd ticket get <id> [--no-comments]
-ytd ticket search "<query>" [--project <id>]
-ytd ticket create --project <id> --json '{"summary":"...","description":"..."}' [--visibility-group <group> | --no-visibility-group]
-ytd ticket update <id> --json '{"summary":"..."}' [--visibility-group <group> | --no-visibility-group]
-ytd ticket comment <id> "text" [--visibility-group <group> | --no-visibility-group]
+ytd ticket create --project <id> --json '{"summary":"...","description":"..."}'
+ytd ticket update <id> --json '{"summary":"...","description":"..."}'
+ytd ticket comment <id> <text>
 ytd ticket comments <id>
 ytd ticket delete <id> [-y]
 ```
 
-### Ticket Management
-```
-ytd ticket tag <id> <tag>                    # Add tag
-ytd ticket untag <id> <tag>                  # Remove tag
-ytd ticket link <id> <target> [--type <t>]   # Link issues
-ytd ticket links <id>                        # Show links
-ytd ticket set <id> <field> <value>          # Set custom field
-ytd ticket fields <id>                       # Show field values
-ytd ticket attach <id> <file>                # Upload file
-ytd ticket attachments <id>                  # List files with reusable attachment IDs
-ytd ticket log <id> <duration> [text]        # Log time
-ytd ticket worklog <id>                      # Show time log
-ytd ticket history <id> [--category <cat>]   # Activity log
-ytd ticket sprints <id>                      # List assigned sprints
+Ticket management commands:
+
+```bash
+ytd ticket tag <id> <tag>
+ytd ticket untag <id> <tag>
+ytd ticket link <id> <target> [--type <type>]
+ytd ticket links <id>
+ytd ticket attach <id> <file>
+ytd ticket attachments <id>
+ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
+ytd ticket worklog <id>
+ytd ticket set <id> <field> <value>
+ytd ticket fields <id>
+ytd ticket history <id> [--category <category>]
+ytd ticket sprints <id>
 ```
 
-### Articles (Knowledge Base)
-```
+Durations can be written as `30m`, `1h`, `2h30m`, or a plain number of minutes.
+
+### Articles
+
+```bash
+ytd article search <query> [--project <id>]
 ytd article list --project <id>
 ytd article get <id> [--no-comments]
-ytd article search "<query>" [--project <id>]
-ytd article create --project <id> --json '{"summary":"...","content":"..."}' [--visibility-group <group> | --no-visibility-group]
-ytd article update <id> --json '{"content":"..."}' [--visibility-group <group> | --no-visibility-group]
-ytd article append <id> "text"
-ytd article comment <id> "text" [--visibility-group <group> | --no-visibility-group]
+ytd article create --project <id> --json '{"summary":"...","content":"..."}'
+ytd article update <id> --json '{"summary":"...","content":"..."}'
+ytd article append <id> <text>
+ytd article comment <id> <text>
 ytd article comments <id>
 ytd article attach <id> <file>
 ytd article attachments <id>
 ytd article delete <id> [-y]
 ```
 
+Use `--format md` with `article get` when you want a Markdown export.
+
 ### Comments
-```
+
+```bash
 ytd comment get <comment-id>
-ytd comment update <comment-id> "text" [--visibility-group <group> | --no-visibility-group]
+ytd comment update <comment-id> <text>
 ytd comment attachments <comment-id>
 ytd comment delete <comment-id> [-y]
 ```
 
-Comment IDs are returned by `ytd ticket comments` and `ytd article comments`. Use the returned `id` field with `ytd comment ...`; `ytId` is the raw YouTrack comment ID and is only included for reference.
+Comment IDs are returned by `ticket comments` and `article comments`. Use the returned `id` value with `ytd comment ...`.
+
+Adding files to existing comments is not supported. You can list attachments that YouTrack reports for a comment.
 
 ### Attachments
-```
+
+```bash
 ytd attachment get <attachment-id>
 ytd attachment delete <attachment-id> [-y]
 ytd attachment download <attachment-id> [--output <path>]
 ```
 
-Attachment IDs are returned by `ytd ticket attachments`, `ytd article attachments`, and `ytd comment attachments`. Use the returned `id` field with `ytd attachment ...`; `ytId` is the raw YouTrack attachment ID and is only included for reference.
+Attachment IDs are returned by `ticket attachments`, `article attachments`, and `comment attachments`. Use the returned `id` value with `ytd attachment ...`.
 
 ### Aliases
-```
+
+Aliases are local shortcuts for recurring ticket workflows. They can bind a project, a user, and optionally a sprint.
+
+```bash
 ytd alias create <alias> [--project <project-id>] [--user <user-id>] [--sprint <sprint-id|none>]
 ytd alias list
 ytd alias delete <alias> [-y]
@@ -170,362 +228,219 @@ ytd <alias> create <text>
 ytd <alias> list [--all]
 ```
 
-Aliases are local shortcuts backed by the `ytd` config file. They store only YouTrack IDs, not names. `--sprint none` clears any sprint binding so the alias creates and lists project/user-scoped tickets without a sprint filter.
+Example:
 
-### Tags, Searches, Boards, Sprints
+```bash
+ytd alias create todo --project 0-96 --user 1-51 --sprint 108-4:113-6
+ytd todo create "Follow up with customer"
+ytd todo list
+ytd todo list --all
 ```
-ytd config set visibility-group <group>
-ytd config get visibility-group
-ytd config unset visibility-group
-ytd group list
+
+Use `--sprint none` to create or update an alias without a sprint binding.
+
+### Tags And Saved Searches
+
+```bash
 ytd tag list [--project <id>]
 ytd search list [--project <id>]
 ytd search run <name-or-id>
+```
+
+`search run` accepts a saved search ID or name. `search list --project <id>` filters saved searches by project references in the saved query text.
+
+### Boards And Sprints
+
+```bash
 ytd board list [--project <id>]
 ytd board get <id>
-ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
-ytd board update <id> [--name <name>] [--json '{...}']
+ytd board create --name <name> --project <project>[,<project>...] [--template <template>]
+ytd board update <id> [--name <name>]
 ytd board delete <id> [-y]
+
 ytd sprint list [--board <board-id>]
 ytd sprint current [--board <board-id>]
 ytd sprint get <sprint-id>
-ytd sprint create --board <board-id> --name <name> [--json '{...}']
-ytd sprint update <sprint-id> [--name <name>] [--json '{...}']
+ytd sprint create --board <board-id> --name <name>
+ytd sprint update <sprint-id> [--name <name>]
 ytd sprint delete <sprint-id> [-y]
 ytd sprint ticket list <sprint-id>
 ytd sprint ticket add <sprint-id> <ticket-id>
 ytd sprint ticket remove <sprint-id> <ticket-id>
 ```
 
-`search list --project <id>` filters saved searches by project reference in the saved query text. YouTrack's saved search response does not expose a separate project field, so this filter matches query fragments such as `project: <id>` and `in: <id>`.
+Board templates are `kanban`, `scrum`, `version`, `custom`, and `personal`.
 
-Board commands use YouTrack's Agile API. For existing boards, `get`, `update`, and `delete` require only the board ID. For `create`, YouTrack requires a board name and at least one project; `--project` accepts project short names or database IDs.
+Sprint IDs include the board ID:
 
-Sprint commands use board-scoped YouTrack Agile endpoints. Sprint IDs returned by `ytd` include the board context:
-
-```
+```text
 <board-id>:<sprint-id>
 ```
 
-Use the returned `id` field with `ytd sprint get|update|delete` and `ytd sprint ticket ...`. The `ytId` field is the raw YouTrack sprint ID. Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
+Use sprint IDs returned by `sprint list`, `sprint current`, `sprint create`, or `ticket sprints`.
 
-Sprint ticket assignment commands use the same board-scoped sprint IDs:
+### Agent Skills
 
 ```bash
-ytd sprint ticket list 108-4:113-6
-ytd sprint ticket add 108-4:113-6 DWP-28
-ytd sprint ticket remove 108-4:113-6 DWP-28
+ytd skill [--scope brief|standard|full] [--project <project>]
 ```
 
-YouTrack requires the internal issue database ID for sprint assignment, but `ytd` accepts readable ticket IDs such as `DWP-28` and resolves them automatically. A ticket can be assigned to sprints on multiple boards. `sprint ticket remove` removes only the assignment for the exact board-scoped sprint ID you pass.
+`ytd skill` prints current `SKILL.md` guidance for AI agents. Without `--project`, it works without login. With `--project`, it resolves the project and includes project-specific examples.
 
-`ytd sprint list` output includes both `boardId` and `boardName`. Without `--board`, it returns sprints from all boards. Use `--board <board-id>` to list one board only.
+`ytd skill` supports `--format text` and `--format md`. Both print Markdown. `--format json` and `--format raw` are not supported for this command.
 
-## Output Flags
+## Working With Output
+
+Global output flags:
 
 | Flag | Description |
 |---|---|
-| `--format json` | ytd-normalized JSON output (same data model as text) |
-| `--format raw` | YouTrack API JSON, as original as possible |
-| `--format text` | Plain text (default); Markdown content is rendered as readable terminal text, including ASCII tables |
-| `--format md` | Markdown (title + body + comments) |
-| `--no-meta` | Hide IDs, dates, author |
+| `--format text` | Plain text, default |
+| `--format json` | Stable ytd-normalized JSON for scripts and agents |
+| `--format raw` | YouTrack API-shaped JSON |
+| `--format md` | Markdown export where supported |
+| `--no-meta` | Hide metadata such as IDs, dates, and author fields where supported |
+| `-y` | Confirm delete commands without prompting |
 
-`--format` accepts only `text`, `raw`, `json`, or `md`; unknown values are input errors.
+Text output renders Markdown content as readable terminal text. Ticket lists, saved search results, sprint ticket lists, and ticket links use compact ticket rows. `ticket get` and `article get` show details first, then the description or content.
 
-Ticket commands use a richer text format than the generic resource output. `ticket search`, `ticket list`, `search run`, and `sprint ticket list` print compact ticket rows with readable ID, summary, project, important fields such as State, Assignee, Priority, Type, Estimation, and Spent time, plus update/resolution status when available. `ticket get` prints a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `article get`, `comment get`, and generic text outputs also render Markdown content fields as terminal text with ASCII tables and print content fields last after a blank line, without a field label. Add `--no-comments` to `ticket get` or `article get` to omit comments. Use `--format json` when scripts need stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
+Use `--no-comments` with `ticket get` or `article get` to omit comments.
 
-Alias management is config-backed. `alias list --format json` and `alias list --format raw` intentionally return the same local alias data model because there is no YouTrack API response behind it. Dynamic alias commands are the deliberate exception to command-name validation before config loading: after checking built-in commands, `ytd` may read local config to resolve `ytd <alias> ...`. Dynamic alias ticket listing, for example `ytd todo list`, uses the shared compact ticket formatter and must match `ticket list` text output.
+Create, update, and delete commands that return one changed resource print only its ID on stdout, which makes them easy to use in scripts:
 
-`ytd skill` is Markdown-first for AI-agent onboarding. `--format text` and `--format md` both print generated `SKILL.md` content. `--format json` and `--format raw` are rejected for this command. Agents should run `ytd skill` to get current usage guidance; use `ytd skill --project <project>` for resolved project context and project-specific examples. Generated skills also remind agents that `ytd help` lists commands and `ytd help <command>` / `ytd <command> help` describe command-specific usage.
+```bash
+ID=$(ytd ticket create --project PROJ --json '{"summary":"Fix login"}')
+ytd ticket get "$ID"
+```
 
-The unlabeled Markdown content layout applies to `article get`, `article search` and `article list` when content is included, `article comments`, `ticket comments`, `comment get`, `ticket history` activity text, and any future text output with `content`, `description`, or `text` fields. `ticket get` uses the same layout for its description; embedded ticket comments remain after the parent description.
-
-Ticket issue outputs expose the reusable ticket ID as `id` (for example `MYPROJECT-42`). If the raw YouTrack database ID is included, it is exposed as `ytId`. Ticket issue outputs do not expose a separate `idReadable` field.
-
-Article outputs expose the reusable article ID as `id` (for example `MYPROJECT-A-1`). If the raw YouTrack database ID is included, it is exposed as `ytId`. Article outputs do not expose a separate `idReadable` field.
-
-## Input/Output Consistency
-
-`ytd` follows a few rules across commands:
-
-- Validate command names and global output format before loading config.
-- Accept structured create/update input via `--json` or stdin; stdin wins when both are present.
-- Send successful data output to stdout, and errors/prompts to stderr.
-- Print only the reusable public ID for create/update/delete commands that return one changed resource.
-- Keep normalized `--format json` stable for scripts; use `--format raw` for YouTrack-shaped API output.
-- Reject unknown `--format` values instead of falling back to text.
-- Never silently ignore supported-looking filters; document client-side or approximate filters.
-- Expose reusable public IDs as `id`; expose raw YouTrack IDs only as `ytId`.
-- Require delete confirmation interactively, and require `-y` for non-interactive delete.
-- Preserve visibility on updates unless explicit visibility flags are passed.
-
-The full maintainer checklist is documented in `.agents/io-consistency.md`.
+Delete commands ask for confirmation when run interactively. In scripts, pass `-y`.
 
 ## JSON Input
 
-Many create and update commands accept JSON via `--json` or stdin. Stdin takes precedence over `--json` when both are present.
-
-Commands that accept JSON input:
-
-| Command | Required fields | Optional/common fields |
-|---|---|---|
-| `ticket create` | `summary` plus `--project` | `description` |
-| `ticket update` | at least one JSON field or explicit visibility flag | `summary`, `description` |
-| `article create` | `summary` plus `--project` | `content` |
-| `article update` | at least one JSON field or explicit visibility flag | `summary`, `content` |
-| `board create` | `name` and `projects`, or `--name` and `--project` | YouTrack Agile fields such as `visibleForProjectBased` |
-| `board update` | at least one field or `--name` | YouTrack Agile fields such as `orphansAtTheTop` |
-| `sprint create` | `name` plus `--board`, or `--name` plus `--board` | YouTrack sprint fields such as `goal`, `start`, `finish`, `archived`, `isDefault` |
-| `sprint update` | at least one field or `--name` | YouTrack sprint fields such as `goal`, `start`, `finish`, `archived`, `isDefault` |
-
-JSON input must be valid JSON:
+Create and update commands accept JSON through `--json` or stdin. Stdin takes precedence when both are present.
 
 ```bash
-ytd ticket create --project PROJ --json '{"summary":"Fix login","description":"Details"}'
+ytd ticket create --project PROJ --json '{"summary":"Fix login","description":"Steps..."}'
+printf '%s\n' '{"summary":"Runbook","content":"Steps..."}' | ytd article create --project PROJ
 ```
 
-Create and update commands print only the resulting entity ID on stdout, so they can be used in scripts:
+Common JSON commands:
+
+| Command | Required input |
+|---|---|
+| `ticket create` | `--project` and JSON `summary` |
+| `ticket update` | At least one JSON field or an explicit visibility flag |
+| `article create` | `--project` and JSON `summary` |
+| `article update` | At least one JSON field or an explicit visibility flag |
+| `board create` | `--name` and `--project`, or equivalent JSON |
+| `board update` | At least one field or `--name` |
+| `sprint create` | `--board` and `--name`, or `--board` plus JSON `name` |
+| `sprint update` | At least one field or `--name` |
+
+Boards and sprints also accept `--json` for additional YouTrack Agile fields:
 
 ```bash
-ID=$(ytd ticket create --project PROJ --json '{"summary":"Fix login bug"}')
+ytd board create --name "Team Board" --project PROJ --template scrum --json '{"visibleForProjectBased":true}'
+ytd sprint update 108-4:113-6 --json '{"goal":"Finish onboarding"}'
 ```
 
-Ticket and article commands use the project short name from `--project`:
+## Common Workflows
 
-```bash
-ytd ticket update PROJ-42 --json '{"summary":"New title"}'
-ytd article create --project PROJ --json '{"summary":"Runbook","content":"Steps..."}'
-ytd article update PROJ-A-1 --json '{"content":"Updated steps..."}'
-```
+### Create And Update A Ticket
 
-You can also pipe JSON through stdin:
-
-```bash
-printf '%s\n' '{"summary":"New article","content":"..."}' | ytd article create --project PROJ
-```
-
-Boards are exposed as `board` commands, but YouTrack calls them Agile boards in the REST API. Basic board creation uses flags for the required fields:
-
-```bash
-ytd board create --name "Team Scrum Board" --project PROJ --template scrum
-```
-
-Use `--json` or stdin for advanced Agile fields. The JSON object is merged with the flag-derived payload; `--name` wins over JSON `name`.
-
-```bash
-ytd board create --name "Team Scrum Board" --project PROJ --template scrum --json '{"visibleForProjectBased":true}'
-ytd board update 108-4 --name "Renamed Board"
-ytd board update 108-4 --json '{"orphansAtTheTop":true}'
-```
-
-For `board create`, `--project PROJ` is resolved to the YouTrack project database ID required by the API. Multi-project boards use a comma-separated list:
-
-```bash
-ytd board create --name "Multi Project Board" --project PROJ,OPS --template kanban
-```
-
-Advanced users may provide the complete board create payload as JSON:
-
-```bash
-ytd board create --template scrum --json '{"name":"Team Scrum Board","projects":[{"id":"0-0"}]}'
-```
-
-Sprints are created on a board. `sprint create` prints the public sprint-id, which includes the board ID:
-
-```bash
-SPRINT_ID=$(ytd sprint create --board 108-4 --name "Sprint 1")
-ytd sprint get "$SPRINT_ID"
-ytd sprint update "$SPRINT_ID" --json '{"goal":"Finish onboarding"}'
-```
-
-Current sprints are queried separately and return reusable sprint IDs:
-
-```bash
-ytd sprint current
-ytd sprint current --board 108-4
-```
-
-## Examples
-
-### Create and reference a ticket
 ```bash
 ID=$(ytd ticket create --project PROJ --json '{"summary":"Fix login bug"}')
 ytd ticket set "$ID" Priority Critical
 ytd ticket tag "$ID" backend
+ytd ticket comment "$ID" "Investigating"
 ```
 
-### Log time
+### Log Time
+
 ```bash
 ytd ticket log PROJ-42 2h30m "Implemented feature"
-ytd ticket log PROJ-42 45m --date 2025-01-15
+ytd ticket log PROJ-42 45m --date 2026-04-25
 ```
 
-### Pipe JSON from stdin
-```bash
-echo '{"summary":"New article","content":"..."}' | ytd article create --project PROJ
-```
+### Export An Article
 
-### Set custom fields
-```bash
-ytd ticket set PROJ-42 State "In Progress"
-ytd ticket set PROJ-42 Assignee alice.smith
-```
-
-### Create and use an alias
-```bash
-ytd alias create todo --project 0-96 --user 1-51 --sprint 108-4:113-6
-ytd todo create "Follow up with customer"
-ytd todo list
-```
-
-### Export article as Markdown file
 ```bash
 ytd article get PROJ-A-1 --format md > article.md
 ```
 
-### Update a comment
+### Update A Comment
+
 ```bash
 COMMENT_ID=$(ytd ticket comments PROJ-42 --format json | jq -r '.[0].id')
 ytd comment get "$COMMENT_ID"
 ytd comment update "$COMMENT_ID" "Updated comment text"
 ```
 
-### Download an attachment
+### Download An Attachment
+
 ```bash
 ATTACHMENT_ID=$(ytd ticket attachments PROJ-42 --format json | jq -r '.[0].id')
-ytd attachment get "$ATTACHMENT_ID"
 ytd attachment download "$ATTACHMENT_ID" --output /tmp/
 ```
 
-### Delete with confirmation skip
-```bash
-ytd ticket delete PROJ-42 -y
-```
-
-Delete commands ask for confirmation when run interactively. In scripts or other non-interactive contexts, pass `-y`; without it, `ytd` refuses to delete. Interactive confirmation requires typing `yes`.
-
-## Good to know
-
-### Comment IDs
-
-YouTrack comment operations are scoped to their parent ticket or article. A raw YouTrack comment ID like `4-17` is not enough to load, update, or delete the comment because the API also needs the parent resource.
-
-For that reason, `ytd` returns reusable comment IDs in this format:
-
-```
-<parent-id>:<comment-id>
-```
-
-Examples:
-
-```
-PROJ-42:4-17       # comment on ticket PROJ-42
-PROJ-A-1:187-62   # comment on article PROJ-A-1
-```
-
-Use the `id` field returned by `ytd ticket comments` or `ytd article comments` with `ytd comment get|update|delete`. The `ytId` field is only the raw YouTrack comment ID and is included for reference.
-
-### Attachment IDs
-
-YouTrack attachment operations are scoped to their parent ticket or article, even when an attachment is displayed on a comment. For that reason, `ytd` returns reusable attachment IDs in this format:
-
-```
-<parent-id>:<attachment-id>
-```
-
-Examples:
-
-```
-PROJ-42:8-2897
-PROJ-A-1:237-3
-```
-
-Use the `id` field returned by `ytd ticket attachments`, `ytd article attachments`, or `ytd comment attachments` with `ytd attachment get|delete|download`. The `commentId` field is included when YouTrack reports that an attachment belongs to a comment.
-
-`ytd` does not support adding files to existing comments. A Curl probe against YouTrack showed that updating a comment with `attachments:[{id}]` returns success but does not assign the attachment to the comment.
-
-### Sprint IDs
-
-YouTrack sprint operations are scoped to their Agile board. A raw YouTrack sprint ID like `113-6` is not enough to load, update, or delete the sprint because the API also needs the board ID.
-
-For that reason, `ytd` returns reusable sprint IDs in this format:
-
-```
-<board-id>:<sprint-id>
-```
-
-Example:
-
-```
-108-4:113-6
-```
-
-Use the `id` field returned by `ytd sprint list`, `ytd sprint current`, `ytd sprint create`, or `ytd ticket sprints` with `ytd sprint get|update|delete` and `ytd sprint ticket ...`. The `ytId` field is only the raw YouTrack sprint ID and is included for reference.
-
-`current` is not a valid sprint-id. Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board.
-
-### Sprint Ticket Assignment
-
-Sprint ticket operations are scoped to a specific Agile board sprint. Use the public sprint ID returned by `ytd sprint` commands:
+### Work With Sprints
 
 ```bash
-ytd sprint ticket list 108-4:113-6
-ytd sprint ticket add 108-4:113-6 DWP-28
-ytd sprint ticket remove 108-4:113-6 DWP-28
+SPRINT_ID=$(ytd sprint create --board 108-4 --name "Sprint 1")
+ytd sprint ticket add "$SPRINT_ID" PROJ-42
+ytd sprint ticket list "$SPRINT_ID"
+ytd sprint ticket remove "$SPRINT_ID" PROJ-42
 ```
 
-YouTrack requires the internal issue database ID for sprint assignment, but `ytd` accepts readable ticket IDs such as `DWP-28` and resolves them automatically.
-
-A ticket can be assigned to sprints on multiple boards. `sprint ticket remove` removes only the assignment for the exact board-scoped sprint ID you pass.
-
-### Aliases
-
-Aliases are local config entries for recurring ticket workflows. A typical alias binds a project, assignee/user, and optionally a board-scoped sprint ID:
+### Configure Visibility Defaults
 
 ```bash
-ytd alias create todo --project 0-96 --user 1-51 --sprint 108-4:113-6
-ytd alias create backlog --project 0-96 --user 1-51 --sprint none
-ytd alias list
+ytd config set visibility-group "Engineering"
+ytd config get visibility-group
+ytd config unset visibility-group
 ```
 
-Dynamic alias commands then create and list tickets through that saved context:
+Ticket and article creation, plus new ticket and article comments, use configured visibility defaults. You can override visibility per command:
 
 ```bash
-ytd todo create "Write release notes"
-ytd todo list
-ytd todo list --all
+ytd ticket create --project PROJ --json '{"summary":"Private"}' --visibility-group "Engineering"
+ytd ticket comment PROJ-42 "Public note" --no-visibility-group
+ytd ticket update PROJ-42 --visibility-group "Engineering" --json '{"summary":"Restricted"}'
 ```
 
-Alias config stores only IDs:
+Updates preserve existing visibility unless you pass `--visibility-group` or `--no-visibility-group`.
 
-```json
-{
-  "aliases": {
-    "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" },
-    "backlog": { "project": "0-96", "user": "1-51" }
-  }
-}
-```
+## ID Formats
 
-The `sprint` field is optional and omitted when no sprint is configured. Use `--sprint none` to clear or omit it. `alias list` reads this local config; `--format json` and `--format raw` intentionally return the same alias data model. Dynamic alias commands are resolved from config after built-in command matching. `ytd <alias> list` uses the same compact ticket text output as `ytd ticket list`.
+Use the `id` field returned by `ytd` as input to later commands. Fields named `ytId` are raw YouTrack IDs and are included for reference.
 
-### Comment visibility
+| Type | Format | Example |
+|---|---|---|
+| Project | Short name or YouTrack project ID | `PROJ` or `0-96` |
+| User | YouTrack user ID or login | `1-51` or `alice` |
+| Ticket | `<PROJECT>-<NUMBER>` | `PROJ-42` |
+| Article | `<PROJECT>-A-<NUMBER>` | `PROJ-A-1` |
+| Comment | `<parent-id>:<comment-id>` | `PROJ-42:4-17` |
+| Attachment | `<parent-id>:<attachment-id>` | `PROJ-A-1:237-3` |
+| Sprint | `<board-id>:<sprint-id>` | `108-4:113-6` |
 
-New comments follow the configured visibility default from `YTD_VISIBILITY_GROUP` or `ytd config set visibility-group ...`. Use `--visibility-group <group>` to set a group explicitly or `--no-visibility-group` to create the comment without inherited default visibility.
-
-For existing comments, `ytd comment update` does not apply defaults automatically. Without visibility flags it only changes the text and preserves the current visibility. Use `--visibility-group <group>` to set visibility or `--no-visibility-group` to clear it.
+`current` is not a sprint ID. Use `ytd sprint current` to list current sprints and then pass one of the returned IDs to sprint commands.
 
 ## Configuration
 
-Config file: `~/.config/ytd/config.json` (used for stored credentials and CLI settings)
+Stored config file:
 
-Example with aliases:
+```text
+~/.config/ytd/config.json
+```
+
+Example:
 
 ```json
 {
   "url": "https://your-instance.youtrack.cloud",
   "token": "perm:...",
+  "visibilityGroup": "Engineering",
   "aliases": {
     "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" },
     "backlog": { "project": "0-96", "user": "1-51" }
@@ -533,46 +448,27 @@ Example with aliases:
 }
 ```
 
-Alternatively, set environment variables:
-- `YOUTRACK_URL` — Your YouTrack instance URL
-- `YOUTRACK_TOKEN` — Your permanent token
-- `YTD_VISIBILITY_GROUP` — Default group for ticket/article visibility
+Environment variables:
 
-Environment variables take precedence over the config file.
+| Variable | Purpose |
+|---|---|
+| `YOUTRACK_URL` | YouTrack instance URL |
+| `YOUTRACK_TOKEN` | Permanent token |
+| `YTD_CONFIG` | Custom config file path |
+| `YTD_VISIBILITY_GROUP` | Default visibility group for creates and new comments |
 
-### Visibility Defaults
+`YOUTRACK_URL` and `YOUTRACK_TOKEN` take precedence over stored credentials.
 
-`ticket create`, `article create`, `ticket comment`, and `article comment` apply configured visibility defaults from `--visibility-group`, `YTD_VISIBILITY_GROUP`, or `ytd config set visibility-group ...`.
-
-`ticket update`, `article update`, and `comment update` change visibility only when `--visibility-group` or `--no-visibility-group` is passed explicitly. `--visibility-group <group>` sends limited visibility for that group. `--no-visibility-group` clears existing visibility on updates; on creates, it only disables inherited defaults and sends no visibility restriction.
-
-For create and new-comment defaults, resolution order is: `--visibility-group` → `YTD_VISIBILITY_GROUP` → stored `visibility-group` config. Combining `--visibility-group` and `--no-visibility-group` is an input error.
-
-### Multiple Instances
-
-Use `YTD_CONFIG` to point to a specific config file:
+Use `YTD_CONFIG` for multiple YouTrack instances:
 
 ```bash
-# Shell aliases for different YouTrack instances
 alias ytd-work='YTD_CONFIG=~/.config/ytd/work.json ytd'
 alias ytd-oss='YTD_CONFIG=~/.config/ytd/oss.json ytd'
 
-# First-time setup for each
 YTD_CONFIG=~/.config/ytd/work.json ytd login
 YTD_CONFIG=~/.config/ytd/oss.json ytd login
 ```
 
-## ID Formats
-
-| Type | Format | Example |
-|---|---|---|
-| Project | Short name | `MYPROJECT` |
-| Ticket | Project-Number | `MYPROJECT-42` |
-| Article | Project-A-Number | `MYPROJECT-A-1` |
-| Comment | Parent ID + YouTrack comment ID | `MYPROJECT-42:4-17` or `MYPROJECT-A-1:187-62` |
-
-Comment IDs encode their parent because YouTrack comment operations are scoped to either an issue or an article. `ytd` infers whether the parent is a ticket or article from the parent ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, tickets use `<PROJECT>-<NUMBER>`. Use the `id` returned by `ytd`; do not pass `ytId` to `ytd comment`.
-
 ## License
 
-GPL-3.0-only — see [LICENSE.md](LICENSE.md).
+GPL-3.0-only - see [LICENSE.md](LICENSE.md).
