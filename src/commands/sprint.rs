@@ -3,7 +3,10 @@ use crate::client::{HttpTransport, YtClient};
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::input;
-use crate::types::{current_sprint_output, encode_sprint_id, parse_sprint_id, sprint_output};
+use crate::types::{
+    current_sprint_output, encode_sprint_id, parse_sprint_id, sprint_output,
+    sprint_output_with_board,
+};
 use serde_json::{Map, Value};
 use std::io::{self, BufRead, IsTerminal, Write};
 
@@ -50,12 +53,30 @@ fn cmd_list<T: HttpTransport>(
     args: &ParsedArgs,
     opts: &OutputOptions,
 ) -> Result<(), YtdError> {
-    let board_id = require_board(args)?;
-    let sprints = client.list_sprints(board_id)?;
-    let outputs: Vec<_> = sprints
-        .into_iter()
-        .map(|sprint| sprint_output(board_id, sprint))
-        .collect();
+    let outputs: Vec<_> = if let Some(board_id) = args.flags.get("board").map(|s| s.as_str()) {
+        if board_id.trim().is_empty() {
+            return Err(YtdError::Input("--board must not be empty".into()));
+        }
+        let board = client.get_agile(board_id)?;
+        let board_name = board.name;
+        board
+            .sprints
+            .into_iter()
+            .map(|sprint| sprint_output_with_board(board_id, board_name.clone(), sprint))
+            .collect()
+    } else {
+        client
+            .list_agiles()?
+            .into_iter()
+            .flat_map(|board| {
+                let board_id = board.id;
+                let board_name = board.name;
+                board.sprints.into_iter().map(move |sprint| {
+                    sprint_output_with_board(&board_id, board_name.clone(), sprint)
+                })
+            })
+            .collect()
+    };
     format::print_items(&outputs, opts);
     Ok(())
 }
@@ -420,6 +441,73 @@ mod tests {
             }
         )
         .is_ok());
+    }
+
+    #[test]
+    fn list_without_board_lists_sprints_from_all_boards() {
+        let client = YtClient::new(
+            YtdConfig {
+                url: "https://test.youtrack.cloud".into(),
+                token: "perm:test".into(),
+            },
+            MockTransport::new(vec![
+                r#"[{"id":"108-4","name":"Board 1","projects":[],"sprints":[{"id":"113-6","name":"Sprint 1"}],"currentSprint":null},{"id":"108-5","name":"Board 2","projects":[],"sprints":[{"id":"113-7","name":"Sprint 2"}],"currentSprint":null}]"#,
+            ]),
+        );
+        let mut parsed = args(&[]);
+        parsed.action = Some("list".into());
+
+        assert!(cmd_list(
+            &client,
+            &parsed,
+            &OutputOptions {
+                format: format::Format::Raw,
+                no_meta: false,
+            }
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn list_with_board_uses_board_detail_for_name() {
+        let client = YtClient::new(
+            YtdConfig {
+                url: "https://test.youtrack.cloud".into(),
+                token: "perm:test".into(),
+            },
+            MockTransport::new(vec![
+                r#"{"id":"108-4","name":"Board","projects":[],"sprints":[{"id":"113-6","name":"Sprint 1"}],"currentSprint":null}"#,
+            ]),
+        );
+        let mut parsed = args(&[("board", "108-4")]);
+        parsed.action = Some("list".into());
+
+        assert!(cmd_list(
+            &client,
+            &parsed,
+            &OutputOptions {
+                format: format::Format::Raw,
+                no_meta: false,
+            }
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn list_with_empty_board_is_rejected() {
+        let client = client();
+        let mut parsed = args(&[("board", "")]);
+        parsed.action = Some("list".into());
+
+        assert!(cmd_list(
+            &client,
+            &parsed,
+            &OutputOptions {
+                format: format::Format::Raw,
+                no_meta: false,
+            }
+        )
+        .is_err());
     }
 
     #[test]

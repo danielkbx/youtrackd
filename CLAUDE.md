@@ -96,7 +96,7 @@ ytd board get <id>
 ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
 ytd board update <id> [--name <name>] [--json '{...}']
 ytd board delete <id> [-y]
-ytd sprint list --board <board-id>
+ytd sprint list [--board <board-id>]
 ytd sprint current [--board <board-id>]
 ytd sprint get <sprint-id>
 ytd sprint create --board <board-id> --name <name> [--json '{...}']

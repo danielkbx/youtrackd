@@ -355,7 +355,7 @@ Use --json or stdin for advanced YouTrack Agile fields."
 fn print_sprint_help() {
     println!(
         "Usage:
-  ytd sprint list --board <board-id>
+  ytd sprint list [--board <board-id>]
   ytd sprint current [--board <board-id>]
   ytd sprint get <sprint-id>
   ytd sprint create --board <board-id> --name <name> [--json '...']
@@ -365,10 +365,11 @@ fn print_sprint_help() {
   ytd sprint ticket add <sprint-id> <ticket-id>
   ytd sprint ticket remove <sprint-id> <ticket-id>
 
-Use the returned id field with sprint get, update, delete, and sprint ticket commands. The ytId field is the raw YouTrack sprint ID.
+Use the returned id field with sprint get, update, delete, and sprint ticket commands.
+Without --board, sprint list returns sprints from all boards.
 Use ytd sprint current to list current sprints across boards, or --board for one board.
 current is not accepted as a sprint-id.
-Sprint ticket commands accept readable ticket IDs and resolve YouTrack internal issue IDs automatically.
+Sprint ticket commands list, add, and remove tickets in a sprint.
 Use --json or stdin for advanced YouTrack sprint fields."
     );
 }

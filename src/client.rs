@@ -974,13 +974,6 @@ impl<T: HttpTransport> YtClient<T> {
         self.transport.delete(&url, &self.token)
     }
 
-    pub fn list_sprints(&self, agile_id: &str) -> Result<Vec<Sprint>, YtdError> {
-        self.get(
-            &format!("/agiles/{agile_id}/sprints"),
-            &[("fields", Self::SPRINT_FIELDS), ("$top", "500")],
-        )
-    }
-
     pub fn get_sprint(&self, agile_id: &str, sprint_id: &str) -> Result<Sprint, YtdError> {
         self.get(
             &format!("/agiles/{agile_id}/sprints/{sprint_id}"),
@@ -1293,21 +1286,6 @@ mod tests {
         let request = client.transport.request(0);
         assert_eq!(request.method, "DELETE");
         assert_eq!(request.url, "https://test.youtrack.cloud/api/agiles/108-4");
-    }
-
-    #[test]
-    fn list_sprints_gets_board_sprints() {
-        let client = test_client(vec![r#"[{"id":"113-6","name":"Sprint 1"}]"#]);
-
-        let sprints = client.list_sprints("108-4").unwrap();
-
-        assert_eq!(sprints[0].id, "113-6");
-        let request = client.transport.request(0);
-        assert_eq!(request.method, "GET");
-        assert!(request
-            .url
-            .starts_with("https://test.youtrack.cloud/api/agiles/108-4/sprints?fields="));
-        assert!(request.url.contains("%24top=500"));
     }
 
     #[test]

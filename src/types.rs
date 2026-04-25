@@ -595,6 +595,7 @@ pub struct SprintOutput {
     pub id: String,
     pub yt_id: String,
     pub board_id: String,
+    pub board_name: Option<String>,
     pub name: Option<String>,
     pub agile: Option<AgileRef>,
     pub goal: Option<String>,
@@ -651,10 +652,20 @@ fn invalid_sprint_id() -> YtdError {
 }
 
 pub fn sprint_output(board_id: &str, sprint: Sprint) -> SprintOutput {
+    let board_name = sprint.agile.as_ref().and_then(|agile| agile.name.clone());
+    sprint_output_with_board(board_id, board_name, sprint)
+}
+
+pub fn sprint_output_with_board(
+    board_id: &str,
+    board_name: Option<String>,
+    sprint: Sprint,
+) -> SprintOutput {
     SprintOutput {
         id: encode_sprint_id(board_id, &sprint.id),
         yt_id: sprint.id,
         board_id: board_id.to_string(),
+        board_name,
         name: sprint.name,
         agile: sprint.agile,
         goal: sprint.goal,
@@ -916,6 +927,31 @@ mod tests {
         assert_eq!(output.id, "108-4:113-6");
         assert_eq!(output.yt_id, "113-6");
         assert_eq!(output.board_id, "108-4");
+        assert!(output.board_name.is_none());
+    }
+
+    #[test]
+    fn sprint_output_uses_agile_name_as_board_name() {
+        let output = sprint_output(
+            "108-4",
+            Sprint {
+                id: "113-6".into(),
+                name: Some("Sprint 1".into()),
+                agile: Some(AgileRef {
+                    id: "108-4".into(),
+                    name: Some("Board".into()),
+                }),
+                issues: vec![],
+                goal: None,
+                start: None,
+                finish: None,
+                archived: None,
+                is_default: None,
+                unresolved_issues_count: None,
+            },
+        );
+
+        assert_eq!(output.board_name.as_deref(), Some("Board"));
     }
 
     #[test]

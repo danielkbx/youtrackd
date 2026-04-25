@@ -157,7 +157,7 @@ ytd board get <id>
 ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
 ytd board update <id> [--name <name>] [--json '{...}']
 ytd board delete <id> [-y]
-ytd sprint list --board <board-id>
+ytd sprint list [--board <board-id>]
 ytd sprint current [--board <board-id>]
 ytd sprint get <sprint-id>
 ytd sprint create --board <board-id> --name <name> [--json '{...}']
@@ -187,6 +187,8 @@ ytd sprint ticket remove 108-4:113-6 DWP-28
 ```
 
 YouTrack requires the internal issue database ID for sprint assignment, but `ytd` accepts readable ticket IDs such as `DWP-28` and resolves them automatically. A ticket can be assigned to sprints on multiple boards. `sprint ticket remove` removes only the assignment for the exact board-scoped sprint ID you pass.
+
+`ytd sprint list` output includes both `boardId` and `boardName`. Without `--board`, it returns sprints from all boards. Use `--board <board-id>` to list one board only.
 
 ## Output Flags
 

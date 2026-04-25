@@ -59,7 +59,7 @@ ytd sprint get $SPRINT_ID
 ytd sprint get $SPRINT_ID --format raw
 ```
 
-**Erwartung**: Valides JSON mit mindestens `id`, `ytId`, `boardId` und `name`. `id` entspricht `$SPRINT_ID`, `boardId` entspricht `$BOARD_ID`, `name` ist `[YTD-TEST] Sprint CRUD`.
+**Erwartung**: Valides JSON mit mindestens `id`, `ytId`, `boardId`, `boardName` und `name`. `id` entspricht `$SPRINT_ID`, `boardId` entspricht `$BOARD_ID`, `boardName` ist `[YTD-TEST] Sprint CRUD Board`, `name` ist `[YTD-TEST] Sprint CRUD`.
 
 ## Sprint aktualisieren
 
@@ -117,7 +117,15 @@ ytd sprint get $SPRINT_ID --format raw
 ytd sprint list --board $BOARD_ID --format raw
 ```
 
-**Erwartung**: Valides JSON-Array. Ein Eintrag hat `id == $SPRINT_ID`, `ytId` ist der rohe YouTrack-Sprint-ID-Anteil und `boardId == $BOARD_ID`.
+**Erwartung**: Valides JSON-Array. Ein Eintrag hat `id == $SPRINT_ID`, `ytId` ist der rohe YouTrack-Sprint-ID-Anteil, `boardId == $BOARD_ID` und `boardName == "[YTD-TEST] Sprint CRUD Board"`.
+
+### 10b. Sprint in globaler Sprint-Liste finden
+
+```
+ytd sprint list --format raw
+```
+
+**Erwartung**: Valides JSON-Array. Ein Eintrag hat `id == $SPRINT_ID`, `ytId` ist der rohe YouTrack-Sprint-ID-Anteil, `boardId == $BOARD_ID` und `boardName == "[YTD-TEST] Sprint CRUD Board"`. Weitere Sprints aus anderen Boards sind erlaubt.
 
 ### 11. Current Sprint für Board prüfen
 
