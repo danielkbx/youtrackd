@@ -371,6 +371,37 @@ impl<T: HttpTransport> YtClient<T> {
         Err(YtdError::Input(format!("Project not found: {project_ref}")))
     }
 
+    pub fn resolve_project(&self, project_ref: &str) -> Result<Project, YtdError> {
+        if Self::is_project_database_id(project_ref) {
+            return self.get_project(project_ref);
+        }
+
+        match self.get_project(project_ref) {
+            Ok(project) => return Ok(project),
+            Err(err @ YtdError::PermissionDenied(_)) => return Err(err),
+            Err(_) => {}
+        }
+
+        let projects = self.list_projects()?;
+
+        if let Some(project) = projects.iter().find(|p| p.id == project_ref) {
+            return Ok(project.clone());
+        }
+
+        if let Some(project) = projects.iter().find(|p| p.short_name == project_ref) {
+            return Ok(project.clone());
+        }
+
+        if let Some(project) = projects
+            .iter()
+            .find(|p| p.short_name.eq_ignore_ascii_case(project_ref))
+        {
+            return Ok(project.clone());
+        }
+
+        Err(YtdError::Input(format!("Project not found: {project_ref}")))
+    }
+
     fn article_matches_query(article: &Article, query: &str) -> bool {
         let query = query.to_lowercase();
         if query.is_empty() {
@@ -1311,6 +1342,57 @@ mod tests {
         let projects = client.list_projects().unwrap();
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0].short_name, "TEST");
+    }
+
+    #[test]
+    fn resolve_project_returns_direct_database_id_project() {
+        let client = test_client(vec![
+            r#"{"id":"0-96","name":"Developer Workflow Platform","shortName":"DWP","archived":false,"description":null}"#,
+        ]);
+
+        let project = client.resolve_project("0-96").unwrap();
+
+        assert_eq!(project.id, "0-96");
+        assert_eq!(project.short_name, "DWP");
+        let request = client.transport.request(0);
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/admin/projects/0-96?fields=id%2Cname%2CshortName%2Carchived%2Cdescription"
+        );
+    }
+
+    #[test]
+    fn resolve_project_resolves_exact_short_name() {
+        let client = test_client(vec![
+            r#"{"id":"0-96","name":"Developer Workflow Platform","shortName":"DWP","archived":false,"description":null}"#,
+        ]);
+
+        let project = client.resolve_project("DWP").unwrap();
+
+        assert_eq!(project.id, "0-96");
+        assert_eq!(project.short_name, "DWP");
+    }
+
+    #[test]
+    fn resolve_project_resolves_case_insensitive_short_name_from_list() {
+        let client = test_client(vec![
+            "not json",
+            r#"[{"id":"0-96","name":"Developer Workflow Platform","shortName":"DWP","archived":false,"description":null}]"#,
+        ]);
+
+        let project = client.resolve_project("dwp").unwrap();
+
+        assert_eq!(project.id, "0-96");
+        assert_eq!(project.short_name, "DWP");
+    }
+
+    #[test]
+    fn resolve_project_reports_missing_project() {
+        let client = test_client(vec!["not json", r#"[]"#]);
+
+        let err = client.resolve_project("NOPE").unwrap_err();
+
+        assert_eq!(err.to_string(), "Project not found: NOPE");
     }
 
     #[test]

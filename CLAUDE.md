@@ -42,6 +42,7 @@ Core logic (client, config, types) has no CLI dependencies. Command handlers in 
 ```
 ytd help / ytd help <command> / ytd <command> help
 ytd login / logout / whoami
+ytd skill [--scope brief|standard|full] [--project <project>]
 
 ytd project list
 ytd project get <id>
@@ -133,6 +134,8 @@ JSON input via `--json '{...}'` or stdin. Stdin takes precedence.
 Delete commands ask for confirmation when interactive. Non-interactive delete requires `-y`.
 `search list --project <id>` filters saved searches by project reference in the saved query text.
 Input/output consistency rules are documented in `.agents/io-consistency.md`; public CLI changes should follow that checklist.
+
+`ytd skill` is Markdown-first and prints current SKILL.md guidance for AI agents. Agents can run it themselves instead of relying on stale checked-in instructions. Without `--project`, it requires no login; with `--project`, it resolves the project through YouTrack and embeds project-specific context/examples, including ticket/article ID examples based on the resolved short name. `ytd skill` accepts `--format text` and `--format md`; `--format json` and `--format raw` are rejected. Generated skills prefer `--format json` for agent automation, remind agents to use `ytd help` / `ytd help <command>` before guessing command details, and include the ytd version plus a regeneration command preserving the same project/no-project shape and effective scope.
 
 Ticket text output is specialized: `ticket search`, `ticket list`, `search run`, and `sprint ticket list` render compact ticket rows with ID, summary, project, important custom fields, and updated/resolved state. `ticket get` renders a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `--format text` renders Markdown content fields (`content`, `description`, `text`) as readable terminal text with ASCII tables and prints those content fields last after a blank line, without a field label. `--no-comments` omits comments from text, json, raw, and md output. `article get` also accepts `--no-comments`. `ticket links` renders linked issues with the same compact ticket fields. Use `--format json` for stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
 

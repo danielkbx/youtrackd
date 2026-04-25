@@ -70,6 +70,13 @@ fn run() -> Result<(), YtdError> {
         _ => {}
     }
 
+    if resource == "skill" {
+        commands::skill::validate(&args, &opts)?;
+        if commands::skill::project_ref(&args)?.is_none() {
+            return commands::skill::run(None, &args, &opts);
+        }
+    }
+
     let cfg = config::get_config()?;
 
     match resource {
@@ -98,6 +105,13 @@ fn run() -> Result<(), YtdError> {
         "search" => commands::search::run(&client, &args, &opts),
         "board" => commands::board::run(&client, &args, &opts),
         "sprint" => commands::sprint::run(&client, &args, &opts),
+        "skill" => {
+            let project = commands::skill::project_ref(&args)?
+                .map(|project_ref| client.resolve_project(project_ref))
+                .transpose()?
+                .map(commands::skill::SkillProjectContext::from);
+            commands::skill::run(project, &args, &opts)
+        }
         _ if runtime_alias.is_some() => commands::alias::run_runtime(
             &client,
             resource,
@@ -124,6 +138,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
             | ("logout", None)
             | ("open", None)
             | ("url", None)
+            | ("skill", None)
             | ("whoami", None)
             | ("config", Some("set" | "get" | "unset"))
             | ("alias", Some("create" | "list" | "delete"))
@@ -225,8 +240,10 @@ mod tests {
     fn knows_open_and_url_commands() {
         assert!(is_known_command("open", None));
         assert!(is_known_command("url", None));
+        assert!(is_known_command("skill", None));
         assert!(!is_known_command("open", Some("now")));
         assert!(!is_known_command("url", Some("raw")));
+        assert!(!is_known_command("skill", Some("generate")));
     }
 
     #[test]

@@ -6,6 +6,7 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
         }
         Some("logout") => println!("Usage: ytd logout\n\nRemove stored credentials."),
         Some("open") => print_open_help(),
+        Some("skill") => print_skill_help(),
         Some("whoami") => println!("Usage: ytd whoami\n\nShow current user info."),
         Some("config") => print_config_help(),
         Some("group") => print_group_help(),
@@ -41,6 +42,10 @@ fn print_global_help() {
             ("open <target>", "Open web URL in browser"),
             ("whoami", "Show current user"),
         ],
+    );
+    print_help_group(
+        "Agent Skills",
+        &[("skill", "Print latest SKILL.md guidance for AI agents")],
     );
     print_help_group(
         "Config",
@@ -174,6 +179,8 @@ fn print_global_help() {
         ("--no-meta", "Suppress IDs, dates, author"),
         ("-y", "Confirm delete without prompting"),
     ]);
+    println!("\nAI agents can run `ytd skill` to get current ytd usage instructions.");
+    println!("Use `ytd skill --project <project>` for project-specific examples.");
     println!("\nRun `ytd help <command>` for command-specific help.");
 }
 
@@ -236,6 +243,29 @@ Examples:
   ytd open ABC-A-12
   ytd open ABC
   ytd open ABC-A"
+    );
+}
+
+fn print_skill_help() {
+    println!(
+        "Usage:
+  ytd skill [--scope brief|standard|full] [--project <project>]
+
+Generate the latest SKILL.md content for AI agents using ytd.
+
+Agents can run this command themselves to fetch current ytd usage
+instructions instead of relying on a stale checked-in skill file.
+Redirect stdout to SKILL.md when a persistent skill file is wanted.
+
+Options:
+  --scope brief|standard|full   Detail level for the generated skill; default: standard
+  --project <project>           Resolve project and include project-specific context/examples
+
+Examples:
+  ytd skill
+  ytd skill --scope brief
+  ytd skill --project DWP
+  ytd skill --project DWP --scope full > SKILL.md"
     );
 }
 

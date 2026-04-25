@@ -6,6 +6,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 
 - Use `ytd <resource> <action>` for resource operations.
 - Use nested actions only when the target is naturally scoped by another resource, for example `sprint ticket add`.
+- `ytd skill` is a deliberate top-level no-action exception because it prints current SKILL.md guidance for AI agents.
 - Support `ytd help <resource>` and `ytd <resource> help` for every public resource.
 - Validate command/resource/action names before loading config, so typos return "Unknown command" instead of auth errors.
 - Validate global output flags before loading config for formatted commands.
@@ -36,6 +37,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - `raw` is YouTrack API-shaped JSON and should stay as close to the API response as practical.
 - `md` is Markdown export, not a general structured format.
 - `--no-meta` suppresses metadata fields in formatted output where applicable.
+- `ytd skill` is Markdown-first: `--format text` and `--format md` print generated SKILL.md content, while `--format json` and `--format raw` are rejected.
 
 ## Stdout And Stderr
 
@@ -86,4 +88,5 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 
 - Any public CLI behavior change must update `src/help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys when affected.
 - Help text and README usage must match parser behavior exactly.
+- `ytd help` and `ytd help skill` must clearly state that AI agents can run `ytd skill` themselves to fetch current ytd guidance. Generated skill content must also tell agents to use `ytd help`, `ytd help <command>`, or `ytd <command> help` before guessing command usage.
 - If a command has a deliberate exception to these rules, document the exception near the command help and in README.

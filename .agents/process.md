@@ -6,6 +6,8 @@ Before implementing any non-trivial task, read all files in `.agents/` and inclu
 
 For public CLI changes, follow `.agents/io-consistency.md` and update `help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys. Public comment outputs must document and preserve reusable encoded comment IDs.
 
+For `ytd skill` changes, preserve the agent self-service contract: agents can run `ytd skill` to get current SKILL.md guidance, generated skills include the current ytd version and regeneration command, project-specific generation must keep the same `--project`/`--scope` shape in update instructions, and the generated text must remind agents to use `ytd help` / `ytd help <command>` before guessing command usage.
+
 ## Tooling
 
 | Task | Command |

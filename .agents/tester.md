@@ -94,6 +94,7 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Ticket Sprints | `16-ticket-sprints.md` | ticket sprints output and reusable sprint IDs |
 | Sprint Ticket Assignment | `17-sprint-ticket-assignment.md` | sprint ticket list/add/remove, board-scoped sprint IDs, duplicate add, remove errors |
 | Aliases | `18-aliases.md` | user list/get, alias create/list/delete, dynamic alias create/list, config-backed output |
+| Skill Generation | `19-skill-generation.md` | agent SKILL.md generation, scopes, version/update instructions, project context |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
 Boards per `board delete -y` löschen.
@@ -114,6 +115,8 @@ When extending the ticket/article journeys, include visibility coverage for inhe
 **Comment visibility**: Journey 12 requires `$VIS_GROUP`. It must verify that comment creation applies defaults, `comment update` without visibility flags preserves existing visibility, `--no-visibility-group` clears it, and `--visibility-group` sets it again.
 
 **Aliases**: Journey 18 must use an isolated `YTD_CONFIG` file with valid credentials so alias create/list/delete does not mutate the user's normal config. Alias config stores only IDs; names and readable labels must not be persisted in `aliases`.
+
+**Skill Generation**: Journey 19 is review-oriented rather than exact-text oriented. It must verify that generated skills include valid frontmatter, JSON-first agent guidance, help lookup guidance (`ytd help`, `ytd help <command>`, `ytd <command> help`), current ytd version, regeneration instructions with the same effective scope, and resolved project context/examples when `--project` is used.
 
 ## Conventions
 

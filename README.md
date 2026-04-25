@@ -66,11 +66,21 @@ ytd project list
 ytd ticket list --project MYPROJECT
 ytd user list
 ytd alias list
+ytd skill
 ytd config set visibility-group "Engineering"
 ytd group list
 ```
 
 ## Commands
+
+### Agent Skills
+```
+ytd skill [--scope brief|standard|full] [--project <project>]
+```
+
+`ytd skill` prints current `SKILL.md` guidance for AI agents. Agents can run it themselves to fetch the latest `ytd` instructions instead of relying on a stale checked-in skill file. Without `--project`, it works without login. With `--project`, it resolves the project through YouTrack and embeds project-specific context and examples, including realistic ticket/article ID examples using the resolved project short name. The generated skill tells agents to prefer `--format json` for machine-readable work, to use `ytd help` / `ytd help <command>` before guessing command details, and includes the `ytd` version plus a regeneration command using the same project/no-project shape and effective scope.
+
+`ytd skill` supports `--format text` and `--format md`; both print the same Markdown. `--format json` and `--format raw` are intentionally rejected because stdout is meant to be directly usable as `SKILL.md`.
 
 ### Projects
 ```
@@ -226,6 +236,8 @@ YouTrack requires the internal issue database ID for sprint assignment, but `ytd
 Ticket commands use a richer text format than the generic resource output. `ticket search`, `ticket list`, `search run`, and `sprint ticket list` print compact ticket rows with readable ID, summary, project, important fields such as State, Assignee, Priority, Type, Estimation, and Spent time, plus update/resolution status when available. `ticket get` prints a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `article get`, `comment get`, and generic text outputs also render Markdown content fields as terminal text with ASCII tables and print content fields last after a blank line, without a field label. Add `--no-comments` to `ticket get` or `article get` to omit comments. Use `--format json` when scripts need stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
 
 Alias management is config-backed. `alias list --format json` and `alias list --format raw` intentionally return the same local alias data model because there is no YouTrack API response behind it. Dynamic alias commands are the deliberate exception to command-name validation before config loading: after checking built-in commands, `ytd` may read local config to resolve `ytd <alias> ...`. Dynamic alias ticket listing, for example `ytd todo list`, uses the shared compact ticket formatter and must match `ticket list` text output.
+
+`ytd skill` is Markdown-first for AI-agent onboarding. `--format text` and `--format md` both print generated `SKILL.md` content. `--format json` and `--format raw` are rejected for this command. Agents should run `ytd skill` to get current usage guidance; use `ytd skill --project <project>` for resolved project context and project-specific examples. Generated skills also remind agents that `ytd help` lists commands and `ytd help <command>` / `ytd <command> help` describe command-specific usage.
 
 The unlabeled Markdown content layout applies to `article get`, `article search` and `article list` when content is included, `article comments`, `ticket comments`, `comment get`, `ticket history` activity text, and any future text output with `content`, `description`, or `text` fields. `ticket get` uses the same layout for its description; embedded ticket comments remain after the parent description.
 

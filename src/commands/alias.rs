@@ -173,12 +173,14 @@ fn build_alias<T: HttpTransport>(
         None if interactive => {
             prompt_project(client, existing.map(|alias| alias.project.as_str()))?
         }
-        None if let Some(existing) = existing => existing.project.clone(),
-        None => {
-            return Err(YtdError::Input(
-                "--project is required for new aliases in non-interactive mode".into(),
-            ))
-        }
+        None => match existing {
+            Some(existing) => existing.project.clone(),
+            None => {
+                return Err(YtdError::Input(
+                    "--project is required for new aliases in non-interactive mode".into(),
+                ))
+            }
+        },
     };
 
     let user = match args.flags.get("user") {
@@ -188,12 +190,14 @@ fn build_alias<T: HttpTransport>(
             user.clone()
         }
         None if interactive => prompt_user(client, existing.map(|alias| alias.user.as_str()))?,
-        None if let Some(existing) = existing => existing.user.clone(),
-        None => {
-            return Err(YtdError::Input(
-                "--user is required for new aliases in non-interactive mode".into(),
-            ))
-        }
+        None => match existing {
+            Some(existing) => existing.user.clone(),
+            None => {
+                return Err(YtdError::Input(
+                    "--user is required for new aliases in non-interactive mode".into(),
+                ))
+            }
+        },
     };
 
     let sprint = match args.flags.get("sprint") {
@@ -203,12 +207,14 @@ fn build_alias<T: HttpTransport>(
             Some(value.clone())
         }
         None if interactive => prompt_sprint(client, &project, existing.and_then(|a| a.sprint.as_deref()))?,
-        None if let Some(existing) = existing => existing.sprint.clone(),
-        None => {
-            return Err(YtdError::Input(
-                "--sprint is required for new aliases in non-interactive mode. Use --sprint none for no sprint.".into(),
-            ))
-        }
+        None => match existing {
+            Some(existing) => existing.sprint.clone(),
+            None => {
+                return Err(YtdError::Input(
+                    "--sprint is required for new aliases in non-interactive mode. Use --sprint none for no sprint.".into(),
+                ))
+            }
+        },
     };
 
     Ok(StoredAlias {
@@ -674,7 +680,8 @@ mod tests {
     #[test]
     fn choice_prompt_without_default_has_plain_select_line() {
         let choices = vec!["Demo Project (DWP)", "Internal Tools (IT)"];
-        let rendered = render_choice_prompt("Project", &choices, None, &|choice| choice.to_string());
+        let rendered =
+            render_choice_prompt("Project", &choices, None, &|choice| choice.to_string());
 
         assert!(rendered.contains("Select Project: "));
         assert!(!rendered.contains("(default)"));
@@ -683,7 +690,8 @@ mod tests {
     #[test]
     fn choice_prompt_with_default_shows_default_label_in_select_line() {
         let choices = vec!["Demo Project (DWP)", "Internal Tools (IT)"];
-        let rendered = render_choice_prompt("Project", &choices, Some(0), &|choice| choice.to_string());
+        let rendered =
+            render_choice_prompt("Project", &choices, Some(0), &|choice| choice.to_string());
 
         assert!(rendered.contains("  1. Demo Project (DWP)\n"));
         assert!(rendered.contains("Select Project [Demo Project (DWP)]: "));
