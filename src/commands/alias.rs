@@ -341,16 +341,8 @@ where
         return Err(YtdError::Input(format!("No {label} choices available")));
     }
 
-    eprintln!("{label}:");
-    for (idx, choice) in choices.iter().enumerate() {
-        let marker = if Some(idx) == default {
-            " (default)"
-        } else {
-            ""
-        };
-        eprintln!("  {}. {}{}", idx + 1, format(choice), marker);
-    }
-    eprint!("Select {label}: ");
+    let default = default.filter(|idx| *idx < choices.len());
+    eprint!("{}", render_choice_prompt(label, choices, default, &format));
     io::stderr().flush()?;
 
     let mut line = String::new();
@@ -368,6 +360,31 @@ where
         )));
     }
     Ok(number - 1)
+}
+
+fn render_choice_prompt<T, F>(
+    label: &str,
+    choices: &[T],
+    default: Option<usize>,
+    format: &F,
+) -> String
+where
+    F: Fn(&T) -> String,
+{
+    let default_label = default
+        .filter(|idx| *idx < choices.len())
+        .map(|idx| format(&choices[idx]));
+    let mut out = String::new();
+    out.push_str(label);
+    out.push_str(":\n");
+    for (idx, choice) in choices.iter().enumerate() {
+        out.push_str(&format!("  {}. {}\n", idx + 1, format(choice)));
+    }
+    match default_label {
+        Some(default_label) => out.push_str(&format!("Select {label} [{default_label}]: ")),
+        None => out.push_str(&format!("Select {label}: ")),
+    }
+    out
 }
 
 #[derive(Debug, Serialize)]
@@ -652,5 +669,24 @@ mod tests {
     fn search_value_wraps_values_with_spaces() {
         assert_eq!(search_value("alice"), "alice");
         assert_eq!(search_value("Alice Example"), "{Alice Example}");
+    }
+
+    #[test]
+    fn choice_prompt_without_default_has_plain_select_line() {
+        let choices = vec!["Demo Project (DWP)", "Internal Tools (IT)"];
+        let rendered = render_choice_prompt("Project", &choices, None, &|choice| choice.to_string());
+
+        assert!(rendered.contains("Select Project: "));
+        assert!(!rendered.contains("(default)"));
+    }
+
+    #[test]
+    fn choice_prompt_with_default_shows_default_label_in_select_line() {
+        let choices = vec!["Demo Project (DWP)", "Internal Tools (IT)"];
+        let rendered = render_choice_prompt("Project", &choices, Some(0), &|choice| choice.to_string());
+
+        assert!(rendered.contains("  1. Demo Project (DWP)\n"));
+        assert!(rendered.contains("Select Project [Demo Project (DWP)]: "));
+        assert!(!rendered.contains("(default)"));
     }
 }

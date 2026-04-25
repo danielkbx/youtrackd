@@ -20,7 +20,7 @@ For public CLI changes, follow `.agents/io-consistency.md` and update `help.rs`,
 ## Commits
 
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`
-- Scope optional: `feat(ticket): add comment command`
+- Do not use scopes in commit prefixes: use `fix: ...`, not `fix(alias): ...`
 - Message describes *why*, not *what*
 - Stage specific files — never `git add .`
 - Never commit: `.env`, tokens, `target/`
