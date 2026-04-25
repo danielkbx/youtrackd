@@ -397,7 +397,72 @@ impl<T: HttpTransport> YtClient<T> {
     // --- Users ---
 
     pub fn get_me(&self) -> Result<User, YtdError> {
-        self.get("/users/me", &[("fields", "id,login,fullName,email")])
+        self.get(
+            "/users/me",
+            &[("fields", "id,login,fullName,email,banned,guest")],
+        )
+    }
+
+    pub fn list_users(&self) -> Result<Vec<User>, YtdError> {
+        self.get(
+            "/users",
+            &[
+                ("fields", "id,login,fullName,email,banned,guest"),
+                ("$top", "500"),
+            ],
+        )
+    }
+
+    pub fn get_user(&self, id: &str) -> Result<User, YtdError> {
+        self.get(
+            &format!("/users/{id}"),
+            &[("fields", "id,login,fullName,email,banned,guest")],
+        )
+    }
+
+    pub fn resolve_user(&self, value: &str) -> Result<User, YtdError> {
+        if value.trim().is_empty() {
+            return Err(YtdError::Input("User ID or login is required".into()));
+        }
+
+        match self.get_user(value) {
+            Ok(user) => return Ok(user),
+            Err(YtdError::Http(_)) | Err(YtdError::Api { .. }) => {}
+            Err(err) => return Err(err),
+        }
+
+        let needle = value.to_ascii_lowercase();
+        let matches: Vec<User> = self
+            .list_users()?
+            .into_iter()
+            .filter(|user| {
+                user.id == value
+                    || user.login.eq_ignore_ascii_case(value)
+                    || user
+                        .full_name
+                        .as_deref()
+                        .map(|name| name.to_ascii_lowercase() == needle)
+                        .unwrap_or(false)
+            })
+            .collect();
+
+        match matches.len() {
+            0 => Err(YtdError::Input(format!("User not found: {value}"))),
+            1 => Ok(matches.into_iter().next().unwrap()),
+            _ => {
+                let candidates = matches
+                    .iter()
+                    .map(|user| {
+                        let display = user.full_name.as_deref().unwrap_or(&user.login);
+                        format!("{} ({}, {})", display, user.login, user.id)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Err(YtdError::Input(format!(
+                    "User reference is ambiguous: {value}. Matches: {candidates}"
+                )))
+            }
+        }
     }
 
     // --- Projects ---
@@ -1201,6 +1266,41 @@ mod tests {
         ]);
         let user = client.get_me().unwrap();
         assert_eq!(user.login, "admin");
+    }
+
+    #[test]
+    fn list_users_requests_user_fields() {
+        let client = test_client(vec![
+            r#"[{"id":"1-51","login":"alice","fullName":"Alice","email":"a@example.com","banned":false,"guest":false}]"#,
+        ]);
+
+        let users = client.list_users().unwrap();
+
+        assert_eq!(users[0].id, "1-51");
+        assert_eq!(users[0].banned, Some(false));
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/users?fields=id%2Clogin%2CfullName%2Cemail%2Cbanned%2Cguest&%24top=500"
+        );
+    }
+
+    #[test]
+    fn get_user_requests_user_id() {
+        let client = test_client(vec![
+            r#"{"id":"1-51","login":"alice","fullName":"Alice","email":null,"banned":false,"guest":false}"#,
+        ]);
+
+        let user = client.get_user("1-51").unwrap();
+
+        assert_eq!(user.login, "alice");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/users/1-51?fields=id%2Clogin%2CfullName%2Cemail%2Cbanned%2Cguest"
+        );
     }
 
     #[test]

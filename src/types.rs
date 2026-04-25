@@ -1,5 +1,6 @@
 use crate::error::YtdError;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct YtdConfig {
@@ -23,12 +24,26 @@ pub struct StoredConfig {
     pub token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visibility_group: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub aliases: BTreeMap<String, StoredAlias>,
 }
 
 impl StoredConfig {
     pub fn is_empty(&self) -> bool {
-        self.url.is_none() && self.token.is_none() && self.visibility_group.is_none()
+        self.url.is_none()
+            && self.token.is_none()
+            && self.visibility_group.is_none()
+            && self.aliases.is_empty()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredAlias {
+    pub project: String,
+    pub user: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sprint: Option<String>,
 }
 
 // --- Users ---
@@ -40,6 +55,10 @@ pub struct User {
     pub login: String,
     pub full_name: Option<String>,
     pub email: Option<String>,
+    #[serde(default)]
+    pub banned: Option<bool>,
+    #[serde(default)]
+    pub guest: Option<bool>,
 }
 
 // --- Projects ---

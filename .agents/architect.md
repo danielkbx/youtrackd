@@ -21,6 +21,8 @@ src/
     login.rs        ← interactive login flow
     logout.rs       ← clear credentials
     whoami.rs       ← current user display
+    user.rs         ← user list/get
+    alias.rs        ← local alias config + dynamic alias ticket workflows
     project.rs      ← project list/get
     article.rs      ← article CRUD + comments + attachments + delete
     ticket.rs       ← ticket CRUD + tags + links + attachments + time + custom fields + history + delete
@@ -61,6 +63,16 @@ Production: `UreqTransport`. Tests: `MockTransport` with canned responses.
 
 Command names are validated against a KNOWN-map in `main.rs` **before** loading config. This prevents misleading "Not logged in" errors on typos.
 
+Public command input/output behavior is governed by `.agents/io-consistency.md`.
+
+Dynamic aliases are resolved as runtime commands after built-in command matching. This is the deliberate exception to command-name validation before config loading: if the first word is not a built-in command, `main.rs` may read local config to decide whether it is a configured alias. Alias management commands (`alias create|list|delete`) are config-backed rather than YouTrack API-backed. Stored alias config keeps only IDs:
+
+```json
+{ "aliases": { "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" } } }
+```
+
+The `sprint` key is optional and omitted when none. Because `alias list` has no API-shaped source response, `--format json` and `--format raw` intentionally return the same local alias data model. `ytd <alias> list` must use the same compact ticket formatter as `ticket list`.
+
 ## Help System
 
 Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markdown, no ANSI colors.
@@ -72,6 +84,7 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 - `save_config(c)` — writes file with `OpenOptionsExt::mode(0o600)` (no race condition)
 - `clear_config()` — deletes file
 - `resolve_visibility_group()` — resolves CLI flag → `YTD_VISIBILITY_GROUP` → stored config, with `--no-visibility-group` as explicit override
+- alias helpers store and read local alias definitions under `aliases`, preserving only project/user/sprint IDs
 
 ## Visibility Defaults
 

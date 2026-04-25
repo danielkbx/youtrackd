@@ -1189,6 +1189,8 @@ mod tests {
             login: "alice".into(),
             full_name: Some("Alice Example".into()),
             email: None,
+            banned: None,
+            guest: None,
         });
         issue.tags = vec![Tag {
             id: Some("tag-1".into()),
@@ -1212,6 +1214,8 @@ mod tests {
                 login: "bob".into(),
                 full_name: Some("Bob Example".into()),
                 email: None,
+                banned: None,
+                guest: None,
             }),
             visibility: None,
             attachments: vec![],

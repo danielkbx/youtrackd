@@ -33,6 +33,7 @@ For each command, verify:
 3. Create/update commands print only the ID on stdout
 4. Invalid input exits non-zero with a message on stderr
 5. Stdin JSON input works equivalently to `--json` flag
+6. Public input/output behavior follows `.agents/io-consistency.md`
 
 Visibility-specific coverage:
 1. `config set|get|unset visibility-group` works without login and persists only stored config fields
@@ -47,6 +48,18 @@ Delete-specific coverage:
 
 Group-specific coverage:
 1. `group list` requests `usersCount`
+
+User-specific coverage:
+1. `user list` returns reusable user IDs and login/name fields where available
+2. `user get <user-id-or-login>` accepts both a YouTrack user ID and a login
+
+Alias-specific coverage:
+1. `alias create` persists only project/user/sprint IDs under `aliases`
+2. `--sprint none` clears or omits the stored `sprint` field
+3. `alias list` reads local config and returns the same data model for `--format json` and `--format raw`
+4. `alias delete` follows standard delete confirmation behavior
+5. `ytd <alias> create <text>` creates a ticket using the alias context and prints only the ticket ID
+6. `ytd <alias> list [--all]` uses the shared compact ticket formatter and matches `ticket list` output shape
 
 ## Rust-specific Test Notes
 
@@ -80,6 +93,7 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Current Sprints | `15-current-sprints.md` | sprint current across all boards and reusable sprint IDs |
 | Ticket Sprints | `16-ticket-sprints.md` | ticket sprints output and reusable sprint IDs |
 | Sprint Ticket Assignment | `17-sprint-ticket-assignment.md` | sprint ticket list/add/remove, board-scoped sprint IDs, duplicate add, remove errors |
+| Aliases | `18-aliases.md` | user list/get, alias create/list/delete, dynamic alias create/list, config-backed output |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
 Boards per `board delete -y` löschen.
@@ -98,6 +112,8 @@ When extending the ticket/article journeys, include visibility coverage for inhe
 **Sprint ticket assignment**: Use encoded public sprint IDs in the form `<board-id>:<sprint-id>`. Tests must verify that removing from one sprint does not assume anything about other board sprint assignments returned by `ticket sprints`.
 
 **Comment visibility**: Journey 12 requires `$VIS_GROUP`. It must verify that comment creation applies defaults, `comment update` without visibility flags preserves existing visibility, `--no-visibility-group` clears it, and `--visibility-group` sets it again.
+
+**Aliases**: Journey 18 must use an isolated `YTD_CONFIG` file with valid credentials so alias create/list/delete does not mutate the user's normal config. Alias config stores only IDs; names and readable labels must not be persisted in `aliases`.
 
 ## Conventions
 

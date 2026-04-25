@@ -45,23 +45,28 @@ fn run() -> Result<(), YtdError> {
 
     let resource = args.resource.as_deref().unwrap();
     let action = args.action.as_deref();
+    let opts = format::OutputOptions::from_flags(&args.flags)?;
 
     // Validate command before loading config
-    if !is_known_command(resource, action) {
-        return Err(YtdError::Input(format!(
-            "Unknown command: ytd {}{}",
-            resource,
-            action.map(|a| format!(" {a}")).unwrap_or_default()
-        )));
-    }
+    let runtime_alias = if is_known_command(resource, action) {
+        None
+    } else if matches!(action, Some("create" | "list")) {
+        let stored = config::load_stored_config()?;
+        stored.aliases.get(resource).cloned()
+    } else {
+        None
+    };
 
-    let opts = format::OutputOptions::from_flags(&args.flags)?;
+    if runtime_alias.is_none() && !is_known_command(resource, action) {
+        return Err(unknown_command(resource, action));
+    }
 
     // Auth commands don't need config
     match resource {
         "login" => return commands::login::run(&args),
         "logout" => return commands::logout::run(),
         "config" => return commands::config::run(&args),
+        "alias" if action == Some("delete") => return commands::alias::run_config_only(&args),
         _ => {}
     }
 
@@ -88,11 +93,28 @@ fn run() -> Result<(), YtdError> {
         "comment" => commands::comment::run(&client, &args, &opts),
         "attachment" => commands::attachment::run(&client, &args, &opts),
         "tag" => commands::tag::run(&client, &args, &opts),
+        "user" => commands::user::run(&client, &args, &opts),
+        "alias" => commands::alias::run(&client, &args, &opts),
         "search" => commands::search::run(&client, &args, &opts),
         "board" => commands::board::run(&client, &args, &opts),
         "sprint" => commands::sprint::run(&client, &args, &opts),
+        _ if runtime_alias.is_some() => commands::alias::run_runtime(
+            &client,
+            resource,
+            runtime_alias.as_ref().unwrap(),
+            &args,
+            &opts,
+        ),
         _ => Err(YtdError::Input(format!("Unknown resource: {resource}"))),
     }
+}
+
+fn unknown_command(resource: &str, action: Option<&str>) -> YtdError {
+    YtdError::Input(format!(
+        "Unknown command: ytd {}{}",
+        resource,
+        action.map(|a| format!(" {a}")).unwrap_or_default()
+    ))
 }
 
 fn is_known_command(resource: &str, action: Option<&str>) -> bool {
@@ -104,7 +126,9 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
             | ("url", None)
             | ("whoami", None)
             | ("config", Some("set" | "get" | "unset"))
+            | ("alias", Some("create" | "list" | "delete"))
             | ("group", Some("list"))
+            | ("user", Some("list" | "get"))
             | ("project", Some("list" | "get"))
             | (
                 "article",
@@ -178,6 +202,23 @@ mod tests {
     fn knows_group_commands() {
         assert!(is_known_command("group", Some("list")));
         assert!(!is_known_command("group", None));
+    }
+
+    #[test]
+    fn knows_user_commands() {
+        assert!(is_known_command("user", Some("list")));
+        assert!(is_known_command("user", Some("get")));
+        assert!(!is_known_command("user", Some("create")));
+        assert!(!is_known_command("user", None));
+    }
+
+    #[test]
+    fn knows_alias_commands() {
+        assert!(is_known_command("alias", Some("create")));
+        assert!(is_known_command("alias", Some("list")));
+        assert!(is_known_command("alias", Some("delete")));
+        assert!(!is_known_command("alias", Some("get")));
+        assert!(!is_known_command("todo", Some("list")));
     }
 
     #[test]

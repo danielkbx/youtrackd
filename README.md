@@ -64,6 +64,8 @@ ytd whoami
 ```
 ytd project list
 ytd ticket list --project MYPROJECT
+ytd user list
+ytd alias list
 ytd config set visibility-group "Engineering"
 ytd group list
 ```
@@ -79,6 +81,12 @@ ytd project get <shortName>
 ### Groups
 ```
 ytd group list
+```
+
+### Users
+```
+ytd user list
+ytd user get <user-id-or-login>
 ```
 
 ### Tickets
@@ -143,6 +151,17 @@ ytd attachment download <attachment-id> [--output <path>]
 
 Attachment IDs are returned by `ytd ticket attachments`, `ytd article attachments`, and `ytd comment attachments`. Use the returned `id` field with `ytd attachment ...`; `ytId` is the raw YouTrack attachment ID and is only included for reference.
 
+### Aliases
+```
+ytd alias create <alias> [--project <project-id>] [--user <user-id>] [--sprint <sprint-id|none>]
+ytd alias list
+ytd alias delete <alias> [-y]
+ytd <alias> create <text>
+ytd <alias> list [--all]
+```
+
+Aliases are local shortcuts backed by the `ytd` config file. They store only YouTrack IDs, not names. `--sprint none` clears any sprint binding so the alias creates and lists project/user-scoped tickets without a sprint filter.
+
 ### Tags, Searches, Boards, Sprints
 ```
 ytd config set visibility-group <group>
@@ -206,11 +225,30 @@ YouTrack requires the internal issue database ID for sprint assignment, but `ytd
 
 Ticket commands use a richer text format than the generic resource output. `ticket search`, `ticket list`, `search run`, and `sprint ticket list` print compact ticket rows with readable ID, summary, project, important fields such as State, Assignee, Priority, Type, Estimation, and Spent time, plus update/resolution status when available. `ticket get` prints a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `article get`, `comment get`, and generic text outputs also render Markdown content fields as terminal text with ASCII tables and print content fields last after a blank line, without a field label. Add `--no-comments` to `ticket get` or `article get` to omit comments. Use `--format json` when scripts need stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
 
+Alias management is config-backed. `alias list --format json` and `alias list --format raw` intentionally return the same local alias data model because there is no YouTrack API response behind it. Dynamic alias commands are the deliberate exception to command-name validation before config loading: after checking built-in commands, `ytd` may read local config to resolve `ytd <alias> ...`. Dynamic alias ticket listing, for example `ytd todo list`, uses the shared compact ticket formatter and must match `ticket list` text output.
+
 The unlabeled Markdown content layout applies to `article get`, `article search` and `article list` when content is included, `article comments`, `ticket comments`, `comment get`, `ticket history` activity text, and any future text output with `content`, `description`, or `text` fields. `ticket get` uses the same layout for its description; embedded ticket comments remain after the parent description.
 
 Ticket issue outputs expose the reusable ticket ID as `id` (for example `MYPROJECT-42`). If the raw YouTrack database ID is included, it is exposed as `ytId`. Ticket issue outputs do not expose a separate `idReadable` field.
 
 Article outputs expose the reusable article ID as `id` (for example `MYPROJECT-A-1`). If the raw YouTrack database ID is included, it is exposed as `ytId`. Article outputs do not expose a separate `idReadable` field.
+
+## Input/Output Consistency
+
+`ytd` follows a few rules across commands:
+
+- Validate command names and global output format before loading config.
+- Accept structured create/update input via `--json` or stdin; stdin wins when both are present.
+- Send successful data output to stdout, and errors/prompts to stderr.
+- Print only the reusable public ID for create/update/delete commands that return one changed resource.
+- Keep normalized `--format json` stable for scripts; use `--format raw` for YouTrack-shaped API output.
+- Reject unknown `--format` values instead of falling back to text.
+- Never silently ignore supported-looking filters; document client-side or approximate filters.
+- Expose reusable public IDs as `id`; expose raw YouTrack IDs only as `ytId`.
+- Require delete confirmation interactively, and require `-y` for non-interactive delete.
+- Preserve visibility on updates unless explicit visibility flags are passed.
+
+The full maintainer checklist is documented in `.agents/io-consistency.md`.
 
 ## JSON Input
 
@@ -322,6 +360,13 @@ ytd ticket set PROJ-42 State "In Progress"
 ytd ticket set PROJ-42 Assignee alice.smith
 ```
 
+### Create and use an alias
+```bash
+ytd alias create todo --project 0-96 --user 1-51 --sprint 108-4:113-6
+ytd todo create "Follow up with customer"
+ytd todo list
+```
+
 ### Export article as Markdown file
 ```bash
 ytd article get PROJ-A-1 --format md > article.md
@@ -422,6 +467,37 @@ YouTrack requires the internal issue database ID for sprint assignment, but `ytd
 
 A ticket can be assigned to sprints on multiple boards. `sprint ticket remove` removes only the assignment for the exact board-scoped sprint ID you pass.
 
+### Aliases
+
+Aliases are local config entries for recurring ticket workflows. A typical alias binds a project, assignee/user, and optionally a board-scoped sprint ID:
+
+```bash
+ytd alias create todo --project 0-96 --user 1-51 --sprint 108-4:113-6
+ytd alias create backlog --project 0-96 --user 1-51 --sprint none
+ytd alias list
+```
+
+Dynamic alias commands then create and list tickets through that saved context:
+
+```bash
+ytd todo create "Write release notes"
+ytd todo list
+ytd todo list --all
+```
+
+Alias config stores only IDs:
+
+```json
+{
+  "aliases": {
+    "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" },
+    "backlog": { "project": "0-96", "user": "1-51" }
+  }
+}
+```
+
+The `sprint` field is optional and omitted when no sprint is configured. Use `--sprint none` to clear or omit it. `alias list` reads this local config; `--format json` and `--format raw` intentionally return the same alias data model. Dynamic alias commands are resolved from config after built-in command matching. `ytd <alias> list` uses the same compact ticket text output as `ytd ticket list`.
+
 ### Comment visibility
 
 New comments follow the configured visibility default from `YTD_VISIBILITY_GROUP` or `ytd config set visibility-group ...`. Use `--visibility-group <group>` to set a group explicitly or `--no-visibility-group` to create the comment without inherited default visibility.
@@ -431,6 +507,19 @@ For existing comments, `ytd comment update` does not apply defaults automaticall
 ## Configuration
 
 Config file: `~/.config/ytd/config.json` (used for stored credentials and CLI settings)
+
+Example with aliases:
+
+```json
+{
+  "url": "https://your-instance.youtrack.cloud",
+  "token": "perm:...",
+  "aliases": {
+    "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" },
+    "backlog": { "project": "0-96", "user": "1-51" }
+  }
+}
+```
 
 Alternatively, set environment variables:
 - `YOUTRACK_URL` — Your YouTrack instance URL

@@ -46,6 +46,9 @@ ytd login / logout / whoami
 ytd project list
 ytd project get <id>
 
+ytd user list
+ytd user get <user-id-or-login>
+
 ytd article search <query> [--project <id>]
 ytd article list --project <id>
 ytd article get <id> [--no-comments]
@@ -88,6 +91,12 @@ ytd attachment get <attachment-id>
 ytd attachment delete <attachment-id> [-y]
 ytd attachment download <attachment-id> [--output <path>]
 
+ytd alias create <alias> [--project <project-id>] [--user <user-id>] [--sprint <sprint-id|none>]
+ytd alias list
+ytd alias delete <alias> [-y]
+ytd <alias> create <text>
+ytd <alias> list [--all]
+
 ytd tag list [--project <id>]
 ytd search list [--project <id>]
 ytd search run <name-or-id>
@@ -123,6 +132,7 @@ JSON input via `--json '{...}'` or stdin. Stdin takes precedence.
 `--format` accepts only `text`, `raw`, `json`, or `md`; unknown values are input errors.
 Delete commands ask for confirmation when interactive. Non-interactive delete requires `-y`.
 `search list --project <id>` filters saved searches by project reference in the saved query text.
+Input/output consistency rules are documented in `.agents/io-consistency.md`; public CLI changes should follow that checklist.
 
 Ticket text output is specialized: `ticket search`, `ticket list`, `search run`, and `sprint ticket list` render compact ticket rows with ID, summary, project, important custom fields, and updated/resolved state. `ticket get` renders a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `--format text` renders Markdown content fields (`content`, `description`, `text`) as readable terminal text with ASCII tables and prints those content fields last after a blank line, without a field label. `--no-comments` omits comments from text, json, raw, and md output. `article get` also accepts `--no-comments`. `ticket links` renders linked issues with the same compact ticket fields. Use `--format json` for stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
 
@@ -149,13 +159,21 @@ Use the public `id` field with `ytd sprint get|update|delete` and `ytd sprint ti
 Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
 Sprint ticket assignment is board-scoped. The public sprint ID must be `<board-id>:<sprint-id>`. `ytd` resolves readable ticket IDs to YouTrack internal issue database IDs before calling the Agile Sprint issues API.
 
+Aliases are local config entries for dynamic ticket workflows. `alias create` stores only IDs under `aliases`, for example:
+`{ "aliases": { "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" }, "backlog": { "project": "0-96", "user": "1-51" } } }`.
+The `sprint` field is optional and omitted when none; `--sprint none` clears/omits it. `alias list` is config-backed, not YouTrack API-backed, so `--format json` and `--format raw` intentionally return the same alias data model. Dynamic alias commands are the deliberate exception to command-name validation before config loading: after checking built-in commands, `ytd` may read local config to resolve `ytd <alias> ...`. Dynamic alias listing (`ytd <alias> list [--all]`) uses the shared compact ticket formatter and must match `ticket list` output.
+
 ## Configuration
 
 ```json
 ~/.config/ytd/config.json
 {
   "url": "https://your-instance.youtrack.cloud",
-  "token": "perm:..."
+  "token": "perm:...",
+  "aliases": {
+    "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" },
+    "backlog": { "project": "0-96", "user": "1-51" }
+  }
 }
 ```
 

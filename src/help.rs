@@ -9,7 +9,9 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
         Some("whoami") => println!("Usage: ytd whoami\n\nShow current user info."),
         Some("config") => print_config_help(),
         Some("group") => print_group_help(),
+        Some("user") => print_user_help(),
         Some("project") => print_project_help(),
+        Some("alias") => print_alias_help(),
         Some("article") => print_article_help(),
         Some("ticket") => print_ticket_help(),
         Some("comment") => print_comment_help(),
@@ -56,6 +58,18 @@ fn print_global_help() {
                 "Remove stored visibility group",
             ),
             ("group list", "List visibility groups"),
+        ],
+    );
+    print_help_group(
+        "Users And Aliases",
+        &[
+            ("user list", "List users"),
+            ("user get <id-or-login>", "Get user details"),
+            ("alias create <name>", "Create or update an alias"),
+            ("alias list", "List configured aliases"),
+            ("alias delete <name>", "Delete an alias"),
+            ("<alias> create <text>", "Create ticket through alias"),
+            ("<alias> list", "List alias tickets"),
         ],
     );
     print_help_group(
@@ -239,6 +253,37 @@ fn print_group_help() {
   ytd group list [--format raw] [--no-meta]
 
 List known YouTrack groups. Useful for visibility-group selection."
+    );
+}
+
+fn print_user_help() {
+    println!(
+        "Usage:
+  ytd user list [--format text|json|raw] [--no-meta]
+  ytd user get <user-id-or-login> [--format text|json|raw] [--no-meta]
+
+List and inspect YouTrack users. user get accepts a YouTrack user database ID or login.
+Use user get to find the user ID for hand-written alias config."
+    );
+}
+
+fn print_alias_help() {
+    println!(
+        "Usage:
+  ytd alias create <alias> [--project <project-id>] [--user <user-id>] [--sprint <sprint-id|none>]
+  ytd alias list [--format text|json|raw] [--no-meta]
+  ytd alias delete <alias> [-y]
+  ytd <alias> create <text>
+  ytd <alias> list [--all] [--format text|json|raw|md] [--no-meta]
+
+Aliases store only IDs in the config file:
+  project: YouTrack project database ID
+  user: YouTrack user database ID
+  sprint: optional ytd sprint ID <board-id>:<sprint-id>
+
+alias list is config-backed, not YouTrack API-backed, so --format json and --format raw return the same ytd alias model.
+Alias ticket lists use the same output as ticket list, ticket search, search run, and sprint ticket list.
+Delete commands ask for confirmation. Use -y to confirm non-interactively."
     );
 }
 

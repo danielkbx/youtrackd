@@ -131,3 +131,17 @@ Ticket/article creates and new comments apply configured visibility defaults fro
 Date: 2026-04-25
 
 All delete commands (`ticket`, `article`, `comment`, `attachment`, `board`, `sprint`) share the same confirmation behavior. `-y` confirms without prompting. Interactive deletes require typing `yes`. Non-interactive deletes without `-y` fail with an input error and do not mutate.
+
+## YouTrack API: User list/get commands
+Date: 2026-04-25
+
+User commands expose YouTrack users for alias setup and scripting. `user list` lists reusable user IDs plus login/name fields where available. `user get <user-id-or-login>` accepts either the raw YouTrack user ID or a login. User IDs are YouTrack IDs and do not need ytd-specific parent encoding.
+
+## Implementierung: Alias config stores IDs only
+Date: 2026-04-25
+
+Aliases are local config entries under `aliases`, not YouTrack resources. Stored alias values keep only IDs, for example:
+
+`{ "aliases": { "todo": { "project": "0-96", "user": "1-51", "sprint": "108-4:113-6" }, "backlog": { "project": "0-96", "user": "1-51" } } }`
+
+The `sprint` field is optional and omitted when no sprint is bound. `alias create --sprint none` clears or omits `sprint`. Because `alias list` is config-backed, `--format json` and `--format raw` intentionally return the same local alias data model. Dynamic alias commands are the deliberate exception to command-name validation before config loading: after built-in command matching, `ytd` may read local config to resolve `ytd <alias> ...`. Dynamic alias listing (`ytd <alias> list [--all]`) reuses the shared compact ticket formatter and must match `ticket list` text output.

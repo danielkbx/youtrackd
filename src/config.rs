@@ -143,6 +143,8 @@ pub fn clear_config() -> Result<(), YtdError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::StoredAlias;
+    use std::collections::BTreeMap;
 
     fn clear_env() {
         std::env::remove_var("YTD_CONFIG");
@@ -330,6 +332,62 @@ mod tests {
         assert_eq!(stored.visibility_group.as_deref(), Some("Maintainers"));
 
         clear_env();
+    }
+
+    #[test]
+    fn save_config_preserves_existing_aliases() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+
+        let aliases = BTreeMap::from([(
+            "todo".to_string(),
+            StoredAlias {
+                project: "0-96".into(),
+                user: "1-51".into(),
+                sprint: Some("108-4:113-6".into()),
+            },
+        )]);
+        save_stored_config(&StoredConfig {
+            aliases,
+            ..StoredConfig::default()
+        })
+        .unwrap();
+
+        save_config(&YtdConfig {
+            url: "https://example.youtrack.cloud".into(),
+            token: "perm:abc".into(),
+        })
+        .unwrap();
+
+        let stored = load_stored_config().unwrap();
+        let alias = stored.aliases.get("todo").unwrap();
+        assert_eq!(alias.project, "0-96");
+        assert_eq!(alias.user, "1-51");
+        assert_eq!(alias.sprint.as_deref(), Some("108-4:113-6"));
+
+        clear_env();
+    }
+
+    #[test]
+    fn alias_without_sprint_serializes_without_sprint_key() {
+        let cfg = StoredConfig {
+            aliases: BTreeMap::from([(
+                "backlog".to_string(),
+                StoredAlias {
+                    project: "0-96".into(),
+                    user: "1-51".into(),
+                    sprint: None,
+                },
+            )]),
+            ..StoredConfig::default()
+        };
+
+        let json = serde_json::to_string(&cfg).unwrap();
+        assert!(json.contains("\"aliases\""));
+        assert!(!json.contains("\"sprint\""));
+        assert!(!cfg.is_empty());
     }
 
     #[test]

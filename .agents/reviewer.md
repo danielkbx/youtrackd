@@ -9,6 +9,7 @@
 - `--format` and `--no-meta` flags must be respected by every command
 - Unknown `--format` values must error, not fall back to text
 - Delete commands must never mutate in non-TTY contexts without `-y`
+- Public command input/output must follow `.agents/io-consistency.md`
 
 ## Input Handling
 

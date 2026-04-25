@@ -4,7 +4,7 @@
 
 Before implementing any non-trivial task, read all files in `.agents/` and include that step explicitly in the plan.
 
-For public CLI changes, update `help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys. Public comment outputs must document and preserve reusable encoded comment IDs.
+For public CLI changes, follow `.agents/io-consistency.md` and update `help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys. Public comment outputs must document and preserve reusable encoded comment IDs.
 
 ## Tooling
 
@@ -41,7 +41,7 @@ For public CLI changes, update `help.rs`, `README.md`, `CLAUDE.md`, relevant `.a
 | Variable | Purpose |
 |---|---|
 | `YTD_CONFIG` | Custom config file path (overrides XDG) |
-| `YTD_VISIBILITY_GROUP` | Default visibility group for ticket/article create and update |
+| `YTD_VISIBILITY_GROUP` | Default visibility group for ticket/article create and new comments |
 | `YOUTRACK_URL` | Override config URL |
 | `YOUTRACK_TOKEN` | Override config token |
 | `YOUTRACK_TEST_URL` | Integration test target |

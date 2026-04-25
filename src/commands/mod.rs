@@ -1,3 +1,4 @@
+pub mod alias;
 pub mod article;
 pub mod attachment;
 pub mod board;
@@ -14,6 +15,7 @@ pub mod sprint;
 pub mod tag;
 pub mod ticket;
 pub mod url;
+pub mod user;
 pub mod visibility;
 pub mod whoami;
 
