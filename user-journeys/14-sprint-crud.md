@@ -56,7 +56,7 @@ ytd sprint get $SPRINT_ID
 ### 4. Sprint als JSON abrufen
 
 ```
-ytd sprint get $SPRINT_ID --format raw
+ytd sprint get $SPRINT_ID --format json
 ```
 
 **Erwartung**: Valides JSON mit mindestens `id`, `ytId`, `boardId`, `boardName` und `name`. `id` entspricht `$SPRINT_ID`, `boardId` entspricht `$BOARD_ID`, `boardName` ist `[YTD-TEST] Sprint CRUD Board`, `name` ist `[YTD-TEST] Sprint CRUD`.
@@ -74,7 +74,7 @@ ytd sprint update $SPRINT_ID --name "[YTD-TEST] Sprint CRUD Renamed"
 ### 6. Rename prüfen
 
 ```
-ytd sprint get $SPRINT_ID --format raw
+ytd sprint get $SPRINT_ID --format json
 ```
 
 **Erwartung**: Valides JSON. `name` ist `[YTD-TEST] Sprint CRUD Renamed`.
@@ -90,7 +90,7 @@ ytd sprint update $SPRINT_ID --json '{"goal":"[YTD-TEST] sprint goal"}'
 ### 8. JSON-Update prüfen
 
 ```
-ytd sprint get $SPRINT_ID --format raw
+ytd sprint get $SPRINT_ID --format json
 ```
 
 **Erwartung**: Valides JSON. Falls YouTrack das Feld im Response zurückgibt, ist `goal` `[YTD-TEST] sprint goal`.
@@ -104,7 +104,7 @@ ytd sprint update $SPRINT_ID --name "[YTD-TEST] Sprint CRUD Flag Wins" --json '{
 **Erwartung**: Exit-Code 0. Stdout enthält nur `$SPRINT_ID`.
 
 ```
-ytd sprint get $SPRINT_ID --format raw
+ytd sprint get $SPRINT_ID --format json
 ```
 
 **Erwartung**: `name` ist `[YTD-TEST] Sprint CRUD Flag Wins`, nicht der JSON-Name.
@@ -114,7 +114,7 @@ ytd sprint get $SPRINT_ID --format raw
 ### 10. Sprint in Board-Liste finden
 
 ```
-ytd sprint list --board $BOARD_ID --format raw
+ytd sprint list --board $BOARD_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Ein Eintrag hat `id == $SPRINT_ID`, `ytId` ist der rohe YouTrack-Sprint-ID-Anteil, `boardId == $BOARD_ID` und `boardName == "[YTD-TEST] Sprint CRUD Board"`.
@@ -122,7 +122,7 @@ ytd sprint list --board $BOARD_ID --format raw
 ### 10b. Sprint in globaler Sprint-Liste finden
 
 ```
-ytd sprint list --format raw
+ytd sprint list --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Ein Eintrag hat `id == $SPRINT_ID`, `ytId` ist der rohe YouTrack-Sprint-ID-Anteil, `boardId == $BOARD_ID` und `boardName == "[YTD-TEST] Sprint CRUD Board"`. Weitere Sprints aus anderen Boards sind erlaubt.
@@ -130,7 +130,7 @@ ytd sprint list --format raw
 ### 11. Current Sprint für Board prüfen
 
 ```
-ytd sprint current --board $BOARD_ID --format raw
+ytd sprint current --board $BOARD_ID --format json
 ```
 
 **Erwartung**: Entweder Exit-Code 0 mit validem JSON-Objekt, das `id`, `ytId`, `boardId`, `boardName`, `projects` und `name` enthält, oder Exit-Code ungleich 0 mit klarer Meldung, dass das Board keinen current Sprint hat.

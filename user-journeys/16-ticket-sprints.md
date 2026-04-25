@@ -25,7 +25,7 @@ ytd ticket sprints $TICKET_ID
 ### 2. Sprints eines Tickets als JSON ausgeben
 
 ```
-ytd ticket sprints $TICKET_ID --format raw
+ytd ticket sprints $TICKET_ID --format json
 ```
 
 **Erwartung**: Exit-Code 0. Ausgabe ist ein valides JSON-Array mit mindestens einem Eintrag.
@@ -48,7 +48,7 @@ Aus Schritt 2 den ersten Wert aus `id` als `$SPRINT_ID` merken.
 ### 4. Sprint abrufen
 
 ```
-ytd sprint get $SPRINT_ID --format raw
+ytd sprint get $SPRINT_ID --format json
 ```
 
 **Erwartung**: Exit-Code 0. Ausgabe ist ein valides JSON-Objekt mit `id == $SPRINT_ID`.

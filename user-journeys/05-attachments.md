@@ -39,7 +39,7 @@ ytd ticket attach $TICKET_ID /tmp/ytd-test-attachment.txt
 ### 4. Ticket-Attachments auflisten
 
 ```
-ytd ticket attachments $TICKET_ID --format raw
+ytd ticket attachments $TICKET_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Enthält `ytd-test-attachment.txt` mit Dateigröße.
@@ -55,7 +55,7 @@ Für dieses Attachment gilt:
 ### 5. Ticket-Attachment global abrufen
 
 ```
-ytd attachment get $TICKET_ATTACHMENT_ID --format raw
+ytd attachment get $TICKET_ATTACHMENT_ID --format json
 ```
 
 **Erwartung**: `id` entspricht `$TICKET_ATTACHMENT_ID`, `parentType` ist `ticket`, `name` ist `ytd-test-attachment.txt`.
@@ -89,7 +89,7 @@ ytd article attach $ARTICLE_ID /tmp/ytd-test-attachment.txt
 ### 9. Artikel-Attachments auflisten
 
 ```
-ytd article attachments $ARTICLE_ID --format raw
+ytd article attachments $ARTICLE_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Enthält `ytd-test-attachment.txt`.
@@ -105,7 +105,7 @@ Für dieses Attachment gilt:
 ### 10. Artikel-Attachment global abrufen
 
 ```
-ytd attachment get $ARTICLE_ATTACHMENT_ID --format raw
+ytd attachment get $ARTICLE_ATTACHMENT_ID --format json
 ```
 
 **Erwartung**: `id` entspricht `$ARTICLE_ATTACHMENT_ID`, `parentType` ist `article`, `name` ist `ytd-test-attachment.txt`.
@@ -115,7 +115,7 @@ ytd attachment get $ARTICLE_ATTACHMENT_ID --format raw
 `ytd` unterstützt das Lesen von Kommentar-Attachments, aber kein `comment attach`. Falls im Testprojekt bereits ein manuell in der YouTrack-UI erstellter Kommentar mit Attachment existiert, kann zusätzlich geprüft werden:
 
 ```
-ytd comment attachments <comment-id> --format raw
+ytd comment attachments <comment-id> --format json
 ```
 
 **Erwartung**: Jedes Attachment hat eine kodierte `id`, `ytId`, `parentType`, `parentId` und `commentId`. Ohne vorhandenes UI-Kommentar-Attachment wird dieser Zusatzschritt übersprungen.

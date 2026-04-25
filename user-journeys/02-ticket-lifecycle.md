@@ -1,6 +1,6 @@
 # Journey 2: Ticket-Lifecycle
 
-Testet: `ticket create`, `ticket get`, `ticket update`, `ticket comment`, `ticket search`, `ticket list`, Visibility-Defaults bei Create/Update, explizites Clear via `--no-visibility-group`
+Testet: `ticket create`, `ticket get`, `ticket update`, `ticket comment`, `ticket search`, `ticket list`, Visibility-Defaults bei Create, explizite Visibility-Änderung bei Update, explizites Clear via `--no-visibility-group`
 
 ## Zusätzliche Voraussetzung
 
@@ -11,7 +11,7 @@ Vor dem Start einen gültigen Visibility-Gruppennamen als `$VIS_GROUP` festlegen
 ### 1. Ticket ohne Visibility-Default erstellen
 
 ```
-ytd ticket create --project $PROJECT --json '{"summary": "[YTD-TEST] Ticket Lifecycle Test", "description": "Automatisch erzeugtes Test-Ticket. Kann ignoriert oder gelöscht werden."}'
+ytd ticket create --project $PROJECT --json '{"summary": "[YTD-TEST] Ticket Lifecycle Test", "description": "## Ausgangslage\n\nAutomatisch **erzeugtes** Test-Ticket. Kann ignoriert oder gelöscht werden."}'
 ```
 
 **Erwartung**: Gibt nur die Ticket-ID aus (z.B. `PROJ-123`). Exit-Code 0.
@@ -24,15 +24,15 @@ ytd ticket create --project $PROJECT --json '{"summary": "[YTD-TEST] Ticket Life
 ytd ticket get $TICKET_ID
 ```
 
-**Erwartung**: Summary enthält `[YTD-TEST] Ticket Lifecycle Test`. Description ist vorhanden.
+**Erwartung**: Textausgabe ist ein Ticket-Detailbericht. Die erste Zeile enthält `$TICKET_ID` und `[YTD-TEST] Ticket Lifecycle Test`. Die Abschnitte `Status`, `Custom Fields` und `Metadata` sind vorhanden, sofern die Instanz Custom Fields zurückgibt. Nach den Metadaten folgt eine Leerzeile und dann die Description ohne `Description:`-Label als Plain Text: `Ausgangslage` und `Automatisch erzeugtes Test-Ticket` sind enthalten, Markdown-Markierungen wie `##` oder `**` nicht.
 
 ### 3. Ticket abrufen (JSON)
 
 ```
-ytd ticket get $TICKET_ID --format raw
+ytd ticket get $TICKET_ID --format json
 ```
 
-**Erwartung**: Valides JSON. `idReadable` entspricht `$TICKET_ID`. Wenn das JSON ein Visibility-Feld enthält, dann darf darin keine Gruppe aus einem impliziten Default auftauchen.
+**Erwartung**: Valides JSON. `id` entspricht `$TICKET_ID`; falls eine rohe YouTrack-Datenbank-ID vorhanden ist, steht sie in `ytId`, nicht in `idReadable`. Wenn das JSON ein Visibility-Feld enthält, dann darf darin keine Gruppe aus einem impliziten Default auftauchen.
 
 ### 4. Ticket mit expliziter Visibility aktualisieren
 
@@ -45,7 +45,7 @@ ytd ticket update $TICKET_ID --visibility-group "$VIS_GROUP" --json '{"summary":
 ### 5. Update und Visibility verifizieren
 
 ```
-ytd ticket get $TICKET_ID --format raw
+ytd ticket get $TICKET_ID --format json
 ```
 
 **Erwartung**: Summary enthält `(updated)`. Description ist `Beschreibung wurde aktualisiert.` Die Visibility referenziert `$VIS_GROUP`.
@@ -61,7 +61,7 @@ ytd ticket update $TICKET_ID --no-visibility-group --json '{"description": "Besc
 ### 7. Clear verifizieren
 
 ```
-ytd ticket get $TICKET_ID --format raw
+ytd ticket get $TICKET_ID --format json
 ```
 
 **Erwartung**: Description ist `Beschreibung wurde aktualisiert und Visibility wurde geleert.` Im JSON ist keine eingeschränkte Visibility mit `$VIS_GROUP` mehr vorhanden.
@@ -79,7 +79,7 @@ env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd ticket create --project $PROJECT --jso
 ### 9. Default-Visibility verifizieren
 
 ```
-ytd ticket get $DEFAULT_TICKET_ID --format raw
+ytd ticket get $DEFAULT_TICKET_ID --format json
 ```
 
 **Erwartung**: Die Visibility referenziert `$VIS_GROUP`.
@@ -95,7 +95,7 @@ env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd ticket update $DEFAULT_TICKET_ID --no-
 ### 11. Override-Clear verifizieren
 
 ```
-ytd ticket get $DEFAULT_TICKET_ID --format raw
+ytd ticket get $DEFAULT_TICKET_ID --format json
 ```
 
 **Erwartung**: Description ist `Default-Visibility wurde per Flag entfernt.` Im JSON ist keine eingeschränkte Visibility mit `$VIS_GROUP` mehr vorhanden.
@@ -103,7 +103,7 @@ ytd ticket get $DEFAULT_TICKET_ID --format raw
 ### 12. Kommentar hinzufügen
 
 ```
-ytd ticket comment $TICKET_ID "[YTD-TEST] Dies ist ein Test-Kommentar."
+ytd ticket comment $TICKET_ID "[YTD-TEST] Dies ist ein **Test-Kommentar**."
 ```
 
 **Erwartung**: Exit-Code 0.
@@ -114,12 +114,18 @@ ytd ticket comment $TICKET_ID "[YTD-TEST] Dies ist ein Test-Kommentar."
 ytd ticket get $TICKET_ID
 ```
 
-**Erwartung**: Kommentar-Sektion enthält den Text `[YTD-TEST] Dies ist ein Test-Kommentar.`
+**Erwartung**: Der Detailbericht enthält nach dem unlabeled Description-Content eine `Comments`-Sektion mit dem Text `[YTD-TEST] Dies ist ein Test-Kommentar.` und einer kodierten Kommentar-ID im Format `$TICKET_ID:<comment-id>`. Markdown-Markierungen wie `**` werden im Text-Output nicht angezeigt.
 
 ### 14. Ticket-Kommentar-ID verifizieren
 
 ```
-ytd ticket comments $TICKET_ID --format raw
+ytd ticket get $TICKET_ID --no-comments
+```
+
+**Erwartung**: Detailbericht enthält keine `Comments`-Sektion und nicht den Text `[YTD-TEST] Dies ist ein Test-Kommentar.`
+
+```
+ytd ticket comments $TICKET_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Der Test-Kommentar ist enthalten. Seine `id` beginnt mit `$TICKET_ID:`, `ytId` ist vorhanden, `parentType` ist `ticket`, `parentId` ist `$TICKET_ID`.
@@ -127,7 +133,7 @@ ytd ticket comments $TICKET_ID --format raw
 **Merke** die Kommentar-ID als `$TICKET_COMMENT_ID`.
 
 ```
-ytd comment get $TICKET_COMMENT_ID --format raw
+ytd comment get $TICKET_COMMENT_ID --format json
 ```
 
 **Erwartung**: Der Kommentar wird geladen und enthält `[YTD-TEST] Dies ist ein Test-Kommentar.`
@@ -135,7 +141,7 @@ ytd comment get $TICKET_COMMENT_ID --format raw
 ### 15. Eingebettete Kommentar-IDs verifizieren
 
 ```
-ytd ticket get $TICKET_ID --format raw
+ytd ticket get $TICKET_ID --format json
 ```
 
 **Erwartung**: Falls `comments` enthalten ist, haben alle Kommentarobjekte kodierte `id`-Werte, die mit `$TICKET_ID:` beginnen. Keine Kommentar-ID im Feld `id` darf nur wie eine rohe YouTrack-ID aussehen (z.B. `4-17`).
@@ -146,7 +152,7 @@ ytd ticket get $TICKET_ID --format raw
 ytd ticket search "[YTD-TEST] Ticket Lifecycle" --project $PROJECT
 ```
 
-**Erwartung**: Ergebnis enthält `$TICKET_ID` und `$DEFAULT_TICKET_ID`.
+**Erwartung**: Textausgabe verwendet das kompakte Ticket-Listenformat. Ergebnis enthält `$TICKET_ID` und `$DEFAULT_TICKET_ID`, jeweils mit Summary. Wenn die Instanz Arbeitsfelder wie State, Assignee oder Priority liefert, werden diese als eingerückte Felder angezeigt.
 
 ### 17. Tickets auflisten
 
@@ -154,7 +160,7 @@ ytd ticket search "[YTD-TEST] Ticket Lifecycle" --project $PROJECT
 ytd ticket list --project $PROJECT
 ```
 
-**Erwartung**: `$TICKET_ID` und `$DEFAULT_TICKET_ID` sind in der Liste enthalten.
+**Erwartung**: Textausgabe verwendet das kompakte Ticket-Listenformat. `$TICKET_ID` und `$DEFAULT_TICKET_ID` sind in der Liste enthalten. Projekt und Updated erscheinen als eingerückte Felder, sofern Metadaten nicht unterdrückt werden.
 
 ## Cleanup
 

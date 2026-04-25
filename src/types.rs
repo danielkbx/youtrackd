@@ -82,6 +82,34 @@ pub struct Article {
     pub visibility: Option<LimitedVisibility>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticleOutput {
+    pub id: String,
+    pub yt_id: String,
+    pub summary: Option<String>,
+    pub content: Option<String>,
+    pub created: Option<u64>,
+    pub updated: Option<u64>,
+    pub reporter: Option<User>,
+    pub project: Option<ProjectRef>,
+    pub visibility: Option<LimitedVisibility>,
+}
+
+pub fn article_output(article: Article) -> ArticleOutput {
+    ArticleOutput {
+        id: article.id_readable.unwrap_or_else(|| article.id.clone()),
+        yt_id: article.id,
+        summary: article.summary,
+        content: article.content,
+        created: article.created,
+        updated: article.updated,
+        reporter: article.reporter,
+        project: article.project,
+        visibility: article.visibility,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArticleComment {
@@ -117,6 +145,43 @@ pub struct Issue {
     pub comments: Vec<IssueComment>,
     #[serde(default, rename = "customFields")]
     pub custom_fields: Vec<CustomField>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueOutput {
+    pub id: String,
+    pub yt_id: String,
+    pub summary: Option<String>,
+    pub description: Option<String>,
+    pub created: Option<u64>,
+    pub updated: Option<u64>,
+    pub resolved: Option<u64>,
+    pub reporter: Option<User>,
+    pub project: Option<ProjectRef>,
+    pub visibility: Option<LimitedVisibility>,
+    pub tags: Vec<Tag>,
+    pub comments: Vec<IssueComment>,
+    #[serde(rename = "customFields")]
+    pub custom_fields: Vec<CustomField>,
+}
+
+pub fn issue_output(issue: Issue) -> IssueOutput {
+    IssueOutput {
+        id: issue.id_readable.unwrap_or_else(|| issue.id.clone()),
+        yt_id: issue.id,
+        summary: issue.summary,
+        description: issue.description,
+        created: issue.created,
+        updated: issue.updated,
+        resolved: issue.resolved,
+        reporter: issue.reporter,
+        project: issue.project,
+        visibility: issue.visibility,
+        tags: issue.tags,
+        comments: issue.comments,
+        custom_fields: issue.custom_fields,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -309,6 +374,26 @@ pub struct IssueLink {
     pub direction: Option<String>,
     pub link_type: Option<IssueLinkType>,
     pub issues: Option<Vec<Issue>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueLinkOutput {
+    pub id: Option<String>,
+    pub direction: Option<String>,
+    pub link_type: Option<IssueLinkType>,
+    pub issues: Option<Vec<IssueOutput>>,
+}
+
+pub fn issue_link_output(link: IssueLink) -> IssueLinkOutput {
+    IssueLinkOutput {
+        id: link.id,
+        direction: link.direction,
+        link_type: link.link_type,
+        issues: link
+            .issues
+            .map(|issues| issues.into_iter().map(issue_output).collect()),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -879,6 +964,48 @@ mod tests {
         assert_eq!(output.parent_type, "ticket");
         assert_eq!(output.parent_id, "DWP-12");
         assert_eq!(output.comment_id.as_deref(), Some("DWP-12:4-17"));
+    }
+
+    #[test]
+    fn article_output_uses_readable_id_as_public_id() {
+        let output = article_output(Article {
+            id: "6-1".into(),
+            id_readable: Some("DWP-A-1".into()),
+            summary: Some("Runbook".into()),
+            content: None,
+            created: None,
+            updated: None,
+            reporter: None,
+            project: None,
+            visibility: None,
+        });
+
+        assert_eq!(output.id, "DWP-A-1");
+        assert_eq!(output.yt_id, "6-1");
+        assert_eq!(output.summary.as_deref(), Some("Runbook"));
+    }
+
+    #[test]
+    fn issue_output_uses_readable_id_as_public_id() {
+        let output = issue_output(Issue {
+            id: "2-1".into(),
+            id_readable: Some("DWP-1".into()),
+            summary: Some("Fix login".into()),
+            description: None,
+            created: None,
+            updated: None,
+            resolved: None,
+            reporter: None,
+            project: None,
+            visibility: None,
+            tags: vec![],
+            comments: vec![],
+            custom_fields: vec![],
+        });
+
+        assert_eq!(output.id, "DWP-1");
+        assert_eq!(output.yt_id, "2-1");
+        assert_eq!(output.summary.as_deref(), Some("Fix login"));
     }
 
     #[test]

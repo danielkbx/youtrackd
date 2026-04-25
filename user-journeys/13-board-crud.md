@@ -43,7 +43,7 @@ ytd board get $BOARD_ID
 ### 3. Board als JSON abrufen
 
 ```
-ytd board get $BOARD_ID --format raw
+ytd board get $BOARD_ID --format json
 ```
 
 **Erwartung**: Valides JSON mit mindestens `id`, `name`, `projects` und `sprints`. `id` entspricht `$BOARD_ID`, `name` ist `[YTD-TEST] Board CRUD`.
@@ -61,7 +61,7 @@ ytd board update $BOARD_ID --name "[YTD-TEST] Board CRUD Renamed"
 ### 5. Rename prüfen
 
 ```
-ytd board get $BOARD_ID --format raw
+ytd board get $BOARD_ID --format json
 ```
 
 **Erwartung**: Valides JSON. `name` ist `[YTD-TEST] Board CRUD Renamed`.
@@ -77,7 +77,7 @@ ytd board update $BOARD_ID --json '{"orphansAtTheTop":true}'
 ### 7. JSON-Update prüfen
 
 ```
-ytd board get $BOARD_ID --format raw
+ytd board get $BOARD_ID --format json
 ```
 
 **Erwartung**: Valides JSON. Falls YouTrack das Feld im Response zurückgibt, ist `orphansAtTheTop` auf `true` gesetzt.
@@ -99,7 +99,7 @@ ytd board update $BOARD_ID --name "[YTD-TEST] Board CRUD Flag Wins" --json '{"na
 **Erwartung**: Exit-Code 0. Stdout enthält nur `$BOARD_ID`.
 
 ```
-ytd board get $BOARD_ID --format raw
+ytd board get $BOARD_ID --format json
 ```
 
 **Erwartung**: `name` ist `[YTD-TEST] Board CRUD Flag Wins`, nicht der JSON-Name.
@@ -109,7 +109,7 @@ ytd board get $BOARD_ID --format raw
 ### 10. Board in Projektliste finden
 
 ```
-ytd board list --project $PROJECT --format raw
+ytd board list --project $PROJECT --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Ein Eintrag hat `id == $BOARD_ID`.

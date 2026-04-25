@@ -84,7 +84,7 @@ ytd group list
 ### Tickets
 ```
 ytd ticket list --project <id>
-ytd ticket get <id>
+ytd ticket get <id> [--no-comments]
 ytd ticket search "<query>" [--project <id>]
 ytd ticket create --project <id> --json '{"summary":"...","description":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd ticket update <id> --json '{"summary":"..."}' [--visibility-group <group> | --no-visibility-group]
@@ -112,7 +112,7 @@ ytd ticket sprints <id>                      # List assigned sprints
 ### Articles (Knowledge Base)
 ```
 ytd article list --project <id>
-ytd article get <id>
+ytd article get <id> [--no-comments]
 ytd article search "<query>" [--project <id>]
 ytd article create --project <id> --json '{"summary":"...","content":"..."}' [--visibility-group <group> | --no-visibility-group]
 ytd article update <id> --json '{"content":"..."}' [--visibility-group <group> | --no-visibility-group]
@@ -168,6 +168,8 @@ ytd sprint ticket add <sprint-id> <ticket-id>
 ytd sprint ticket remove <sprint-id> <ticket-id>
 ```
 
+`search list --project <id>` filters saved searches by project reference in the saved query text. YouTrack's saved search response does not expose a separate project field, so this filter matches query fragments such as `project: <id>` and `in: <id>`.
+
 Board commands use YouTrack's Agile API. For existing boards, `get`, `update`, and `delete` require only the board ID. For `create`, YouTrack requires a board name and at least one project; `--project` accepts project short names or database IDs.
 
 Sprint commands use board-scoped YouTrack Agile endpoints. Sprint IDs returned by `ytd` include the board context:
@@ -194,10 +196,21 @@ YouTrack requires the internal issue database ID for sprint assignment, but `ytd
 
 | Flag | Description |
 |---|---|
-| `--format raw` | JSON output (for scripting) |
-| `--format text` | Plain text (default) |
+| `--format json` | ytd-normalized JSON output (same data model as text) |
+| `--format raw` | YouTrack API JSON, as original as possible |
+| `--format text` | Plain text (default); Markdown content is rendered as readable terminal text, including ASCII tables |
 | `--format md` | Markdown (title + body + comments) |
 | `--no-meta` | Hide IDs, dates, author |
+
+`--format` accepts only `text`, `raw`, `json`, or `md`; unknown values are input errors.
+
+Ticket commands use a richer text format than the generic resource output. `ticket search`, `ticket list`, `search run`, and `sprint ticket list` print compact ticket rows with readable ID, summary, project, important fields such as State, Assignee, Priority, Type, Estimation, and Spent time, plus update/resolution status when available. `ticket get` prints a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `article get`, `comment get`, and generic text outputs also render Markdown content fields as terminal text with ASCII tables and print content fields last after a blank line, without a field label. Add `--no-comments` to `ticket get` or `article get` to omit comments. Use `--format json` when scripts need stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
+
+The unlabeled Markdown content layout applies to `article get`, `article search` and `article list` when content is included, `article comments`, `ticket comments`, `comment get`, `ticket history` activity text, and any future text output with `content`, `description`, or `text` fields. `ticket get` uses the same layout for its description; embedded ticket comments remain after the parent description.
+
+Ticket issue outputs expose the reusable ticket ID as `id` (for example `MYPROJECT-42`). If the raw YouTrack database ID is included, it is exposed as `ytId`. Ticket issue outputs do not expose a separate `idReadable` field.
+
+Article outputs expose the reusable article ID as `id` (for example `MYPROJECT-A-1`). If the raw YouTrack database ID is included, it is exposed as `ytId`. Article outputs do not expose a separate `idReadable` field.
 
 ## JSON Input
 
@@ -208,9 +221,9 @@ Commands that accept JSON input:
 | Command | Required fields | Optional/common fields |
 |---|---|---|
 | `ticket create` | `summary` plus `--project` | `description` |
-| `ticket update` | at least one field | `summary`, `description` |
+| `ticket update` | at least one JSON field or explicit visibility flag | `summary`, `description` |
 | `article create` | `summary` plus `--project` | `content` |
-| `article update` | at least one field | `summary`, `content` |
+| `article update` | at least one JSON field or explicit visibility flag | `summary`, `content` |
 | `board create` | `name` and `projects`, or `--name` and `--project` | YouTrack Agile fields such as `visibleForProjectBased` |
 | `board update` | at least one field or `--name` | YouTrack Agile fields such as `orphansAtTheTop` |
 | `sprint create` | `name` plus `--board`, or `--name` plus `--board` | YouTrack sprint fields such as `goal`, `start`, `finish`, `archived`, `isDefault` |
@@ -316,14 +329,14 @@ ytd article get PROJ-A-1 --format md > article.md
 
 ### Update a comment
 ```bash
-COMMENT_ID=$(ytd ticket comments PROJ-42 --format raw | jq -r '.[0].id')
+COMMENT_ID=$(ytd ticket comments PROJ-42 --format json | jq -r '.[0].id')
 ytd comment get "$COMMENT_ID"
 ytd comment update "$COMMENT_ID" "Updated comment text"
 ```
 
 ### Download an attachment
 ```bash
-ATTACHMENT_ID=$(ytd ticket attachments PROJ-42 --format raw | jq -r '.[0].id')
+ATTACHMENT_ID=$(ytd ticket attachments PROJ-42 --format json | jq -r '.[0].id')
 ytd attachment get "$ATTACHMENT_ID"
 ytd attachment download "$ATTACHMENT_ID" --output /tmp/
 ```
@@ -332,6 +345,8 @@ ytd attachment download "$ATTACHMENT_ID" --output /tmp/
 ```bash
 ytd ticket delete PROJ-42 -y
 ```
+
+Delete commands ask for confirmation when run interactively. In scripts or other non-interactive contexts, pass `-y`; without it, `ytd` refuses to delete. Interactive confirmation requires typing `yes`.
 
 ## Good to know
 
@@ -426,11 +441,11 @@ Environment variables take precedence over the config file.
 
 ### Visibility Defaults
 
-`ticket create|update` and `article create|update` accept `--visibility-group <group>` to send limited visibility for that group.
+`ticket create`, `article create`, `ticket comment`, and `article comment` apply configured visibility defaults from `--visibility-group`, `YTD_VISIBILITY_GROUP`, or `ytd config set visibility-group ...`.
 
-`--no-visibility-group` disables inherited defaults from `YTD_VISIBILITY_GROUP` or `ytd config set visibility-group ...`. On `update`, it clears the existing visibility restriction. On `create`, it sends no visibility restriction.
+`ticket update`, `article update`, and `comment update` change visibility only when `--visibility-group` or `--no-visibility-group` is passed explicitly. `--visibility-group <group>` sends limited visibility for that group. `--no-visibility-group` clears existing visibility on updates; on creates, it only disables inherited defaults and sends no visibility restriction.
 
-Resolution order is: `--visibility-group` → `YTD_VISIBILITY_GROUP` → stored `visibility-group` config. Combining `--visibility-group` and `--no-visibility-group` is an input error.
+For create and new-comment defaults, resolution order is: `--visibility-group` → `YTD_VISIBILITY_GROUP` → stored `visibility-group` config. Combining `--visibility-group` and `--no-visibility-group` is an input error.
 
 ### Multiple Instances
 

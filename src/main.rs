@@ -55,6 +55,8 @@ fn run() -> Result<(), YtdError> {
         )));
     }
 
+    let opts = format::OutputOptions::from_flags(&args.flags)?;
+
     // Auth commands don't need config
     match resource {
         "login" => return commands::login::run(&args),
@@ -76,8 +78,6 @@ fn run() -> Result<(), YtdError> {
     if args.flags.contains_key("verbose") {
         client.set_verbose(true);
     }
-
-    let opts = format::OutputOptions::from_flags(&args.flags);
 
     match resource {
         "whoami" => commands::whoami::run(&client, &opts),

@@ -48,7 +48,7 @@ ytd project get <id>
 
 ytd article search <query> [--project <id>]
 ytd article list --project <id>
-ytd article get <id>
+ytd article get <id> [--no-comments]
 ytd article create --project <id> --json '...'
 ytd article update <id> --json '...'
 ytd article append <id> <text>
@@ -60,7 +60,7 @@ ytd article delete <id> [-y]
 
 ytd ticket search <query> [--project <id>]
 ytd ticket list --project <id>
-ytd ticket get <id>
+ytd ticket get <id> [--no-comments]
 ytd ticket create --project <id> --json '...'
 ytd ticket update <id> --json '...'
 ytd ticket comment <id> <text> [--visibility-group <group> | --no-visibility-group]
@@ -111,20 +111,32 @@ ytd sprint ticket remove <sprint-id> <ticket-id>
 
 | Flag | Default | Description |
 |---|---|---|
-| `--format raw` | — | JSON output |
-| `--format text` | ✓ | Plain text, no Markdown |
+| `--format json` | — | ytd-normalized JSON output (same data model as text) |
+| `--format raw` | — | YouTrack API JSON, as original as possible |
+| `--format text` | ✓ | Plain text; Markdown content is rendered as readable terminal text, including ASCII tables |
 | `--format md` | — | Markdown (H1 title + body + comments) |
 | `--no-meta` | — | Suppress metadata (IDs, dates, author) |
-| `-y` | — | Skip delete confirmation |
+| `-y` | — | Confirm delete without prompting |
 
 Create/update commands output only the ID on stdout (pipeable).
 JSON input via `--json '{...}'` or stdin. Stdin takes precedence.
+`--format` accepts only `text`, `raw`, `json`, or `md`; unknown values are input errors.
+Delete commands ask for confirmation when interactive. Non-interactive delete requires `-y`.
+`search list --project <id>` filters saved searches by project reference in the saved query text.
+
+Ticket text output is specialized: `ticket search`, `ticket list`, `search run`, and `sprint ticket list` render compact ticket rows with ID, summary, project, important custom fields, and updated/resolved state. `ticket get` renders a detail report with status, all custom fields, metadata, then a blank line and the description without a label; comments follow the parent content. `--format text` renders Markdown content fields (`content`, `description`, `text`) as readable terminal text with ASCII tables and prints those content fields last after a blank line, without a field label. `--no-comments` omits comments from text, json, raw, and md output. `article get` also accepts `--no-comments`. `ticket links` renders linked issues with the same compact ticket fields. Use `--format json` for stable ytd-normalized JSON. Use `--format raw` for YouTrack API-shaped JSON.
+
+The unlabeled Markdown content layout applies to `article get`, `article search` and `article list` when content is included, `article comments`, `ticket comments`, `comment get`, `ticket history` activity text, and future text output with `content`, `description`, or `text` fields. `ticket get` uses the same layout for its description; embedded ticket comments remain after the parent description.
+
+Ticket issue outputs expose the reusable ticket ID as `id` (for example `<PROJECT>-<NUMBER>`). Raw YouTrack database IDs, when included, are exposed as `ytId`; ticket issue outputs do not expose `idReadable`.
+
+Article outputs expose the reusable article ID as `id` (for example `<PROJECT>-A-<NUMBER>`). Raw YouTrack database IDs, when included, are exposed as `ytId`; article outputs do not expose `idReadable`.
 
 Comment IDs returned by `ytd` encode the parent resource because YouTrack comment operations are parent-scoped:
 `<ticket-id>:<comment-id>` or `<article-id>:<comment-id>`.
 `ytd` infers the parent type from the parent ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, tickets use `<PROJECT>-<NUMBER>`.
 Use the public `id` field with `ytd comment ...`; raw YouTrack comment IDs may appear only as `ytId`.
-New comments apply configured visibility defaults. `ytd comment update` preserves existing visibility unless `--visibility-group` or `--no-visibility-group` is passed explicitly.
+Ticket/article creates and new comments apply configured visibility defaults. Ticket/article/comment updates preserve existing visibility unless `--visibility-group` or `--no-visibility-group` is passed explicitly.
 
 Attachment IDs returned by `ytd` also encode the parent resource because YouTrack attachment operations are parent-scoped:
 `<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>`.

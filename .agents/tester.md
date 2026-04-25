@@ -36,9 +36,14 @@ For each command, verify:
 
 Visibility-specific coverage:
 1. `config set|get|unset visibility-group` works without login and persists only stored config fields
-2. Visibility resolution precedence is CLI flag → `YTD_VISIBILITY_GROUP` → stored config
+2. Create and new-comment visibility resolution precedence is CLI flag → `YTD_VISIBILITY_GROUP` → stored config
 3. `--visibility-group` combined with `--no-visibility-group` is rejected as input error
-4. Update builders turn `--no-visibility-group` into a clear payload; create builders omit `visibility`
+4. Ticket/article/comment update builders ignore env/config defaults unless explicit visibility flags are passed
+5. Update builders turn `--no-visibility-group` into a clear payload; create builders omit `visibility`
+
+Delete-specific coverage:
+1. Non-interactive delete without `-y` exits non-zero and does not mutate
+2. Delete with `-y` mutates and prints the deleted public ID
 
 Group-specific coverage:
 1. `group list` requests `usersCount`
@@ -79,7 +84,7 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
 Boards per `board delete -y` löschen.
 
-When extending the ticket/article journeys, include visibility coverage for inherited defaults, explicit `--visibility-group`, and `--no-visibility-group` override/clear behavior.
+When extending the ticket/article journeys, include visibility coverage for inherited create defaults, update preservation without explicit visibility flags, explicit `--visibility-group`, and `--no-visibility-group` clear behavior.
 
 
 **Naming**: Alle Test-Entities verwenden Prefix `[YTD-TEST]` in Summary/Kommentaren.

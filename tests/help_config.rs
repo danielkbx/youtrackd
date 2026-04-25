@@ -33,6 +33,10 @@ fn global_help_lists_config_commands() {
     assert!(text.contains("config set visibility-group <group>"));
     assert!(text.contains("config get visibility-group"));
     assert!(text.contains("config unset visibility-group"));
+    assert!(text.contains("--format text|raw|json|md"));
+    assert!(text.contains("Output format; invalid values are rejected"));
+    assert!(text.contains("-y"));
+    assert!(text.contains("Confirm delete without prompting"));
     assert!(stderr(&output).is_empty());
 }
 
@@ -46,6 +50,18 @@ fn config_help_is_available_from_both_entry_points() {
     assert_eq!(stdout(&direct), stdout(&nested));
     assert!(stdout(&direct).contains("Manage stored CLI settings without requiring login."));
     assert!(stdout(&direct).contains("visibility-group"));
+}
+
+#[test]
+fn invalid_format_errors_before_config_load() {
+    let output = run_ytd(&["project", "list", "--format", "yaml"], &[]);
+
+    assert!(!output.status.success());
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        "Invalid format: yaml. Expected one of: text, raw, json, md\n"
+    );
 }
 
 #[test]

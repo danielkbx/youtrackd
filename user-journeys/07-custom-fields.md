@@ -23,7 +23,7 @@ ytd ticket fields $TICKET_ID
 ### 3. Felder als JSON
 
 ```
-ytd ticket fields $TICKET_ID --format raw
+ytd ticket fields $TICKET_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Jedes Feld hat `name` und `value`.
@@ -63,7 +63,7 @@ ytd ticket set $TICKET_ID State Done
 ### 8. Endstatus verifizieren
 
 ```
-ytd ticket get $TICKET_ID --format raw
+ytd ticket get $TICKET_ID --format json
 ```
 
 **Erwartung**: Custom Fields enthalten State=Done und Priority=Major.

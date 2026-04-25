@@ -666,7 +666,7 @@ impl<T: HttpTransport> YtClient<T> {
             &[
                 (
                     "fields",
-                    "id,idReadable,summary,created,updated,resolved,project(id,shortName,name)",
+                    "id,idReadable,summary,created,updated,resolved,project(id,shortName,name),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type))",
                 ),
                 ("query", &q),
                 ("$top", "100"),
@@ -680,7 +680,7 @@ impl<T: HttpTransport> YtClient<T> {
             &[
                 (
                     "fields",
-                    "id,idReadable,summary,created,updated,resolved,project(id,shortName,name)",
+                    "id,idReadable,summary,created,updated,resolved,project(id,shortName,name),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type))",
                 ),
                 ("query", &format!("project: {{{project}}}")),
                 ("$top", "500"),
@@ -813,7 +813,7 @@ impl<T: HttpTransport> YtClient<T> {
 
     pub fn list_issue_links(&self, issue_id: &str) -> Result<Vec<IssueLink>, YtdError> {
         self.get(&format!("/issues/{issue_id}/links"), &[
-            ("fields", "id,direction,linkType(id,name,sourceToTarget,targetToSource),issues(id,idReadable,summary)"),
+            ("fields", "id,direction,linkType(id,name,sourceToTarget,targetToSource),issues(id,idReadable,summary,updated,resolved,project(id,shortName,name),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type)))"),
             ("$top", "500"),
         ])
     }
@@ -925,7 +925,7 @@ impl<T: HttpTransport> YtClient<T> {
     const AGILE_DETAIL_FIELDS: &'static str = "id,name,owner(id,login,fullName),projects(id,shortName,name),currentSprint(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),sprints(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),orphansAtTheTop,hideOrphansSwimlane,estimationField(id,name),originalEstimationField(id,name)";
     const SPRINT_FIELDS: &'static str =
         "id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount";
-    const SPRINT_ISSUES_FIELDS: &'static str = "id,name,issues(id,idReadable,summary,resolved)";
+    const SPRINT_ISSUES_FIELDS: &'static str = "id,name,issues(id,idReadable,summary,created,updated,resolved,project(id,shortName,name),customFields(id,name,$type,value(id,name,login,fullName,minutes,presentation,$type)))";
     const ISSUE_REF_FIELDS: &'static str = "id,idReadable,summary";
     const ISSUE_SPRINT_FIELDS: &'static str =
         "id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount,agile(id,name)";
@@ -1389,7 +1389,8 @@ mod tests {
             .starts_with("https://test.youtrack.cloud/api/agiles/108-4/sprints/113-6?fields="));
         assert!(request
             .url
-            .contains("issues%28id%2CidReadable%2Csummary%2Cresolved%29"));
+            .contains("issues%28id%2CidReadable%2Csummary%2Ccreated%2Cupdated%2Cresolved"));
+        assert!(request.url.contains("customFields%28id%2Cname%2C%24type"));
     }
 
     #[test]
@@ -1614,6 +1615,35 @@ mod tests {
         let client = test_client(vec![r#"[]"#]);
         let issues = client.search_issues("bug", Some("TEST")).unwrap();
         assert!(issues.is_empty());
+        let request = client.transport.request(0);
+        assert!(request.url.contains("customFields%28id%2Cname%2C%24type"));
+        assert!(request.url.contains("project%3A%20%7BTEST%7D%20bug"));
+    }
+
+    #[test]
+    fn list_issues_requests_custom_fields_for_text_output() {
+        let client = test_client(vec![r#"[]"#]);
+
+        let issues = client.list_issues("TEST").unwrap();
+
+        assert!(issues.is_empty());
+        let request = client.transport.request(0);
+        assert!(request.url.contains("customFields%28id%2Cname%2C%24type"));
+        assert!(request.url.contains("project%3A%20%7BTEST%7D"));
+    }
+
+    #[test]
+    fn list_issue_links_requests_enriched_linked_issues() {
+        let client = test_client(vec![r#"[]"#]);
+
+        let links = client.list_issue_links("DWP-12").unwrap();
+
+        assert!(links.is_empty());
+        let request = client.transport.request(0);
+        assert!(request
+            .url
+            .contains("issues%28id%2CidReadable%2Csummary%2Cupdated%2Cresolved"));
+        assert!(request.url.contains("customFields%28id%2Cname%2C%24type"));
     }
 
     #[test]

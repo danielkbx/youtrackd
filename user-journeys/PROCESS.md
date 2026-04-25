@@ -56,6 +56,8 @@ So sind Test-Entities sofort erkennbar und können bei Bedarf manuell aufgeräum
 | Temporäre Env Vars | Mit `unset` entfernen |
 | Boards | `ytd board delete <id> -y` |
 
+Automatisierte Journeys müssen für Delete-Cleanup immer `-y` verwenden. Delete ohne `-y` ist in nicht-interaktiven Läufen ein erwarteter Fehler und darf keine Ressource löschen.
+
 ### 5. Fehlerbehandlung
 
 - Schlägt ein Schritt fehl, **trotzdem den Cleanup ausführen**

@@ -1,6 +1,6 @@
 # Journey 11: Visibility-Defaults und Config-Precedence
 
-Testet: isolierte `YTD_CONFIG`-Dateien, Reihenfolge `--visibility-group` → `YTD_VISIBILITY_GROUP` → gespeicherter Config-Wert, explizites Override mit `--no-visibility-group`, Cleanup von Temp-Dateien und Env Vars
+Testet: isolierte `YTD_CONFIG`-Dateien, Reihenfolge `--visibility-group` → `YTD_VISIBILITY_GROUP` → gespeicherter Config-Wert bei Creates und neuen Kommentaren, Update-Preservation ohne explizite Visibility-Flags, explizites Override mit `--no-visibility-group`, Cleanup von Temp-Dateien und Env Vars
 
 ## Zusätzliche Voraussetzung
 
@@ -80,21 +80,21 @@ env YTD_CONFIG="$CONFIG_A" ytd ticket get $CONFIG_TICKET_ID --format raw
 
 **Erwartung**: Die Visibility referenziert `$VIS_GROUP_CONFIG`.
 
-### 6. Env Var gewinnt gegen gespeicherten Config-Wert
+### 6. Env Var ändert Ticket-Visibility bei Update ohne Flag nicht
 
 ```
-env YTD_CONFIG="$CONFIG_A" YTD_VISIBILITY_GROUP="$VIS_GROUP_ENV" ytd ticket update $CONFIG_TICKET_ID --json '{"description": "Visibility kommt jetzt aus der Env-Var."}'
+env YTD_CONFIG="$CONFIG_A" YTD_VISIBILITY_GROUP="$VIS_GROUP_ENV" ytd ticket update $CONFIG_TICKET_ID --json '{"description": "Update ohne explizite Visibility-Flags bewahrt bestehende Visibility."}'
 ```
 
 **Erwartung**: Gibt nur die Ticket-ID aus.
 
-### 7. Env-Precedence verifizieren
+### 7. Update-Preservation verifizieren
 
 ```
 env YTD_CONFIG="$CONFIG_A" ytd ticket get $CONFIG_TICKET_ID --format raw
 ```
 
-**Erwartung**: Die Visibility referenziert `$VIS_GROUP_ENV`, nicht `$VIS_GROUP_CONFIG`.
+**Erwartung**: Die Visibility referenziert weiterhin `$VIS_GROUP_CONFIG`, nicht `$VIS_GROUP_ENV`.
 
 ### 8. `--no-visibility-group` sticht Env Var und Config bei Ticket-Update aus
 
@@ -130,7 +130,23 @@ env YTD_CONFIG="$CONFIG_B" ytd article get $CONFIG_ARTICLE_ID --format raw
 
 **Erwartung**: Die Visibility referenziert `$VIS_GROUP_CLI`, auch wenn `CONFIG_B` einen gespeicherten Default und die Env-Var andere Werte liefern.
 
-### 12. `--no-visibility-group` sticht Env Var und Config bei Artikel-Update aus
+### 12. Env Var ändert Artikel-Visibility bei Update ohne Flag nicht
+
+```
+env YTD_CONFIG="$CONFIG_B" YTD_VISIBILITY_GROUP="$VIS_GROUP_ENV" ytd article update $CONFIG_ARTICLE_ID --json '{"content": "Update ohne explizite Visibility-Flags bewahrt bestehende Visibility."}'
+```
+
+**Erwartung**: Gibt nur die Artikel-ID aus.
+
+### 13. Artikel-Update-Preservation verifizieren
+
+```
+env YTD_CONFIG="$CONFIG_B" ytd article get $CONFIG_ARTICLE_ID --format raw
+```
+
+**Erwartung**: Die Visibility referenziert weiterhin `$VIS_GROUP_CLI`, nicht `$VIS_GROUP_ENV`.
+
+### 14. `--no-visibility-group` sticht Env Var und Config bei Artikel-Update aus
 
 ```
 env YTD_CONFIG="$CONFIG_B" YTD_VISIBILITY_GROUP="$VIS_GROUP_ENV" ytd article update $CONFIG_ARTICLE_ID --no-visibility-group --json '{"content": "Visibility wurde trotz Config und Env explizit entfernt."}'
@@ -138,7 +154,7 @@ env YTD_CONFIG="$CONFIG_B" YTD_VISIBILITY_GROUP="$VIS_GROUP_ENV" ytd article upd
 
 **Erwartung**: Gibt nur die Artikel-ID aus.
 
-### 13. Artikel-Clear verifizieren
+### 15. Artikel-Clear verifizieren
 
 ```
 env YTD_CONFIG="$CONFIG_B" ytd article get $CONFIG_ARTICLE_ID --format raw
@@ -146,7 +162,7 @@ env YTD_CONFIG="$CONFIG_B" ytd article get $CONFIG_ARTICLE_ID --format raw
 
 **Erwartung**: Im JSON ist keine eingeschränkte Visibility mit `$VIS_GROUP_CLI`, `$VIS_GROUP_ENV` oder dem gespeicherten Config-Wert mehr vorhanden.
 
-### 14. Isolierung der Config-Dateien gegeneinander prüfen
+### 16. Isolierung der Config-Dateien gegeneinander prüfen
 
 ```
 env YTD_CONFIG="$CONFIG_A" ytd whoami

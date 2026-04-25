@@ -41,7 +41,7 @@ ytd ticket worklog $TICKET_ID
 ### 5. Work Items als JSON
 
 ```
-ytd ticket worklog $TICKET_ID --format raw
+ytd ticket worklog $TICKET_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array mit 2 Einträgen. Jeder hat `duration`, `text`, `date`.

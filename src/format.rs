@@ -1,3 +1,4 @@
+use crate::error::YtdError;
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -5,6 +6,7 @@ use std::collections::HashMap;
 pub enum Format {
     Text,
     Raw,
+    Json,
     Md,
 }
 
@@ -31,20 +33,26 @@ const META_FIELDS: &[&str] = &[
 ];
 
 impl OutputOptions {
-    pub fn from_flags(flags: &HashMap<String, String>) -> Self {
+    pub fn from_flags(flags: &HashMap<String, String>) -> Result<Self, YtdError> {
         let format = match flags.get("format").map(|s| s.as_str()) {
+            Some("text") | None => Format::Text,
             Some("raw") => Format::Raw,
+            Some("json") => Format::Json,
             Some("md") => Format::Md,
-            _ => Format::Text,
+            Some(other) => {
+                return Err(YtdError::Input(format!(
+                    "Invalid format: {other}. Expected one of: text, raw, json, md"
+                )))
+            }
         };
         let no_meta = flags.get("no-meta").map(|v| v == "true").unwrap_or(false);
-        Self { format, no_meta }
+        Ok(Self { format, no_meta })
     }
 }
 
 pub fn print_value(value: &Value, opts: &OutputOptions) {
     match opts.format {
-        Format::Raw => {
+        Format::Raw | Format::Json => {
             println!(
                 "{}",
                 serde_json::to_string_pretty(value).unwrap_or_default()
@@ -62,7 +70,7 @@ pub fn print_value(value: &Value, opts: &OutputOptions) {
 pub fn print_items<T: serde::Serialize>(items: &[T], opts: &OutputOptions) {
     let value = serde_json::to_value(items).unwrap_or(Value::Array(vec![]));
     match opts.format {
-        Format::Raw => {
+        Format::Raw | Format::Json => {
             println!(
                 "{}",
                 serde_json::to_string_pretty(&value).unwrap_or_default()
@@ -94,6 +102,40 @@ pub fn print_items<T: serde::Serialize>(items: &[T], opts: &OutputOptions) {
 pub fn print_single<T: serde::Serialize>(item: &T, opts: &OutputOptions) {
     let value = serde_json::to_value(item).unwrap_or(Value::Null);
     print_value(&value, opts);
+}
+
+pub fn print_raw_or_processed<R, P>(
+    raw: &R,
+    processed: &P,
+    opts: &OutputOptions,
+) -> Result<(), serde_json::Error>
+where
+    R: serde::Serialize,
+    P: serde::Serialize,
+{
+    if matches!(opts.format, Format::Raw) {
+        print_value(&serde_json::to_value(raw)?, opts);
+    } else {
+        print_value(&serde_json::to_value(processed)?, opts);
+    }
+    Ok(())
+}
+
+pub fn print_raw_or_processed_items<R, P>(
+    raw: &[R],
+    processed: &[P],
+    opts: &OutputOptions,
+) -> Result<(), serde_json::Error>
+where
+    R: serde::Serialize,
+    P: serde::Serialize,
+{
+    if matches!(opts.format, Format::Raw) {
+        print_items(raw, opts);
+    } else {
+        print_items(processed, opts);
+    }
+    Ok(())
 }
 
 fn print_md(value: &Value) {
@@ -147,6 +189,7 @@ fn print_md(value: &Value) {
 fn print_text(value: &Value, opts: &OutputOptions) {
     match value {
         Value::Object(map) => {
+            let mut content_lines = Vec::new();
             for (key, val) in map {
                 if opts.no_meta && META_FIELDS.contains(&key.as_str()) {
                     continue;
@@ -156,8 +199,16 @@ fn print_text(value: &Value, opts: &OutputOptions) {
                 }
                 let formatted = format_value(key, val);
                 if !formatted.is_empty() {
-                    println!("{key}: {formatted}");
+                    if is_content_field(key) {
+                        content_lines.push((key.as_str(), formatted));
+                    } else {
+                        print_text_line(key, &formatted);
+                    }
                 }
+            }
+            for (_, formatted) in content_lines {
+                println!();
+                println!("{formatted}");
             }
         }
         Value::String(s) => println!("{s}"),
@@ -165,7 +216,22 @@ fn print_text(value: &Value, opts: &OutputOptions) {
     }
 }
 
+fn print_text_line(key: &str, value: &str) {
+    if value.contains('\n') {
+        println!("{key}:");
+        for line in value.lines() {
+            println!("  {line}");
+        }
+    } else {
+        println!("{key}: {value}");
+    }
+}
+
 fn format_value(key: &str, val: &Value) -> String {
+    if key == "visibility" {
+        return format_visibility(val);
+    }
+
     match val {
         Value::Null => String::new(),
         Value::Bool(b) => if *b { "yes" } else { "no" }.to_string(),
@@ -178,7 +244,13 @@ fn format_value(key: &str, val: &Value) -> String {
             }
             n.to_string()
         }
-        Value::String(s) => s.clone(),
+        Value::String(s) => {
+            if is_content_field(key) {
+                markdown_to_text(s)
+            } else {
+                s.clone()
+            }
+        }
         Value::Array(arr) => {
             // Array of tags or simple objects
             let parts: Vec<String> = arr
@@ -215,6 +287,104 @@ fn format_value(key: &str, val: &Value) -> String {
             serde_json::to_string(val).unwrap_or_default()
         }
     }
+}
+
+fn is_content_field(key: &str) -> bool {
+    matches!(key, "content" | "description" | "text")
+}
+
+pub(crate) fn markdown_to_text(markdown: &str) -> String {
+    let mut skin = termimad::MadSkin::no_style();
+    skin.limit_to_ascii();
+    let markdown = normalize_markdown_for_terminal(markdown);
+    skin.text(&markdown, None).to_string().trim().to_string()
+}
+
+fn normalize_markdown_for_terminal(markdown: &str) -> String {
+    markdown
+        .lines()
+        .map(normalize_markdown_line)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn normalize_markdown_line(line: &str) -> String {
+    let mut line = line.trim_start();
+    while let Some(rest) = line.strip_prefix('>') {
+        line = rest.trim_start();
+    }
+    markdown_links_to_labels(&markdown_tasks_to_text(line))
+}
+
+fn markdown_tasks_to_text(line: &str) -> String {
+    let mut out = line.to_string();
+    for marker in ["- [ ] ", "- [x] ", "- [X] ", "* [ ] ", "* [x] ", "* [X] "] {
+        if let Some(rest) = line.strip_prefix(marker) {
+            out = format!("- {rest}");
+            break;
+        }
+    }
+    out
+}
+
+fn markdown_links_to_labels(value: &str) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    let mut out = String::new();
+    let mut idx = 0;
+    while idx < chars.len() {
+        let link_start = if chars[idx] == '!' && chars.get(idx + 1) == Some(&'[') {
+            idx + 1
+        } else {
+            idx
+        };
+        if chars.get(link_start) == Some(&'[') {
+            if let Some((label, next)) = parse_markdown_link_label(&chars, link_start) {
+                out.push_str(&label);
+                idx = next;
+                continue;
+            }
+        }
+        out.push(chars[idx]);
+        idx += 1;
+    }
+    out
+}
+
+fn parse_markdown_link_label(chars: &[char], start: usize) -> Option<(String, usize)> {
+    let close = chars[start + 1..]
+        .iter()
+        .position(|ch| *ch == ']')
+        .map(|pos| start + 1 + pos)?;
+    if chars.get(close + 1) != Some(&'(') {
+        return None;
+    }
+    let end = chars[close + 2..]
+        .iter()
+        .position(|ch| *ch == ')')
+        .map(|pos| close + 2 + pos)?;
+    Some((chars[start + 1..close].iter().collect(), end + 1))
+}
+
+fn format_visibility(val: &Value) -> String {
+    let Some(map) = val.as_object() else {
+        return String::new();
+    };
+    let Some(groups) = map
+        .get("permittedGroups")
+        .and_then(|groups| groups.as_array())
+    else {
+        return String::new();
+    };
+    let names: Vec<String> = groups
+        .iter()
+        .filter_map(|group| {
+            group
+                .get("name")
+                .and_then(|name| name.as_str())
+                .map(String::from)
+        })
+        .collect();
+    names.join(", ")
 }
 
 fn is_time_field(key: &str) -> bool {
@@ -259,7 +429,7 @@ mod tests {
     #[test]
     fn format_text_from_flags() {
         let flags = HashMap::new();
-        let opts = OutputOptions::from_flags(&flags);
+        let opts = OutputOptions::from_flags(&flags).unwrap();
         assert_eq!(opts.format, Format::Text);
         assert!(!opts.no_meta);
     }
@@ -268,15 +438,23 @@ mod tests {
     fn format_raw_from_flags() {
         let mut flags = HashMap::new();
         flags.insert("format".into(), "raw".into());
-        let opts = OutputOptions::from_flags(&flags);
+        let opts = OutputOptions::from_flags(&flags).unwrap();
         assert_eq!(opts.format, Format::Raw);
+    }
+
+    #[test]
+    fn format_json_from_flags() {
+        let mut flags = HashMap::new();
+        flags.insert("format".into(), "json".into());
+        let opts = OutputOptions::from_flags(&flags).unwrap();
+        assert_eq!(opts.format, Format::Json);
     }
 
     #[test]
     fn no_meta_from_flags() {
         let mut flags = HashMap::new();
         flags.insert("no-meta".into(), "true".into());
-        let opts = OutputOptions::from_flags(&flags);
+        let opts = OutputOptions::from_flags(&flags).unwrap();
         assert!(opts.no_meta);
     }
 
@@ -298,13 +476,90 @@ mod tests {
     fn format_md_from_flags() {
         let mut flags = HashMap::new();
         flags.insert("format".into(), "md".into());
-        let opts = OutputOptions::from_flags(&flags);
+        let opts = OutputOptions::from_flags(&flags).unwrap();
         assert_eq!(opts.format, Format::Md);
+    }
+
+    #[test]
+    fn invalid_format_from_flags_errors() {
+        let mut flags = HashMap::new();
+        flags.insert("format".into(), "yaml".into());
+        let err = OutputOptions::from_flags(&flags).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Invalid format: yaml. Expected one of: text, raw, json, md"
+        );
     }
 
     #[test]
     fn format_bool() {
         assert_eq!(format_value("archived", &Value::Bool(true)), "yes");
         assert_eq!(format_value("archived", &Value::Bool(false)), "no");
+    }
+
+    #[test]
+    fn format_unlimited_visibility_as_empty() {
+        let val = serde_json::json!({
+            "$type": "UnlimitedVisibility",
+            "permittedGroups": []
+        });
+
+        assert_eq!(format_value("visibility", &val), "");
+    }
+
+    #[test]
+    fn format_limited_visibility_as_group_names() {
+        let val = serde_json::json!({
+            "$type": "LimitedVisibility",
+            "permittedGroups": [
+                {"id": "3-1", "name": "Developers"},
+                {"id": "3-2", "name": "Support"}
+            ]
+        });
+
+        assert_eq!(format_value("visibility", &val), "Developers, Support");
+    }
+
+    #[test]
+    fn markdown_to_text_approximates_rendered_markdown() {
+        let text = markdown_to_text(
+            "# Title\n\n**Bold** and [link](https://example.com)\n\n- [x] Item `code`\n\n> Quote\n\n```rust\nlet value = 1;\n```\n\n| Name | Value |\n|---|---:|\n| A | 1 |",
+        );
+
+        assert!(text.contains("Title"));
+        assert!(text.contains("Bold and link"));
+        assert!(text.contains("- Item code"));
+        assert!(text.contains("Quote"));
+        assert!(text.contains("let value = 1;"));
+        assert!(text.contains("|Name|Value|"));
+        assert!(text.contains("+"));
+        assert!(!text.contains("https://example.com"));
+        assert!(!text.contains("[x]"));
+    }
+
+    #[test]
+    fn format_content_fields_as_plain_text() {
+        let val = Value::String("## Heading\n\nText with **bold**".into());
+
+        assert_eq!(format_value("content", &val), "Heading\n\nText with bold");
+    }
+
+    #[test]
+    fn print_text_content_fields_without_label() {
+        let value = serde_json::json!({
+            "id": "DWP-A-1",
+            "summary": "Runbook",
+            "content": "## Heading\n\nText with **bold**"
+        });
+        let mut content_fields = Vec::new();
+        let obj = value.as_object().unwrap();
+        for (key, val) in obj {
+            let formatted = format_value(key, val);
+            if is_content_field(key) {
+                content_fields.push(formatted);
+            }
+        }
+
+        assert_eq!(content_fields, vec!["Heading\n\nText with bold"]);
     }
 }

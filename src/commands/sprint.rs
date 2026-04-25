@@ -1,5 +1,7 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
+use crate::commands;
+use crate::commands::ticket;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::input;
@@ -8,7 +10,6 @@ use crate::types::{
     sprint_output_with_board,
 };
 use serde_json::{Map, Value};
-use std::io::{self, BufRead, IsTerminal, Write};
 
 pub fn run<T: HttpTransport>(
     client: &YtClient<T>,
@@ -53,31 +54,37 @@ fn cmd_list<T: HttpTransport>(
     args: &ParsedArgs,
     opts: &OutputOptions,
 ) -> Result<(), YtdError> {
-    let outputs: Vec<_> = if let Some(board_id) = args.flags.get("board").map(|s| s.as_str()) {
-        if board_id.trim().is_empty() {
-            return Err(YtdError::Input("--board must not be empty".into()));
-        }
-        let board = client.get_agile(board_id)?;
-        let board_name = board.name;
-        board
-            .sprints
-            .into_iter()
-            .map(|sprint| sprint_output_with_board(board_id, board_name.clone(), sprint))
-            .collect()
-    } else {
-        client
-            .list_agiles()?
-            .into_iter()
-            .flat_map(|board| {
-                let board_id = board.id;
-                let board_name = board.name;
-                board.sprints.into_iter().map(move |sprint| {
-                    sprint_output_with_board(&board_id, board_name.clone(), sprint)
+    let (sprints, outputs): (Vec<_>, Vec<_>) =
+        if let Some(board_id) = args.flags.get("board").map(|s| s.as_str()) {
+            if board_id.trim().is_empty() {
+                return Err(YtdError::Input("--board must not be empty".into()));
+            }
+            let board = client.get_agile(board_id)?;
+            let board_name = board.name;
+            let sprints = board.sprints;
+            let outputs = sprints
+                .iter()
+                .cloned()
+                .map(|sprint| sprint_output_with_board(board_id, board_name.clone(), sprint))
+                .collect();
+            (sprints, outputs)
+        } else {
+            let pairs: Vec<_> = client
+                .list_agiles()?
+                .into_iter()
+                .flat_map(|board| {
+                    let board_id = board.id;
+                    let board_name = board.name;
+                    board.sprints.into_iter().map(move |sprint| {
+                        let output =
+                            sprint_output_with_board(&board_id, board_name.clone(), sprint.clone());
+                        (sprint, output)
+                    })
                 })
-            })
-            .collect()
-    };
-    format::print_items(&outputs, opts);
+                .collect();
+            pairs.into_iter().unzip()
+        };
+    format::print_raw_or_processed_items(&sprints, &outputs, opts)?;
     Ok(())
 }
 
@@ -93,13 +100,30 @@ fn cmd_current<T: HttpTransport>(
         let board = client.get_agile(board_id)?;
         let output = current_sprint_output(&board)
             .ok_or_else(|| YtdError::Input(format!("Board {board_id} has no current sprint")))?;
-        format::print_single(&output, opts);
+        let sprint = board
+            .sprints
+            .iter()
+            .find(|sprint| sprint.id == output.yt_id)
+            .ok_or_else(|| YtdError::Input(format!("Board {board_id} has no current sprint")))?;
+        format::print_raw_or_processed(sprint, &output, opts)?;
         return Ok(());
     }
 
     let boards = client.list_agiles()?;
-    let outputs: Vec<_> = boards.iter().filter_map(current_sprint_output).collect();
-    format::print_items(&outputs, opts);
+    let pairs: Vec<_> = boards
+        .iter()
+        .filter_map(|board| {
+            let output = current_sprint_output(board)?;
+            let sprint = board
+                .sprints
+                .iter()
+                .find(|sprint| sprint.id == output.yt_id)?
+                .clone();
+            Some((sprint, output))
+        })
+        .collect();
+    let (sprints, outputs): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
+    format::print_raw_or_processed_items(&sprints, &outputs, opts)?;
     Ok(())
 }
 
@@ -110,8 +134,8 @@ fn cmd_get<T: HttpTransport>(
 ) -> Result<(), YtdError> {
     let id = require_sprint_id(args, "Usage: ytd sprint get <sprint-id>")?;
     let sprint = client.get_sprint(&id.board_id, &id.sprint_id)?;
-    let output = sprint_output(&id.board_id, sprint);
-    format::print_single(&output, opts);
+    let output = sprint_output(&id.board_id, sprint.clone());
+    format::print_raw_or_processed(&sprint, &output, opts)?;
     Ok(())
 }
 
@@ -139,7 +163,11 @@ fn cmd_update<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resu
 fn cmd_delete<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_sprint_id(args, "Usage: ytd sprint delete <sprint-id> [-y]")?;
     let encoded = args.positional[0].as_str();
-    if args.flags.get("y").map(|v| v == "true").unwrap_or(false) || confirm_delete(encoded)? {
+    if commands::confirm_delete(
+        "sprint",
+        encoded,
+        args.flags.get("y").map(|v| v == "true").unwrap_or(false),
+    )? {
         client.delete_sprint(&id.board_id, &id.sprint_id)?;
         println!("{encoded}");
     }
@@ -192,7 +220,7 @@ fn cmd_ticket_list<T: HttpTransport>(
 ) -> Result<(), YtdError> {
     let id = require_nested_sprint_id(args, 1, "Usage: ytd sprint ticket list <sprint-id>")?;
     let issues = client.list_sprint_issues(&id.board_id, &id.sprint_id)?;
-    format::print_items(&issues, opts);
+    ticket::print_issue_items(&issues, opts);
     Ok(())
 }
 
@@ -285,18 +313,6 @@ fn require_non_empty_string(
         return Ok(());
     }
     Err(YtdError::Input(message.into()))
-}
-
-fn confirm_delete(id: &str) -> Result<bool, YtdError> {
-    if !io::stdin().is_terminal() {
-        return Ok(false);
-    }
-
-    eprint!("Delete sprint {id}? Type 'yes' to confirm: ");
-    io::stderr().flush()?;
-    let mut line = String::new();
-    io::stdin().lock().read_line(&mut line)?;
-    Ok(line.trim() == "yes")
 }
 
 #[cfg(test)]

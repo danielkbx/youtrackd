@@ -15,7 +15,7 @@ src/
   input.rs          ← JSON input from --json flag or stdin
   types.rs          ← all data structures (serde Serialize/Deserialize)
   commands/
-    mod.rs          ← module declarations
+    mod.rs          ← module declarations + shared command helpers
     config.rs       ← stored non-auth settings (visibility-group)
     group.rs        ← group list
     login.rs        ← interactive login flow
@@ -77,8 +77,9 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 
 - Stored config is `StoredConfig` in `types.rs` with optional `url`, `token`, and `visibility_group`
 - Serialized config uses camelCase JSON keys, so the file stores `visibilityGroup`
-- Ticket/article create and update handlers build `LimitedVisibilityInput` in `commands/ticket.rs` and `commands/article.rs`
-- `ResolvedVisibilityGroup::Clear` becomes an empty `permittedGroups` payload only for updates; creates omit the `visibility` field
+- Ticket/article create handlers and comment create handlers apply configured visibility defaults
+- Ticket/article/comment update handlers build `LimitedVisibilityInput` only from explicit visibility flags
+- `ResolvedVisibilityGroup::Clear` becomes an empty `permittedGroups` payload for updates; creates omit the `visibility` field
 
 ## Adding a Command
 

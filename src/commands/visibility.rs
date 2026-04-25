@@ -11,18 +11,18 @@ pub fn build_create_visibility_input<T: HttpTransport>(
     build_visibility_input(client, args, false, true)
 }
 
-pub fn build_update_visibility_input<T: HttpTransport>(
+pub fn build_explicit_update_visibility_input<T: HttpTransport>(
     client: &YtClient<T>,
     args: &ParsedArgs,
 ) -> Result<Option<LimitedVisibilityInput>, YtdError> {
-    build_visibility_input(client, args, true, true)
+    build_visibility_input(client, args, true, false)
 }
 
 pub fn build_comment_update_visibility_input<T: HttpTransport>(
     client: &YtClient<T>,
     args: &ParsedArgs,
 ) -> Result<Option<LimitedVisibilityInput>, YtdError> {
-    build_visibility_input(client, args, true, false)
+    build_explicit_update_visibility_input(client, args)
 }
 
 fn build_visibility_input<T: HttpTransport>(

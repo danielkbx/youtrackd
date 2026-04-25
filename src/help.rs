@@ -153,9 +153,12 @@ fn print_global_help() {
 
     println!("Global flags:");
     print_help_items(&[
-        ("--format text|raw|md", "Output format (default: text)"),
+        (
+            "--format text|raw|json|md",
+            "Output format; invalid values are rejected",
+        ),
         ("--no-meta", "Suppress IDs, dates, author"),
-        ("-y", "Skip delete confirmation"),
+        ("-y", "Confirm delete without prompting"),
     ]);
     println!("\nRun `ytd help <command>` for command-specific help.");
 }
@@ -244,7 +247,7 @@ fn print_article_help() {
         "Usage:
   ytd article search <query> [--project <id>]
   ytd article list --project <id>
-  ytd article get <id>
+  ytd article get <id> [--no-comments]
   ytd article create --project <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd article update <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd article append <id> <text>
@@ -254,7 +257,10 @@ fn print_article_help() {
   ytd article attachments <id>
   ytd article delete <id> [-y]
 
-Create/update print only the article ID on stdout."
+Create/update print only the article ID on stdout.
+Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
+Delete commands ask for confirmation. Use -y to confirm non-interactively.
+Text output renders Markdown content as readable terminal text with ASCII tables and prints content after metadata, after a blank line and without a field label. Use article get --no-comments to omit comments from text, json, raw, or md output."
     );
 }
 
@@ -263,7 +269,7 @@ fn print_ticket_help() {
         "Usage:
   ytd ticket search <query> [--project <id>]
   ytd ticket list --project <id>
-  ytd ticket get <id>
+  ytd ticket get <id> [--no-comments]
   ytd ticket create --project <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd ticket update <id> --json '{{\"summary\":\"...\",\"description\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
   ytd ticket comment <id> <text> [--visibility-group <group> | --no-visibility-group]
@@ -283,7 +289,14 @@ fn print_ticket_help() {
   ytd ticket delete <id> [-y]
 
 Durations: 30m, 1h, 2h30m, 90 (plain number = minutes)
-Create/update print only the ticket ID on stdout."
+Create/update print only the ticket ID on stdout.
+Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
+Delete commands ask for confirmation. Use -y to confirm non-interactively.
+
+Text output for ticket search/list/get and linked or sprint tickets is specialized:
+compact lists show ID, summary, project, important fields, and updated/resolved state;
+ticket get shows a detail report with status, custom fields, metadata, then a blank line and description without a label; comments follow the parent content.
+Text output renders Markdown content fields as readable terminal text with ASCII tables and prints content after metadata, after a blank line and without a field label. Use ticket get --no-comments to omit comments from text, json, raw, or md output."
     );
 }
 
@@ -304,6 +317,8 @@ Use the returned id field, for example:
   ABC-A-1:251-0
 
 New comments use configured visibility defaults. Comment updates change visibility only with explicit visibility flags.
+Delete commands ask for confirmation. Use -y to confirm non-interactively.
+Text output for comment get renders Markdown text as terminal text after metadata, without a text field label.
 Comment attachment upload is not supported by the YouTrack REST API flow verified for ytd."
     );
 }
@@ -322,7 +337,9 @@ Attachment IDs are returned by:
 
 Use the returned id field, for example:
   ABC-12:8-2897
-  ABC-A-1:237-3"
+  ABC-A-1:237-3
+
+Delete commands ask for confirmation. Use -y to confirm non-interactively."
     );
 }
 
@@ -332,7 +349,9 @@ fn print_search_help() {
   ytd search list [--project <id>]
   ytd search run <name-or-id>
 
-'search run' accepts a saved search ID or name (case-insensitive)."
+'search run' accepts a saved search ID or name (case-insensitive).
+--project filters saved searches by project reference in the saved query text.
+Text output uses the same compact ticket format as ticket search."
     );
 }
 
@@ -348,6 +367,7 @@ fn print_board_help() {
 --project filters boards client-side by project membership for list.
 For create, --project sets the board projects and accepts short names or database IDs.
 Templates: kanban, scrum, version, custom, personal.
+Delete commands ask for confirmation. Use -y to confirm non-interactively.
 Use --json or stdin for advanced YouTrack Agile fields."
     );
 }
@@ -370,6 +390,8 @@ Without --board, sprint list returns sprints from all boards.
 Use ytd sprint current to list current sprints across boards, or --board for one board.
 current is not accepted as a sprint-id.
 Sprint ticket commands list, add, and remove tickets in a sprint.
+Sprint ticket list text output uses the same compact ticket format as ticket list.
+Delete commands ask for confirmation. Use -y to confirm non-interactively.
 Use --json or stdin for advanced YouTrack sprint fields."
     );
 }

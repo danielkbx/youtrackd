@@ -45,7 +45,7 @@ ytd ticket tag $TICKET_A $TAG
 ### 5. Tag verifizieren
 
 ```
-ytd ticket get $TICKET_A --format raw
+ytd ticket get $TICKET_A --format json
 ```
 
 **Erwartung**: JSON enthält `tags`-Array mit einem Eintrag, dessen `name` dem `$TAG` entspricht.
@@ -61,7 +61,7 @@ ytd ticket untag $TICKET_A $TAG
 ### 7. Tag-Entfernung verifizieren
 
 ```
-ytd ticket get $TICKET_A --format raw
+ytd ticket get $TICKET_A --format json
 ```
 
 **Erwartung**: `tags`-Array ist leer oder enthält `$TAG` nicht mehr.
@@ -84,7 +84,7 @@ Falls `--type` nicht angegeben wird, soll ein sinnvoller Default verwendet werde
 ytd ticket links $TICKET_A
 ```
 
-**Erwartung**: Enthält `$TICKET_B` und den Link-Typ.
+**Erwartung**: Enthält `$TICKET_B` und den Link-Typ. Verlinkte Tickets werden im kompakten Ticketformat angezeigt: Ticket-ID, Summary und, falls von YouTrack geliefert, wichtige Arbeitsfelder wie State, Assignee oder Priority.
 
 ### 10. Links auch beim anderen Ticket sichtbar
 
@@ -92,7 +92,7 @@ ytd ticket links $TICKET_A
 ytd ticket links $TICKET_B
 ```
 
-**Erwartung**: Enthält `$TICKET_A`.
+**Erwartung**: Enthält `$TICKET_A` im kompakten Ticketformat.
 
 ## Cleanup
 

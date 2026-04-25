@@ -1,12 +1,12 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
+use crate::commands;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::types::{
-    article_attachment_output, issue_attachment_output, parse_attachment_id, AttachmentOutput,
-    AttachmentParentType, ParsedAttachmentId,
+    article_attachment_output, issue_attachment_output, parse_attachment_id, Attachment,
+    AttachmentOutput, AttachmentParentType, ParsedAttachmentId,
 };
-use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 pub fn run<T: HttpTransport>(
@@ -38,15 +38,19 @@ fn cmd_get<T: HttpTransport>(
     opts: &OutputOptions,
 ) -> Result<(), YtdError> {
     let id = require_attachment_id(args, "Usage: ytd attachment get <attachment-id>")?;
-    let output = get_attachment_output(client, &id)?;
-    format::print_single(&output, opts);
+    let (attachment, output) = get_attachment(client, &id)?;
+    format::print_raw_or_processed(&attachment, &output, opts)?;
     Ok(())
 }
 
 fn cmd_delete<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_attachment_id(args, "Usage: ytd attachment delete <attachment-id> [-y]")?;
     let encoded = args.positional[0].as_str();
-    if args.flags.get("y").map(|v| v == "true").unwrap_or(false) || confirm_delete(encoded)? {
+    if commands::confirm_delete(
+        "attachment",
+        encoded,
+        args.flags.get("y").map(|v| v == "true").unwrap_or(false),
+    )? {
         match id.parent_type {
             AttachmentParentType::Ticket => {
                 client.delete_issue_attachment(&id.parent_id, &id.attachment_id)?;
@@ -65,7 +69,7 @@ fn cmd_download<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Re
         args,
         "Usage: ytd attachment download <attachment-id> [--output <path>]",
     )?;
-    let output = get_attachment_output(client, &id)?;
+    let (_, output) = get_attachment(client, &id)?;
     let url = output
         .url
         .as_deref()
@@ -77,18 +81,20 @@ fn cmd_download<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Re
     Ok(())
 }
 
-fn get_attachment_output<T: HttpTransport>(
+fn get_attachment<T: HttpTransport>(
     client: &YtClient<T>,
     id: &ParsedAttachmentId,
-) -> Result<AttachmentOutput, YtdError> {
+) -> Result<(Attachment, AttachmentOutput), YtdError> {
     match id.parent_type {
         AttachmentParentType::Ticket => {
             let attachment = client.get_issue_attachment(&id.parent_id, &id.attachment_id)?;
-            Ok(issue_attachment_output(&id.parent_id, attachment))
+            let output = issue_attachment_output(&id.parent_id, attachment.clone());
+            Ok((attachment, output))
         }
         AttachmentParentType::Article => {
             let attachment = client.get_article_attachment(&id.parent_id, &id.attachment_id)?;
-            Ok(article_attachment_output(&id.parent_id, attachment))
+            let output = article_attachment_output(&id.parent_id, attachment.clone());
+            Ok((attachment, output))
         }
     }
 }
@@ -117,17 +123,6 @@ fn attachment_file_name(attachment: &AttachmentOutput) -> String {
         .filter(|name| !name.is_empty())
         .map(String::from)
         .unwrap_or_else(|| format!("attachment-{}", attachment.yt_id))
-}
-
-fn confirm_delete(id: &str) -> Result<bool, YtdError> {
-    if !io::stdin().is_terminal() {
-        return Ok(true);
-    }
-    print!("Delete attachment {id}? [y/N] ");
-    io::stdout().flush()?;
-    let mut line = String::new();
-    io::stdin().lock().read_line(&mut line)?;
-    Ok(line.trim().eq_ignore_ascii_case("y"))
 }
 
 #[cfg(test)]

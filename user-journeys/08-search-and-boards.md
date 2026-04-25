@@ -16,14 +16,14 @@ Kein Cleanup nötig — diese Journey erzeugt keine Entities.
 ytd search list --project $PROJECT
 ```
 
-**Erwartung**: Exit-Code 0. Falls Saved Searches vorhanden: Liste mit Name und Query, gefiltert auf das Testprojekt.
+**Erwartung**: Exit-Code 0. Falls Saved Searches vorhanden: Liste mit Name und Query, gefiltert auf Projektbezug im gespeicherten Query-Text (`project: $PROJECT` oder `in: $PROJECT`). Wenn keine Saved Search einen Projektbezug im Query-Text enthält, ist eine leere Liste korrekt.
 
 Falls die Liste leer ist, Schritte 2-3 überspringen.
 
 ### 2. Saved Search als JSON
 
 ```
-ytd search list --project $PROJECT --format raw
+ytd search list --project $PROJECT --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Jeder Eintrag hat `id`, `name`, `query`.
@@ -36,7 +36,7 @@ ytd search list --project $PROJECT --format raw
 ytd search run $SEARCH
 ```
 
-**Erwartung**: Exit-Code 0. Gibt eine Liste von Issues zurück (kann leer sein, wenn die Query keine Treffer hat).
+**Erwartung**: Exit-Code 0. Gibt eine Liste von Issues im kompakten Ticket-Textformat zurück (kann leer sein, wenn die Query keine Treffer hat). Für Treffer enthält jede Ausgabe Ticket-ID und Summary sowie, falls vorhanden, wichtige Arbeitsfelder wie State, Assignee oder Priority.
 
 ## Agile Boards
 
@@ -63,7 +63,7 @@ ytd board get $BOARD_ID
 ### 6. Board als JSON
 
 ```
-ytd board get $BOARD_ID --format raw
+ytd board get $BOARD_ID --format json
 ```
 
 **Erwartung**: Valides JSON mit `id`, `name`, `sprints`-Array.

@@ -31,6 +31,9 @@ fn attachment_help_shows_commands() {
     assert!(text.contains("ytd attachment get <attachment-id>"));
     assert!(text.contains("ytd attachment delete <attachment-id> [-y]"));
     assert!(text.contains("ytd attachment download <attachment-id> [--output <path>]"));
+    assert!(
+        text.contains("Delete commands ask for confirmation. Use -y to confirm non-interactively.")
+    );
     assert!(stderr(&output).is_empty());
 }
 
@@ -41,7 +44,30 @@ fn comment_help_lists_attachments_but_not_attach() {
     assert!(output.status.success());
     let text = stdout(&output);
     assert!(text.contains("ytd comment attachments <comment-id>"));
+    assert!(
+        text.contains("Delete commands ask for confirmation. Use -y to confirm non-interactively.")
+    );
     assert!(!text.contains("ytd comment attach <comment-id>"));
+}
+
+#[test]
+fn ticket_article_and_search_help_describe_consistency_rules() {
+    let ticket = run_ytd(&["help", "ticket"], &[]);
+    let article = run_ytd(&["help", "article"], &[]);
+    let search = run_ytd(&["help", "search"], &[]);
+
+    assert!(ticket.status.success());
+    assert!(article.status.success());
+    assert!(search.status.success());
+    assert!(
+        stdout(&ticket).contains("Update changes visibility only with explicit visibility flags.")
+    );
+    assert!(
+        stdout(&article).contains("Update changes visibility only with explicit visibility flags.")
+    );
+    assert!(stdout(&search).contains(
+        "--project filters saved searches by project reference in the saved query text."
+    ));
 }
 
 #[test]

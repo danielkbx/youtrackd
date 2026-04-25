@@ -1,6 +1,6 @@
 # Journey 1: Auth & Projekte
 
-Testet: `whoami`, `project list`, `project get`, `--format raw`, `--no-meta`
+Testet: `whoami`, `project list`, `project get`, `--format json`, `--no-meta`
 
 ## Cleanup
 
@@ -35,7 +35,7 @@ ytd project get $PROJECT
 ### 4. JSON-Output testen
 
 ```
-ytd project get $PROJECT --format raw
+ytd project get $PROJECT --format json
 ```
 
 **Erwartung**: Valides JSON. Enthält Felder `id`, `name`, `shortName`.

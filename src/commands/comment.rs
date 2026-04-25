@@ -1,5 +1,6 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
+use crate::commands;
 use crate::commands::visibility;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
@@ -7,7 +8,6 @@ use crate::types::{
     article_attachment_output, article_comment_output, issue_attachment_output,
     issue_comment_output, parse_comment_id, AttachmentOutput, CommentParentType, ParsedCommentId,
 };
-use std::io::{self, BufRead, IsTerminal, Write};
 
 pub fn run<T: HttpTransport>(
     client: &YtClient<T>,
@@ -42,13 +42,13 @@ fn cmd_get<T: HttpTransport>(
     match id.parent_type {
         CommentParentType::Ticket => {
             let comment = client.get_issue_comment(&id.parent_id, &id.comment_id)?;
-            let output = issue_comment_output(&id.parent_id, comment);
-            format::print_single(&output, opts);
+            let output = issue_comment_output(&id.parent_id, comment.clone());
+            format::print_raw_or_processed(&comment, &output, opts)?;
         }
         CommentParentType::Article => {
             let comment = client.get_article_comment(&id.parent_id, &id.comment_id)?;
-            let output = article_comment_output(&id.parent_id, comment);
-            format::print_single(&output, opts);
+            let output = article_comment_output(&id.parent_id, comment.clone());
+            format::print_raw_or_processed(&comment, &output, opts)?;
         }
     }
     Ok(())
@@ -80,7 +80,11 @@ fn cmd_update<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resu
 fn cmd_delete<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_comment_id(args, "Usage: ytd comment delete <comment-id> [-y]")?;
     let encoded = args.positional[0].as_str();
-    if args.flags.get("y").map(|v| v == "true").unwrap_or(false) || confirm_delete(encoded)? {
+    if commands::confirm_delete(
+        "comment",
+        encoded,
+        args.flags.get("y").map(|v| v == "true").unwrap_or(false),
+    )? {
         match id.parent_type {
             CommentParentType::Ticket => {
                 client.delete_issue_comment(&id.parent_id, &id.comment_id)?;
@@ -100,31 +104,30 @@ fn cmd_attachments<T: HttpTransport>(
     opts: &OutputOptions,
 ) -> Result<(), YtdError> {
     let id = require_comment_id(args, "Usage: ytd comment attachments <comment-id>")?;
-    let attachments: Vec<AttachmentOutput> = match id.parent_type {
-        CommentParentType::Ticket => client
-            .get_issue_comment_with_attachments(&id.parent_id, &id.comment_id)?
-            .attachments
-            .into_iter()
+    let attachments = match id.parent_type {
+        CommentParentType::Ticket => {
+            client
+                .get_issue_comment_with_attachments(&id.parent_id, &id.comment_id)?
+                .attachments
+        }
+        CommentParentType::Article => {
+            client
+                .get_article_comment_with_attachments(&id.parent_id, &id.comment_id)?
+                .attachments
+        }
+    };
+    let outputs: Vec<AttachmentOutput> = match id.parent_type {
+        CommentParentType::Ticket => attachments
+            .iter()
+            .cloned()
             .map(|attachment| issue_attachment_output(&id.parent_id, attachment))
             .collect(),
-        CommentParentType::Article => client
-            .get_article_comment_with_attachments(&id.parent_id, &id.comment_id)?
-            .attachments
-            .into_iter()
+        CommentParentType::Article => attachments
+            .iter()
+            .cloned()
             .map(|attachment| article_attachment_output(&id.parent_id, attachment))
             .collect(),
     };
-    format::print_items(&attachments, opts);
+    format::print_raw_or_processed_items(&attachments, &outputs, opts)?;
     Ok(())
-}
-
-fn confirm_delete(id: &str) -> Result<bool, YtdError> {
-    if !io::stdin().is_terminal() {
-        return Ok(true);
-    }
-    print!("Delete comment {id}? [y/N] ");
-    io::stdout().flush()?;
-    let mut line = String::new();
-    io::stdin().lock().read_line(&mut line)?;
-    Ok(line.trim().eq_ignore_ascii_case("y"))
 }

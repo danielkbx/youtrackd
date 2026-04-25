@@ -33,7 +33,7 @@ ytd article create --project $PROJECT --json '{"summary": "[YTD-TEST] Comment Jo
 ### 3. Ticket-Kommentar erstellen
 
 ```
-env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd ticket comment $TICKET_ID "[YTD-TEST] Ticket-Kommentar initial"
+env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd ticket comment $TICKET_ID "[YTD-TEST] **Ticket-Kommentar** initial"
 ```
 
 **Erwartung**: Exit-Code 0. Der Kommentar übernimmt die Default-Visibility aus `$VIS_GROUP`.
@@ -49,10 +49,10 @@ env YTD_VISIBILITY_GROUP="$VIS_GROUP" ytd article comment $ARTICLE_ID "[YTD-TEST
 ### 5. Ticket-Kommentare als JSON listen
 
 ```
-ytd ticket comments $TICKET_ID --format raw
+ytd ticket comments $TICKET_ID --format json
 ```
 
-**Erwartung**: Valides JSON-Array. Ein Kommentar enthält `[YTD-TEST] Ticket-Kommentar initial`.
+**Erwartung**: Valides JSON-Array. Ein Kommentar enthält `[YTD-TEST] **Ticket-Kommentar** initial`.
 
 Für diesen Kommentar gilt:
 - `id` beginnt mit `$TICKET_ID:`
@@ -65,7 +65,7 @@ Für diesen Kommentar gilt:
 ### 6. Artikel-Kommentare als JSON listen
 
 ```
-ytd article comments $ARTICLE_ID --format raw
+ytd article comments $ARTICLE_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Ein Kommentar enthält `[YTD-TEST] Artikel-Kommentar initial`.
@@ -81,17 +81,23 @@ Für diesen Kommentar gilt:
 ### 7. Ticket-Kommentar per globalem Command abrufen
 
 ```
-ytd comment get $TICKET_COMMENT_ID --format raw
+ytd comment get $TICKET_COMMENT_ID --format json
 ```
 
-**Erwartung**: `id` entspricht `$TICKET_COMMENT_ID`, `parentType` ist `ticket`, `parentId` ist `$TICKET_ID`, `text` enthält `[YTD-TEST] Ticket-Kommentar initial`.
+**Erwartung**: `id` entspricht `$TICKET_COMMENT_ID`, `parentType` ist `ticket`, `parentId` ist `$TICKET_ID`, `text` enthält `[YTD-TEST] **Ticket-Kommentar** initial`.
 
 Die `visibility.permittedGroups` enthält `$VIS_GROUP`.
+
+```
+ytd comment get $TICKET_COMMENT_ID
+```
+
+**Erwartung**: Text-Output zeigt den Kommentartext als Plain Text, also `[YTD-TEST] Ticket-Kommentar initial` ohne `**`, und der Text steht nach den Metadaten.
 
 ### 8. Artikel-Kommentar per globalem Command abrufen
 
 ```
-ytd comment get $ARTICLE_COMMENT_ID --format raw
+ytd comment get $ARTICLE_COMMENT_ID --format json
 ```
 
 **Erwartung**: `id` entspricht `$ARTICLE_COMMENT_ID`, `parentType` ist `article`, `parentId` ist `$ARTICLE_ID`, `text` enthält `[YTD-TEST] Artikel-Kommentar initial`.
@@ -101,7 +107,7 @@ Die `visibility.permittedGroups` enthält `$VIS_GROUP`.
 ### 9. Ticket-Kommentar-Attachments listen
 
 ```
-ytd comment attachments $TICKET_COMMENT_ID --format raw
+ytd comment attachments $TICKET_COMMENT_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Für diese Journey ist ein leeres Array erlaubt, weil `ytd` kein `comment attach` unterstützt.
@@ -109,7 +115,7 @@ ytd comment attachments $TICKET_COMMENT_ID --format raw
 ### 10. Artikel-Kommentar-Attachments listen
 
 ```
-ytd comment attachments $ARTICLE_COMMENT_ID --format raw
+ytd comment attachments $ARTICLE_COMMENT_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Für diese Journey ist ein leeres Array erlaubt, weil `ytd` kein `comment attach` unterstützt.
@@ -133,8 +139,8 @@ ytd comment update $ARTICLE_COMMENT_ID "[YTD-TEST] Artikel-Kommentar aktualisier
 ### 13. Updates verifizieren
 
 ```
-ytd comment get $TICKET_COMMENT_ID --format raw
-ytd comment get $ARTICLE_COMMENT_ID --format raw
+ytd comment get $TICKET_COMMENT_ID --format json
+ytd comment get $ARTICLE_COMMENT_ID --format json
 ```
 
 **Erwartung**: Ticket-Kommentar enthält `Ticket-Kommentar aktualisiert`. Artikel-Kommentar enthält `Artikel-Kommentar aktualisiert`.
@@ -151,8 +157,8 @@ ytd comment update $ARTICLE_COMMENT_ID "[YTD-TEST] Artikel-Kommentar public" --n
 **Erwartung**: Beide Commands geben die jeweilige Kommentar-ID aus.
 
 ```
-ytd comment get $TICKET_COMMENT_ID --format raw
-ytd comment get $ARTICLE_COMMENT_ID --format raw
+ytd comment get $TICKET_COMMENT_ID --format json
+ytd comment get $ARTICLE_COMMENT_ID --format json
 ```
 
 **Erwartung**: Es bleibt keine eingeschränkte Visibility mit `$VIS_GROUP` vorhanden. Je nach YouTrack-Antwort ist `visibility` unlimited, leer oder ohne `permittedGroups`.
@@ -167,8 +173,8 @@ ytd comment update $ARTICLE_COMMENT_ID "[YTD-TEST] Artikel-Kommentar restricted 
 **Erwartung**: Beide Commands geben die jeweilige Kommentar-ID aus.
 
 ```
-ytd comment get $TICKET_COMMENT_ID --format raw
-ytd comment get $ARTICLE_COMMENT_ID --format raw
+ytd comment get $TICKET_COMMENT_ID --format json
+ytd comment get $ARTICLE_COMMENT_ID --format json
 ```
 
 **Erwartung**: Beide Kommentare enthalten `$VIS_GROUP` in `visibility.permittedGroups`.
@@ -176,7 +182,7 @@ ytd comment get $ARTICLE_COMMENT_ID --format raw
 ### 16. Eingebettete Ticket-Kommentar-ID prüfen
 
 ```
-ytd ticket get $TICKET_ID --format raw
+ytd ticket get $TICKET_ID --format json
 ```
 
 **Erwartung**: Falls `comments` Kommentarobjekte enthält, ist deren `id` kodiert und beginnt mit `$TICKET_ID:`. Jede gefundene Kommentar-`id` funktioniert mit `ytd comment get`.

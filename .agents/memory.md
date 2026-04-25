@@ -59,6 +59,8 @@ POST /api/issues/{issueID}/comments — required body: `{ text: "..." }`. Option
 Date: 2026-04-22
 Verifiziert durch Code und Tests: Die Auflösung für Ticket/Article-Create+Update ist `--visibility-group` → `YTD_VISIBILITY_GROUP` → gespeicherter `config visibility-group`-Wert. `--no-visibility-group` überschreibt geerbte Defaults. Bei `update` wird dann ein `LimitedVisibility`-Payload mit leerem `permittedGroups` gesendet (Clear). Bei `create` wird das `visibility`-Feld stattdessen komplett weggelassen. Die Kombination `--visibility-group` + `--no-visibility-group` ist ein Input-Fehler.
 
+Superseded for ticket/article updates on 2026-04-25: updates now preserve visibility unless explicit visibility flags are passed. See "Update visibility is explicit only" below.
+
 ## YouTrack API: Comment operations are parent-scoped
 Date: 2026-04-24
 Specific comment get/update/delete operations require the parent resource path: `/api/issues/{issueID}/comments/{commentID}` or `/api/articles/{articleID}/comments/{commentID}`. `ytd` therefore exposes encoded comment IDs as `<ticket-id>:<comment-id>` and `<article-id>:<comment-id>`. Parent type is inferred from ID shape: article IDs use `<PROJECT>-A-<NUMBER>`, ticket IDs use `<PROJECT>-<NUMBER>`. The public `id` field for any CLI comment output must always be encoded; raw YouTrack comment IDs may only appear as `ytId`.
@@ -97,3 +99,35 @@ Removing an issue from a sprint uses:
 `DELETE /api/agiles/{agileID}/sprints/{sprintID}/issues/{issueDatabaseID}`
 
 `POST /api/issues/{issueID}/sprints` returned HTTP 405, so issue-scoped sprint writes are not supported. Duplicate add returned HTTP 200. Removing an unassigned issue returned HTTP 404. A ticket can appear in sprints on multiple boards, so CLI write commands must require the encoded public sprint ID `<board-id>:<sprint-id>`.
+
+## Implementierung: Specialized ticket text output
+Date: 2026-04-25
+
+Ticket text output is intentionally no longer the generic `key: value` formatter for commands that render real issue objects. `ticket search`, `ticket list`, `search run`, and `sprint ticket list` use a shared compact ticket formatter. `ticket get` uses a shared detail-report formatter. `ticket links` reuses compact ticket rendering for embedded linked issues. `--format json` is the stable ytd-normalized JSON form for scripts; `--format raw` is reserved for YouTrack API-shaped JSON as original as possible.
+
+## Implementierung: Article public IDs
+Date: 2026-04-25
+
+Article CLI outputs use the reusable readable article ID (`<PROJECT>-A-<NUMBER>`) as the public `id`. The raw YouTrack database ID is exposed only as `ytId`. Article outputs should not expose `idReadable`; this matches the public-ID pattern used for comments, attachments, and sprints.
+
+## Implementierung: Ticket issue public IDs
+Date: 2026-04-25
+
+Ticket issue CLI outputs use the reusable readable ticket ID (`<PROJECT>-<NUMBER>`) as the public `id`. The raw YouTrack database ID is exposed only as `ytId`. Ticket issue outputs should not expose `idReadable`; this applies to direct issue outputs and nested linked/sprint issue outputs. Commands that only print an ID (`ticket create`, `ticket update`, `sprint ticket add/remove`) already print the reusable readable ID.
+
+## Implementierung: Text output renders Markdown content as plain text
+Date: 2026-04-25
+
+`--format text` is plain text, not raw Markdown. Fields that can contain Markdown (`content`, `description`, `text`) are rendered through `termimad` with no ANSI styling and ASCII table borders before printing. Generic text output prints metadata and other scalar fields first, then a blank line and content fields without a label. `ticket get` follows the same shape: status/custom fields/metadata first, then a blank line and the plain-text description without a label; embedded comments still follow the parent content and their own Markdown text is also rendered as plain text.
+
+This applies to `article get`, `article search` and `article list` when content is included, `article comments`, `ticket comments`, `comment get`, `ticket history` activity text, and any future text output with `content`, `description`, or `text` fields. Compact ticket list outputs intentionally do not show content.
+
+## Implementierung: Update visibility is explicit only
+Date: 2026-04-25
+
+Ticket/article creates and new comments apply configured visibility defaults from `--visibility-group`, `YTD_VISIBILITY_GROUP`, or stored `config visibility-group`. Ticket/article/comment updates preserve existing visibility unless an explicit visibility flag is passed. `ticket update` and `article update` no longer apply env/config defaults. `--visibility-group <group>` sets limited visibility; `--no-visibility-group` clears existing visibility on updates. Empty ticket/article updates without JSON fields or explicit visibility flags are input errors.
+
+## Implementierung: Delete confirmation is uniform
+Date: 2026-04-25
+
+All delete commands (`ticket`, `article`, `comment`, `attachment`, `board`, `sprint`) share the same confirmation behavior. `-y` confirms without prompting. Interactive deletes require typing `yes`. Non-interactive deletes without `-y` fail with an input error and do not mutate.

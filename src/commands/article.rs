@@ -1,11 +1,11 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
+use crate::commands;
 use crate::commands::visibility;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::input;
 use crate::types::*;
-use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::Path;
 
 pub fn run<T: HttpTransport>(
@@ -19,21 +19,31 @@ pub fn run<T: HttpTransport>(
                 .ok_or_else(|| YtdError::Input("Usage: ytd article search <query>".into()))?;
             let project = args.flags.get("project").map(|s| s.as_str());
             let articles = client.search_articles(query, project)?;
-            format::print_items(&articles, opts);
+            let outputs: Vec<ArticleOutput> = articles.iter().cloned().map(article_output).collect();
+            format::print_raw_or_processed_items(&articles, &outputs, opts)?;
             Ok(())
         }
         Some("list") => {
             let project = args.flags.get("project")
                 .ok_or_else(|| YtdError::Input("--project is required".into()))?;
             let articles = client.list_articles(project)?;
-            format::print_items(&articles, opts);
+            let outputs: Vec<ArticleOutput> = articles.iter().cloned().map(article_output).collect();
+            format::print_raw_or_processed_items(&articles, &outputs, opts)?;
             Ok(())
         }
         Some("get") => {
             let id = args.positional.first()
-                .ok_or_else(|| YtdError::Input("Usage: ytd article get <id>".into()))?;
+                .ok_or_else(|| YtdError::Input("Usage: ytd article get <id> [--no-comments]".into()))?;
             let article = client.get_article(id)?;
-            format::print_single(&article, opts);
+            if matches!(opts.format, format::Format::Raw) {
+                let mut value = serde_json::to_value(&article)?;
+                remove_comments_if_requested(&mut value, args);
+                format::print_value(&value, opts);
+            } else {
+                let mut value = serde_json::to_value(article_output(article))?;
+                remove_comments_if_requested(&mut value, args);
+                format::print_value(&value, opts);
+            }
             Ok(())
         }
         Some("create") => {
@@ -77,11 +87,12 @@ pub fn run<T: HttpTransport>(
             let id = args.positional.first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd article comments <id>".into()))?;
             let comments = client.list_article_comments(id)?;
-            let comments: Vec<CommentOutput> = comments
-                .into_iter()
+            let outputs: Vec<CommentOutput> = comments
+                .iter()
+                .cloned()
                 .map(|comment| article_comment_output(id, comment))
                 .collect();
-            format::print_items(&comments, opts);
+            format::print_raw_or_processed_items(&comments, &outputs, opts)?;
             Ok(())
         }
         Some("attach") => {
@@ -101,23 +112,42 @@ pub fn run<T: HttpTransport>(
             let id = args.positional.first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd article attachments <id>".into()))?;
             let attachments = client.list_article_attachments(id)?;
-            let attachments: Vec<AttachmentOutput> = attachments
-                .into_iter()
+            let outputs: Vec<AttachmentOutput> = attachments
+                .iter()
+                .cloned()
                 .map(|attachment| article_attachment_output(id, attachment))
                 .collect();
-            format::print_items(&attachments, opts);
+            format::print_raw_or_processed_items(&attachments, &outputs, opts)?;
             Ok(())
         }
         Some("delete") => {
             let id = args.positional.first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd article delete <id> [-y]".into()))?;
-            if args.flags.get("y").map(|v| v == "true").unwrap_or(false) || confirm_delete("article", id)? {
+            if commands::confirm_delete(
+                "article",
+                id,
+                args.flags.get("y").map(|v| v == "true").unwrap_or(false),
+            )? {
                 client.delete_article(id)?;
                 println!("{id}");
             }
             Ok(())
         }
         _ => Err(YtdError::Input("Usage: ytd article <search|list|get|create|update|append|comment|comments|attach|attachments|delete>".into())),
+    }
+}
+
+fn remove_comments_if_requested(value: &mut serde_json::Value, args: &ParsedArgs) {
+    if !args
+        .flags
+        .get("no-comments")
+        .map(|value| value == "true")
+        .unwrap_or(false)
+    {
+        return;
+    }
+    if let Some(obj) = value.as_object_mut() {
+        obj.remove("comments");
     }
 }
 
@@ -155,28 +185,28 @@ fn build_update_article_input<T: HttpTransport>(
     args: &ParsedArgs,
     json: &serde_json::Value,
 ) -> Result<UpdateArticleInput, YtdError> {
-    Ok(UpdateArticleInput {
-        summary: json
-            .get("summary")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        content: json
-            .get("content")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-        visibility: visibility::build_update_visibility_input(client, args)?,
-    })
-}
+    let summary = json
+        .get("summary")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let content = json
+        .get("content")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let visibility = visibility::build_explicit_update_visibility_input(client, args)?;
 
-fn confirm_delete(entity_type: &str, id: &str) -> Result<bool, YtdError> {
-    if !io::stdin().is_terminal() {
-        return Ok(true);
+    if summary.is_none() && content.is_none() && visibility.is_none() {
+        return Err(YtdError::Input(
+            "At least one update field is required. Use JSON fields or explicit visibility flags."
+                .into(),
+        ));
     }
-    print!("Delete {entity_type} {id}? [y/N] ");
-    io::stdout().flush()?;
-    let mut line = String::new();
-    io::stdin().lock().read_line(&mut line)?;
-    Ok(line.trim().eq_ignore_ascii_case("y"))
+
+    Ok(UpdateArticleInput {
+        summary,
+        content,
+        visibility,
+    })
 }
 
 #[cfg(test)]
@@ -251,6 +281,48 @@ mod tests {
     }
 
     #[test]
+    fn no_comments_flag_removes_article_comments_from_output_value() {
+        let mut value = serde_json::json!({
+            "id": "6-1",
+            "idReadable": "DWP-A-1",
+            "summary": "Runbook",
+            "comments": [{"id": "251-0", "text": "Internal note"}]
+        });
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("get".into()),
+            positional: vec!["DWP-A-1".into()],
+            flags: [("no-comments".to_string(), "true".to_string())]
+                .into_iter()
+                .collect(),
+        };
+
+        remove_comments_if_requested(&mut value, &args);
+
+        assert!(value.get("comments").is_none());
+    }
+
+    #[test]
+    fn article_comments_remain_by_default() {
+        let mut value = serde_json::json!({
+            "id": "6-1",
+            "idReadable": "DWP-A-1",
+            "summary": "Runbook",
+            "comments": [{"id": "251-0", "text": "Internal note"}]
+        });
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("get".into()),
+            positional: vec!["DWP-A-1".into()],
+            flags: Default::default(),
+        };
+
+        remove_comments_if_requested(&mut value, &args);
+
+        assert!(value.get("comments").is_some());
+    }
+
+    #[test]
     fn build_create_article_input_uses_env_visibility_group() {
         let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
         clear_env();
@@ -300,6 +372,52 @@ mod tests {
             .visibility
             .expect("visibility clear payload should be set");
         assert!(visibility.permitted_groups.is_empty());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_update_article_input_ignores_env_visibility_without_flag() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        std::env::set_var("YTD_VISIBILITY_GROUP", "Docs Team");
+
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("update".into()),
+            positional: vec!["DOC-A-1".into()],
+            flags: Default::default(),
+        };
+        let json = serde_json::json!({"content": "Updated"});
+
+        let client = test_client(vec![]);
+        let input = build_update_article_input(&client, &args, &json).unwrap();
+        assert_eq!(input.content.as_deref(), Some("Updated"));
+        assert!(input.visibility.is_none());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_update_article_input_rejects_empty_update_without_explicit_visibility() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+        std::env::set_var("YTD_VISIBILITY_GROUP", "Docs Team");
+
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("update".into()),
+            positional: vec!["DOC-A-1".into()],
+            flags: Default::default(),
+        };
+        let json = serde_json::json!({});
+
+        let client = test_client(vec![]);
+        let err = build_update_article_input(&client, &args, &json).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "At least one update field is required. Use JSON fields or explicit visibility flags."
+        );
 
         clear_env();
     }

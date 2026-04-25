@@ -53,7 +53,7 @@ Jeder Eintrag enthält Timestamp und Author.
 ### 4. History als JSON
 
 ```
-ytd ticket history $TICKET_ID --format raw
+ytd ticket history $TICKET_ID --format json
 ```
 
 **Erwartung**: Valides JSON-Array. Jeder Eintrag hat `timestamp`, `author`, `field` oder Aktivitätstyp.

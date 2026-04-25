@@ -1,10 +1,10 @@
 use crate::args::ParsedArgs;
 use crate::client::{HttpTransport, YtClient};
+use crate::commands;
 use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::input;
 use serde_json::{Map, Value};
-use std::io::{self, BufRead, IsTerminal, Write};
 
 const VALID_TEMPLATES: &[&str] = &["kanban", "scrum", "version", "custom", "personal"];
 
@@ -67,7 +67,11 @@ pub fn run<T: HttpTransport>(
                 .positional
                 .first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd board delete <id> [-y]".into()))?;
-            if args.flags.get("y").map(|v| v == "true").unwrap_or(false) || confirm_delete(id)? {
+            if commands::confirm_delete(
+                "board",
+                id,
+                args.flags.get("y").map(|v| v == "true").unwrap_or(false),
+            )? {
                 client.delete_agile(id)?;
                 println!("{id}");
             }
@@ -203,18 +207,6 @@ fn require_non_empty_array(
         return Ok(());
     }
     Err(YtdError::Input(message.into()))
-}
-
-fn confirm_delete(id: &str) -> Result<bool, YtdError> {
-    if !io::stdin().is_terminal() {
-        return Ok(false);
-    }
-
-    eprint!("Delete board {id}? Type 'yes' to confirm: ");
-    io::stderr().flush()?;
-    let mut line = String::new();
-    io::stdin().lock().read_line(&mut line)?;
-    Ok(line.trim() == "yes")
 }
 
 #[cfg(test)]

@@ -7,6 +7,8 @@
 - Create/update commands print only the resource ID on stdout (nothing else)
 - Errors go to stderr, exit code non-zero
 - `--format` and `--no-meta` flags must be respected by every command
+- Unknown `--format` values must error, not fall back to text
+- Delete commands must never mutate in non-TTY contexts without `-y`
 
 ## Input Handling
 

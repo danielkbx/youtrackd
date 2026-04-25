@@ -54,7 +54,7 @@ TICKET_ID=$(ytd ticket create --project $PROJECT --json '{"summary":"[YTD-TEST] 
 ### 4. Sprint-Tickets initial als JSON listen
 
 ```bash
-ytd sprint ticket list $SPRINT_ID --format raw
+ytd sprint ticket list $SPRINT_ID --format json
 ```
 
 **Erwartung**: Exit-Code 0. Ausgabe ist ein valides JSON-Array. Falls das Ticket bereits wegen Board-Default-Verhalten enthalten ist, dies dokumentieren; die weiteren Add/Remove-Schritte trotzdem ausführen.
@@ -72,15 +72,21 @@ ytd sprint ticket add $SPRINT_ID $TICKET_ID
 ### 6. Ticket ist in Sprint-Ticket-Liste sichtbar
 
 ```bash
-ytd sprint ticket list $SPRINT_ID --format raw
+ytd sprint ticket list $SPRINT_ID --format json
 ```
 
-**Erwartung**: Exit-Code 0. Ausgabe enthält ein Issue mit `idReadable == "$TICKET_ID"`.
+**Erwartung**: Exit-Code 0. Ausgabe enthält ein Issue mit `id == "$TICKET_ID"`. Falls eine rohe YouTrack-Datenbank-ID vorhanden ist, steht sie in `ytId`, nicht in `idReadable`.
+
+```bash
+ytd sprint ticket list $SPRINT_ID
+```
+
+**Erwartung**: Exit-Code 0. Textausgabe verwendet das kompakte Ticket-Listenformat und enthält `$TICKET_ID` mit Summary sowie, falls vorhanden, wichtige Arbeitsfelder wie State, Assignee oder Priority.
 
 ### 7. Ticket-Sprints enthalten die exakte sprint-id
 
 ```bash
-ytd ticket sprints $TICKET_ID --format raw
+ytd ticket sprints $TICKET_ID --format json
 ```
 
 **Erwartung**: Exit-Code 0. Ausgabe enthält einen Sprint mit `id == "$SPRINT_ID"`.
@@ -98,10 +104,10 @@ ytd sprint ticket add $SPRINT_ID $TICKET_ID
 ### 9. Duplicate Add erzeugt keinen doppelten Eintrag
 
 ```bash
-ytd sprint ticket list $SPRINT_ID --format raw
+ytd sprint ticket list $SPRINT_ID --format json
 ```
 
-**Erwartung**: Exit-Code 0. `idReadable == "$TICKET_ID"` kommt höchstens einmal in der Ausgabe vor.
+**Erwartung**: Exit-Code 0. `id == "$TICKET_ID"` kommt höchstens einmal in der Ausgabe vor. `idReadable` wird nicht ausgegeben.
 
 ## Ticket entfernen
 
@@ -116,15 +122,15 @@ ytd sprint ticket remove $SPRINT_ID $TICKET_ID
 ### 11. Ticket ist nicht mehr in Sprint-Ticket-Liste sichtbar
 
 ```bash
-ytd sprint ticket list $SPRINT_ID --format raw
+ytd sprint ticket list $SPRINT_ID --format json
 ```
 
-**Erwartung**: Exit-Code 0. Ausgabe enthält kein Issue mit `idReadable == "$TICKET_ID"`.
+**Erwartung**: Exit-Code 0. Ausgabe enthält kein Issue mit `id == "$TICKET_ID"`.
 
 ### 12. Ticket-Sprints enthalten die exakte sprint-id nicht mehr
 
 ```bash
-ytd ticket sprints $TICKET_ID --format raw
+ytd ticket sprints $TICKET_ID --format json
 ```
 
 **Erwartung**: Exit-Code 0. Ausgabe enthält keinen Sprint mit `id == "$SPRINT_ID"`.

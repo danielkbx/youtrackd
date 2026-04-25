@@ -24,7 +24,7 @@ ytd sprint current
 ### 2. Alle current Sprints als JSON ausgeben
 
 ```
-ytd sprint current --format raw
+ytd sprint current --format json
 ```
 
 **Erwartung**: Exit-Code 0. Ausgabe ist ein valides JSON-Array.
@@ -47,7 +47,7 @@ Falls Schritt 2 mindestens einen Eintrag liefert, den ersten Wert aus `id` als `
 ### 4. Sprint mit sprint-id abrufen
 
 ```
-ytd sprint get $SPRINT_ID --format raw
+ytd sprint get $SPRINT_ID --format json
 ```
 
 **Erwartung**: Exit-Code 0. Ausgabe ist ein valides JSON-Objekt mit `id == $SPRINT_ID`.
