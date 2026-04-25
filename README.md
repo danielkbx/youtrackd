@@ -106,6 +106,7 @@ ytd ticket attachments <id>                  # List files with reusable attachme
 ytd ticket log <id> <duration> [text]        # Log time
 ytd ticket worklog <id>                      # Show time log
 ytd ticket history <id> [--category <cat>]   # Activity log
+ytd ticket sprints <id>                      # List assigned sprints
 ```
 
 ### Articles (Knowledge Base)
@@ -142,7 +143,7 @@ ytd attachment download <attachment-id> [--output <path>]
 
 Attachment IDs are returned by `ytd ticket attachments`, `ytd article attachments`, and `ytd comment attachments`. Use the returned `id` field with `ytd attachment ...`; `ytId` is the raw YouTrack attachment ID and is only included for reference.
 
-### Tags, Searches, Boards
+### Tags, Searches, Boards, Sprints
 ```
 ytd config set visibility-group <group>
 ytd config get visibility-group
@@ -156,9 +157,23 @@ ytd board get <id>
 ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
 ytd board update <id> [--name <name>] [--json '{...}']
 ytd board delete <id> [-y]
+ytd sprint list --board <board-id>
+ytd sprint current [--board <board-id>]
+ytd sprint get <sprint-id>
+ytd sprint create --board <board-id> --name <name> [--json '{...}']
+ytd sprint update <sprint-id> [--name <name>] [--json '{...}']
+ytd sprint delete <sprint-id> [-y]
 ```
 
 Board commands use YouTrack's Agile API. For existing boards, `get`, `update`, and `delete` require only the board ID. For `create`, YouTrack requires a board name and at least one project; `--project` accepts project short names or database IDs.
+
+Sprint commands use board-scoped YouTrack Agile endpoints. Sprint IDs returned by `ytd` include the board context:
+
+```
+<board-id>:<sprint-id>
+```
+
+Use the returned `id` field with `ytd sprint get|update|delete`. The `ytId` field is the raw YouTrack sprint ID. Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
 
 ## Output Flags
 
@@ -183,6 +198,8 @@ Commands that accept JSON input:
 | `article update` | at least one field | `summary`, `content` |
 | `board create` | `name` and `projects`, or `--name` and `--project` | YouTrack Agile fields such as `visibleForProjectBased` |
 | `board update` | at least one field or `--name` | YouTrack Agile fields such as `orphansAtTheTop` |
+| `sprint create` | `name` plus `--board`, or `--name` plus `--board` | YouTrack sprint fields such as `goal`, `start`, `finish`, `archived`, `isDefault` |
+| `sprint update` | at least one field or `--name` | YouTrack sprint fields such as `goal`, `start`, `finish`, `archived`, `isDefault` |
 
 JSON input must be valid JSON:
 
@@ -234,6 +251,21 @@ Advanced users may provide the complete board create payload as JSON:
 
 ```bash
 ytd board create --template scrum --json '{"name":"Team Scrum Board","projects":[{"id":"0-0"}]}'
+```
+
+Sprints are created on a board. `sprint create` prints the public sprint-id, which includes the board ID:
+
+```bash
+SPRINT_ID=$(ytd sprint create --board 108-4 --name "Sprint 1")
+ytd sprint get "$SPRINT_ID"
+ytd sprint update "$SPRINT_ID" --json '{"goal":"Finish onboarding"}'
+```
+
+Current sprints are queried separately and return reusable sprint IDs:
+
+```bash
+ytd sprint current
+ytd sprint current --board 108-4
 ```
 
 ## Examples
@@ -325,6 +357,26 @@ PROJ-A-1:237-3
 Use the `id` field returned by `ytd ticket attachments`, `ytd article attachments`, or `ytd comment attachments` with `ytd attachment get|delete|download`. The `commentId` field is included when YouTrack reports that an attachment belongs to a comment.
 
 `ytd` does not support adding files to existing comments. A Curl probe against YouTrack showed that updating a comment with `attachments:[{id}]` returns success but does not assign the attachment to the comment.
+
+### Sprint IDs
+
+YouTrack sprint operations are scoped to their Agile board. A raw YouTrack sprint ID like `113-6` is not enough to load, update, or delete the sprint because the API also needs the board ID.
+
+For that reason, `ytd` returns reusable sprint IDs in this format:
+
+```
+<board-id>:<sprint-id>
+```
+
+Example:
+
+```
+108-4:113-6
+```
+
+Use the `id` field returned by `ytd sprint list`, `ytd sprint current`, `ytd sprint create`, or `ytd ticket sprints` with `ytd sprint get|update|delete`. The `ytId` field is only the raw YouTrack sprint ID and is included for reference.
+
+`current` is not a valid sprint-id. Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board.
 
 ### Comment visibility
 

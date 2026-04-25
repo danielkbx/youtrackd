@@ -33,8 +33,9 @@ pub fn run<T: HttpTransport>(
         Some("set") => cmd_set(client, args),
         Some("fields") => cmd_fields(client, args, opts),
         Some("history") => cmd_history(client, args, opts),
+        Some("sprints") => cmd_sprints(client, args, opts),
         Some("delete") => cmd_delete(client, args),
-        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|delete>".into())),
+        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|sprints|delete>".into())),
     }
 }
 
@@ -84,6 +85,21 @@ fn cmd_get<T: HttpTransport>(
     let mut value = serde_json::to_value(&issue)?;
     normalize_comment_array(&mut value, "comments", CommentParentType::Ticket, id);
     format::print_value(&value, opts);
+    Ok(())
+}
+
+fn cmd_sprints<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    let id = require_id(args)?;
+    let sprints = client.list_issue_sprints(id)?;
+    let outputs = sprints
+        .into_iter()
+        .map(sprint_output_from_agile)
+        .collect::<Result<Vec<_>, _>>()?;
+    format::print_items(&outputs, opts);
     Ok(())
 }
 

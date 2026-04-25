@@ -27,6 +27,7 @@ const META_FIELDS: &[&str] = &[
     "project",
     "parentType",
     "parentId",
+    "boardId",
 ];
 
 impl OutputOptions {

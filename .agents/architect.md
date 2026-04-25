@@ -29,6 +29,7 @@ src/
     tag.rs          ← tag list (client-side project filter)
     search.rs       ← saved search list/run
     board.rs        ← agile board list/get/create/update/delete (client-side project filter)
+    sprint.rs       ← sprint list/current/get/create/update/delete (board-scoped sprint IDs)
 ```
 
 ## Module Boundary
@@ -39,6 +40,8 @@ Core modules (`client.rs`, `config.rs`, `types.rs`, `error.rs`) have no CLI depe
 API structs may contain raw YouTrack comment IDs. Any CLI-facing comment output must normalize comment IDs before formatting: `id` is the encoded ytd ID, while the raw YouTrack ID is exposed only as `ytId`.
 
 API structs may contain raw YouTrack attachment IDs. Any CLI-facing attachment output must normalize attachment IDs before formatting: `id` is the encoded ytd ID, while the raw YouTrack ID is exposed only as `ytId`.
+
+API structs may contain raw YouTrack sprint IDs. Any CLI-facing sprint output must normalize sprint IDs before formatting: `id` is the ytd sprint-id `<board-id>:<sprint-id>`, while the raw YouTrack sprint ID is exposed only as `ytId`.
 
 ## HttpTransport Trait
 

@@ -10,6 +10,7 @@ pub mod open;
 pub mod open_target;
 pub mod project;
 pub mod search;
+pub mod sprint;
 pub mod tag;
 pub mod ticket;
 pub mod url;

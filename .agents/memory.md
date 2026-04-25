@@ -74,3 +74,7 @@ Curl probe in DWP showed that updating an existing issue comment with `attachmen
 ## Implementierung: Attachment IDs are parent-scoped
 Date: 2026-04-24
 YouTrack attachment get/delete endpoints are scoped to tickets or articles, even when an attachment belongs to a comment. `ytd` therefore exposes encoded attachment IDs as `<ticket-id>:<attachment-id>` and `<article-id>:<attachment-id>`. The public `id` field for any CLI attachment output must always be encoded; raw YouTrack attachment IDs may only appear as `ytId`. Comment-owned attachments include an encoded `commentId` when YouTrack reports `comment(id)`.
+
+## Implementierung: Sprint IDs are board-scoped
+Date: 2026-04-24
+YouTrack sprint get/update/delete endpoints are scoped under Agile boards: `/api/agiles/{agileID}/sprints/{sprintID}`. `ytd` therefore exposes sprint IDs as `<board-id>:<sprint-id>`. The public `id` field for CLI sprint output must always use this sprint-id, while the raw YouTrack sprint ID may only appear as `ytId`. `current` is intentionally not accepted as a sprint-id; use `ytd sprint current` or `ytd sprint current --board <board-id>` to resolve current sprints to real IDs.

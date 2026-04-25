@@ -581,6 +581,116 @@ pub struct AgileRef {
     pub name: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedSprintId {
+    pub board_id: String,
+    pub sprint_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SprintOutput {
+    pub id: String,
+    pub yt_id: String,
+    pub board_id: String,
+    pub name: Option<String>,
+    pub agile: Option<AgileRef>,
+    pub goal: Option<String>,
+    pub start: Option<u64>,
+    pub finish: Option<u64>,
+    pub archived: Option<bool>,
+    pub is_default: Option<bool>,
+    pub unresolved_issues_count: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CurrentSprintOutput {
+    pub id: String,
+    pub yt_id: String,
+    pub board_id: String,
+    pub board_name: Option<String>,
+    pub projects: Vec<ProjectRef>,
+    pub name: Option<String>,
+    pub goal: Option<String>,
+    pub start: Option<u64>,
+    pub finish: Option<u64>,
+    pub archived: Option<bool>,
+    pub is_default: Option<bool>,
+    pub unresolved_issues_count: Option<i64>,
+}
+
+pub fn encode_sprint_id(board_id: &str, sprint_id: &str) -> String {
+    format!("{board_id}:{sprint_id}")
+}
+
+pub fn parse_sprint_id(value: &str) -> Result<ParsedSprintId, YtdError> {
+    let parts: Vec<&str> = value.split(':').collect();
+    if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
+        return Err(invalid_sprint_id());
+    }
+    if parts[1] == "current" {
+        return Err(YtdError::Input(
+            "`current` is not a sprint-id. Use `ytd sprint current` instead.".into(),
+        ));
+    }
+
+    Ok(ParsedSprintId {
+        board_id: parts[0].to_string(),
+        sprint_id: parts[1].to_string(),
+    })
+}
+
+fn invalid_sprint_id() -> YtdError {
+    YtdError::Input(
+        "Invalid sprint-id. Use the id returned by ytd sprint commands or ytd ticket sprints."
+            .into(),
+    )
+}
+
+pub fn sprint_output(board_id: &str, sprint: Sprint) -> SprintOutput {
+    SprintOutput {
+        id: encode_sprint_id(board_id, &sprint.id),
+        yt_id: sprint.id,
+        board_id: board_id.to_string(),
+        name: sprint.name,
+        agile: sprint.agile,
+        goal: sprint.goal,
+        start: sprint.start,
+        finish: sprint.finish,
+        archived: sprint.archived,
+        is_default: sprint.is_default,
+        unresolved_issues_count: sprint.unresolved_issues_count,
+    }
+}
+
+pub fn sprint_output_from_agile(sprint: Sprint) -> Result<SprintOutput, YtdError> {
+    let board_id = sprint
+        .agile
+        .as_ref()
+        .map(|agile| agile.id.clone())
+        .ok_or_else(|| YtdError::Input("Sprint response is missing agile.id".into()))?;
+    Ok(sprint_output(&board_id, sprint))
+}
+
+pub fn current_sprint_output(board: &Agile) -> Option<CurrentSprintOutput> {
+    let sprint = board.current_sprint.as_ref()?;
+    Some(CurrentSprintOutput {
+        id: encode_sprint_id(&board.id, &sprint.id),
+        yt_id: sprint.id.clone(),
+        board_id: board.id.clone(),
+        board_name: board.name.clone(),
+        projects: board.projects.clone(),
+        name: sprint.name.clone(),
+        goal: sprint.goal.clone(),
+        start: sprint.start,
+        finish: sprint.finish,
+        archived: sprint.archived,
+        is_default: sprint.is_default,
+        unresolved_issues_count: sprint.unresolved_issues_count,
+    })
+}
+
 // --- Input structs ---
 
 #[derive(Debug, Serialize)]
@@ -756,5 +866,109 @@ mod tests {
         assert_eq!(output.parent_type, "ticket");
         assert_eq!(output.parent_id, "DWP-12");
         assert_eq!(output.comment_id.as_deref(), Some("DWP-12:4-17"));
+    }
+
+    #[test]
+    fn encodes_sprint_id() {
+        assert_eq!(encode_sprint_id("108-4", "113-6"), "108-4:113-6");
+    }
+
+    #[test]
+    fn parses_sprint_id() {
+        let parsed = parse_sprint_id("108-4:113-6").unwrap();
+        assert_eq!(parsed.board_id, "108-4");
+        assert_eq!(parsed.sprint_id, "113-6");
+    }
+
+    #[test]
+    fn rejects_invalid_sprint_ids() {
+        for value in ["108-4", ":113-6", "108-4:", "108-4:113-6:extra"] {
+            assert!(parse_sprint_id(value).is_err(), "{value} should fail");
+        }
+    }
+
+    #[test]
+    fn rejects_current_as_sprint_id() {
+        let err = parse_sprint_id("108-4:current").unwrap_err();
+        assert!(err.to_string().contains("sprint current"));
+    }
+
+    #[test]
+    fn sprint_output_preserves_raw_id() {
+        let output = sprint_output(
+            "108-4",
+            Sprint {
+                id: "113-6".into(),
+                name: Some("Sprint 1".into()),
+                agile: None,
+                goal: None,
+                start: Some(1),
+                finish: Some(2),
+                archived: Some(false),
+                is_default: Some(true),
+                unresolved_issues_count: Some(3),
+            },
+        );
+
+        assert_eq!(output.id, "108-4:113-6");
+        assert_eq!(output.yt_id, "113-6");
+        assert_eq!(output.board_id, "108-4");
+    }
+
+    #[test]
+    fn sprint_output_from_agile_requires_agile_id() {
+        let sprint = Sprint {
+            id: "113-6".into(),
+            name: None,
+            agile: None,
+            goal: None,
+            start: None,
+            finish: None,
+            archived: None,
+            is_default: None,
+            unresolved_issues_count: None,
+        };
+
+        assert!(sprint_output_from_agile(sprint).is_err());
+    }
+
+    #[test]
+    fn current_sprint_output_includes_board_context() {
+        let board = Agile {
+            id: "108-4".into(),
+            name: Some("Board".into()),
+            owner: None,
+            projects: vec![ProjectRef {
+                id: "0-96".into(),
+                short_name: Some("DWP".into()),
+                name: Some("DW Playground".into()),
+            }],
+            sprints: vec![],
+            current_sprint: Some(Sprint {
+                id: "113-6".into(),
+                name: Some("Sprint 1".into()),
+                agile: None,
+                goal: None,
+                start: None,
+                finish: None,
+                archived: None,
+                is_default: None,
+                unresolved_issues_count: None,
+            }),
+            orphans_at_the_top: None,
+            hide_orphans_swimlane: None,
+            estimation_field: None,
+            original_estimation_field: None,
+            column_settings: None,
+            swimlane_settings: None,
+            sprints_settings: None,
+            color_coding: None,
+            status: None,
+        };
+
+        let output = current_sprint_output(&board).unwrap();
+        assert_eq!(output.id, "108-4:113-6");
+        assert_eq!(output.board_name.as_deref(), Some("Board"));
+        assert_eq!(output.projects[0].short_name.as_deref(), Some("DWP"));
     }
 }

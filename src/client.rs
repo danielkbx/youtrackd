@@ -921,8 +921,12 @@ impl<T: HttpTransport> YtClient<T> {
 
     // --- Agile Boards ---
 
-    const AGILE_LIST_FIELDS: &'static str = "id,name,owner(id,login,fullName),projects(id,shortName,name),currentSprint(id,name,start,finish,archived),sprints(id,name,start,finish,archived)";
+    const AGILE_LIST_FIELDS: &'static str = "id,name,owner(id,login,fullName),projects(id,shortName,name),currentSprint(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),sprints(id,name,start,finish,archived)";
     const AGILE_DETAIL_FIELDS: &'static str = "id,name,owner(id,login,fullName),projects(id,shortName,name),currentSprint(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),sprints(id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount),orphansAtTheTop,hideOrphansSwimlane,estimationField(id,name),originalEstimationField(id,name)";
+    const SPRINT_FIELDS: &'static str =
+        "id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount";
+    const ISSUE_SPRINT_FIELDS: &'static str =
+        "id,name,goal,start,finish,archived,isDefault,unresolvedIssuesCount,agile(id,name)";
 
     pub fn list_agiles(&self) -> Result<Vec<Agile>, YtdError> {
         self.get(
@@ -966,6 +970,61 @@ impl<T: HttpTransport> YtClient<T> {
     pub fn delete_agile(&self, id: &str) -> Result<(), YtdError> {
         let url = self.url(&format!("/agiles/{id}"), &[]);
         self.transport.delete(&url, &self.token)
+    }
+
+    pub fn list_sprints(&self, agile_id: &str) -> Result<Vec<Sprint>, YtdError> {
+        self.get(
+            &format!("/agiles/{agile_id}/sprints"),
+            &[("fields", Self::SPRINT_FIELDS), ("$top", "500")],
+        )
+    }
+
+    pub fn get_sprint(&self, agile_id: &str, sprint_id: &str) -> Result<Sprint, YtdError> {
+        self.get(
+            &format!("/agiles/{agile_id}/sprints/{sprint_id}"),
+            &[("fields", Self::SPRINT_FIELDS)],
+        )
+    }
+
+    pub fn create_sprint(
+        &self,
+        agile_id: &str,
+        body: &serde_json::Value,
+    ) -> Result<Sprint, YtdError> {
+        let url = self.url(
+            &format!("/agiles/{agile_id}/sprints"),
+            &[("fields", Self::SPRINT_FIELDS)],
+        );
+        let json = serde_json::to_string(body)?;
+        let response = self.transport.post(&url, &self.token, &json)?;
+        serde_json::from_str(&response).map_err(YtdError::from)
+    }
+
+    pub fn update_sprint(
+        &self,
+        agile_id: &str,
+        sprint_id: &str,
+        body: &serde_json::Value,
+    ) -> Result<Sprint, YtdError> {
+        let url = self.url(
+            &format!("/agiles/{agile_id}/sprints/{sprint_id}"),
+            &[("fields", Self::SPRINT_FIELDS)],
+        );
+        let json = serde_json::to_string(body)?;
+        let response = self.transport.post(&url, &self.token, &json)?;
+        serde_json::from_str(&response).map_err(YtdError::from)
+    }
+
+    pub fn delete_sprint(&self, agile_id: &str, sprint_id: &str) -> Result<(), YtdError> {
+        let url = self.url(&format!("/agiles/{agile_id}/sprints/{sprint_id}"), &[]);
+        self.transport.delete(&url, &self.token)
+    }
+
+    pub fn list_issue_sprints(&self, issue_id: &str) -> Result<Vec<Sprint>, YtdError> {
+        self.get(
+            &format!("/issues/{issue_id}/sprints"),
+            &[("fields", Self::ISSUE_SPRINT_FIELDS), ("$top", "500")],
+        )
     }
 }
 
@@ -1181,6 +1240,105 @@ mod tests {
         let request = client.transport.request(0);
         assert_eq!(request.method, "DELETE");
         assert_eq!(request.url, "https://test.youtrack.cloud/api/agiles/108-4");
+    }
+
+    #[test]
+    fn list_sprints_gets_board_sprints() {
+        let client = test_client(vec![r#"[{"id":"113-6","name":"Sprint 1"}]"#]);
+
+        let sprints = client.list_sprints("108-4").unwrap();
+
+        assert_eq!(sprints[0].id, "113-6");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles/108-4/sprints?fields="));
+        assert!(request.url.contains("%24top=500"));
+    }
+
+    #[test]
+    fn get_sprint_gets_board_sprint_id() {
+        let client = test_client(vec![r#"{"id":"113-6","name":"Sprint 1"}"#]);
+
+        let sprint = client.get_sprint("108-4", "113-6").unwrap();
+
+        assert_eq!(sprint.id, "113-6");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles/108-4/sprints/113-6?fields="));
+    }
+
+    #[test]
+    fn create_sprint_posts_body() {
+        let client = test_client(vec![r#"{"id":"113-6","name":"Sprint 1"}"#]);
+        let body = serde_json::json!({"name":"Sprint 1"});
+
+        let sprint = client.create_sprint("108-4", &body).unwrap();
+
+        assert_eq!(sprint.id, "113-6");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles/108-4/sprints?fields="));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            body
+        );
+    }
+
+    #[test]
+    fn update_sprint_posts_body() {
+        let client = test_client(vec![r#"{"id":"113-6","name":"Renamed"}"#]);
+        let body = serde_json::json!({"name":"Renamed"});
+
+        let sprint = client.update_sprint("108-4", "113-6", &body).unwrap();
+
+        assert_eq!(sprint.id, "113-6");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/agiles/108-4/sprints/113-6?fields="));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            body
+        );
+    }
+
+    #[test]
+    fn delete_sprint_uses_board_and_sprint_id() {
+        let client = test_client(vec![""]);
+
+        client.delete_sprint("108-4", "113-6").unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "DELETE");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/agiles/108-4/sprints/113-6"
+        );
+    }
+
+    #[test]
+    fn list_issue_sprints_gets_issue_sprints_with_agile() {
+        let client = test_client(vec![
+            r#"[{"id":"113-6","name":"Sprint 1","agile":{"id":"108-4","name":"Board"}}]"#,
+        ]);
+
+        let sprints = client.list_issue_sprints("DWP-1").unwrap();
+
+        assert_eq!(sprints[0].id, "113-6");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/issues/DWP-1/sprints?fields="));
+        assert!(request.url.contains("agile%28id%2Cname%29"));
+        assert!(request.url.contains("%24top=500"));
     }
 
     #[test]

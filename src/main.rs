@@ -90,6 +90,7 @@ fn run() -> Result<(), YtdError> {
         "tag" => commands::tag::run(&client, &args, &opts),
         "search" => commands::search::run(&client, &args, &opts),
         "board" => commands::board::run(&client, &args, &opts),
+        "sprint" => commands::sprint::run(&client, &args, &opts),
         _ => Err(YtdError::Input(format!("Unknown resource: {resource}"))),
     }
 }
@@ -142,6 +143,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "set"
                         | "fields"
                         | "history"
+                        | "sprints"
                         | "delete"
                 )
             )
@@ -152,6 +154,10 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
             | (
                 "board",
                 Some("list" | "get" | "create" | "update" | "delete")
+            )
+            | (
+                "sprint",
+                Some("list" | "current" | "get" | "create" | "update" | "delete")
             )
     )
 }
@@ -209,5 +215,17 @@ mod tests {
         assert!(is_known_command("board", Some("update")));
         assert!(is_known_command("board", Some("delete")));
         assert!(!is_known_command("board", Some("sprint")));
+    }
+
+    #[test]
+    fn knows_sprint_commands() {
+        assert!(is_known_command("sprint", Some("list")));
+        assert!(is_known_command("sprint", Some("current")));
+        assert!(is_known_command("sprint", Some("get")));
+        assert!(is_known_command("sprint", Some("create")));
+        assert!(is_known_command("sprint", Some("update")));
+        assert!(is_known_command("sprint", Some("delete")));
+        assert!(is_known_command("ticket", Some("sprints")));
+        assert!(!is_known_command("sprint", Some("attach")));
     }
 }

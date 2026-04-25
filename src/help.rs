@@ -20,90 +20,155 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
         ),
         Some("search") => print_search_help(),
         Some("board") => print_board_help(),
+        Some("sprint") => print_sprint_help(),
         Some(other) => println!("Unknown command: {other}\nRun `ytd help` for a list of commands."),
     }
 }
 
 fn print_global_help() {
-    println!(
-        "ytd - YouTrack CLI
+    println!("ytd - YouTrack CLI\n");
+    println!("Usage: ytd <command> [options]\n");
+    println!("Commands:\n");
 
-Usage: ytd <command> [options]
-
-Commands:
-  login                     Configure credentials
-  logout                    Remove credentials
-  url <target>              Print web URL
-  open <target>             Open web URL in browser
-  whoami                    Show current user
-  config set visibility-group <group>
-                            Store default visibility group
-  config get visibility-group
-                            Show stored visibility group
-  config unset visibility-group
-                            Remove stored visibility group
-  group list                List visibility groups
-
-  project list              List projects
-  project get <id>          Get project details
-
-  article search <q>        Search articles
-  article list              List articles (--project required)
-  article get <id>          Get article
-  article create            Create article (--project, --json)
-  article update <id>       Update article (--json)
-  article append <id> <t>   Append text to article
-  article comment <id> <t>  Add comment to article
-  article comments <id>     List article comments
-  article attach <id> <f>   Attach file to article
-  article attachments <id>  List article attachments
-  article delete <id>       Delete article
-
-  ticket search <q>         Search tickets
-  ticket list               List tickets (--project required)
-  ticket get <id>           Get ticket
-  ticket create             Create ticket (--project, --json)
-  ticket update <id>        Update ticket (--json)
-  ticket comment <id> <t>   Add comment
-  ticket comments <id>      List ticket comments
-  ticket tag <id> <tag>     Add tag
-  ticket untag <id> <tag>   Remove tag
-  ticket link <id> <t>      Link to another ticket
-  ticket links <id>         Show links
-  ticket attach <id> <f>    Attach file
-  ticket attachments <id>   List attachments
-  ticket log <id> <dur>     Log time (e.g. 2h30m)
-  ticket worklog <id>       Show work items
-  ticket set <id> <f> <v>   Set custom field
-  ticket fields <id>        Show field values
-  ticket history <id>       Show activity log
-  ticket delete <id>        Delete ticket
-
-  comment get <id>          Get comment details
-  comment update <id> <t>   Update comment text
-  comment attachments <id>  List comment attachments
-  comment delete <id>       Delete comment
-
-  attachment get <id>       Get attachment details
-  attachment delete <id>    Delete attachment
-  attachment download <id>  Download attachment
-
-  tag list                  List tags
-  search list               List saved searches
-  search run <name-or-id>   Run saved search
-  board list                List agile boards
-  board get <id>            Get board details
-  board create              Create agile board
-  board update <id>         Update agile board
-  board delete <id>         Delete agile board
-
-Global flags:
-  --format text|raw|md      Output format (default: text)
-  --no-meta                 Suppress IDs, dates, author
-  -y                        Skip delete confirmation
-
-Run `ytd help <command>` for command-specific help."
+    print_help_group(
+        "Core",
+        &[
+            ("login", "Configure credentials"),
+            ("logout", "Remove credentials"),
+            ("url <target>", "Print web URL"),
+            ("open <target>", "Open web URL in browser"),
+            ("whoami", "Show current user"),
+        ],
     );
+    print_help_group(
+        "Config",
+        &[
+            (
+                "config set visibility-group <group>",
+                "Store default visibility group",
+            ),
+            (
+                "config get visibility-group",
+                "Show stored visibility group",
+            ),
+            (
+                "config unset visibility-group",
+                "Remove stored visibility group",
+            ),
+            ("group list", "List visibility groups"),
+        ],
+    );
+    print_help_group(
+        "Projects",
+        &[
+            ("project list", "List projects"),
+            ("project get <id>", "Get project details"),
+        ],
+    );
+    print_help_group(
+        "Articles",
+        &[
+            ("article search <q>", "Search articles"),
+            ("article list", "List articles (--project required)"),
+            ("article get <id>", "Get article"),
+            ("article create", "Create article (--project, --json)"),
+            ("article update <id>", "Update article (--json)"),
+            ("article append <id> <t>", "Append text to article"),
+            ("article comment <id> <t>", "Add comment to article"),
+            ("article comments <id>", "List article comments"),
+            ("article attach <id> <f>", "Attach file to article"),
+            ("article attachments <id>", "List article attachments"),
+            ("article delete <id>", "Delete article"),
+        ],
+    );
+    print_help_group(
+        "Tickets",
+        &[
+            ("ticket search <q>", "Search tickets"),
+            ("ticket list", "List tickets (--project required)"),
+            ("ticket get <id>", "Get ticket"),
+            ("ticket create", "Create ticket (--project, --json)"),
+            ("ticket update <id>", "Update ticket (--json)"),
+            ("ticket comment <id> <t>", "Add comment"),
+            ("ticket comments <id>", "List ticket comments"),
+            ("ticket tag <id> <tag>", "Add tag"),
+            ("ticket untag <id> <tag>", "Remove tag"),
+            ("ticket link <id> <t>", "Link to another ticket"),
+            ("ticket links <id>", "Show links"),
+            ("ticket attach <id> <f>", "Attach file"),
+            ("ticket attachments <id>", "List attachments"),
+            ("ticket log <id> <dur>", "Log time (e.g. 2h30m)"),
+            ("ticket worklog <id>", "Show work items"),
+            ("ticket set <id> <f> <v>", "Set custom field"),
+            ("ticket fields <id>", "Show field values"),
+            ("ticket history <id>", "Show activity log"),
+            ("ticket sprints <id>", "List ticket sprints"),
+            ("ticket delete <id>", "Delete ticket"),
+            ("tag list", "List tags"),
+        ],
+    );
+    print_help_group(
+        "Comments",
+        &[
+            ("comment get <id>", "Get comment details"),
+            ("comment update <id> <t>", "Update comment text"),
+            ("comment attachments <id>", "List comment attachments"),
+            ("comment delete <id>", "Delete comment"),
+        ],
+    );
+    print_help_group(
+        "Attachments",
+        &[
+            ("attachment get <id>", "Get attachment details"),
+            ("attachment delete <id>", "Delete attachment"),
+            ("attachment download <id>", "Download attachment"),
+        ],
+    );
+    print_help_group(
+        "Saved Searches",
+        &[
+            ("search list", "List saved searches"),
+            ("search run <name-or-id>", "Run saved search"),
+        ],
+    );
+    print_help_group(
+        "Boards And Sprints",
+        &[
+            ("board list", "List agile boards"),
+            ("board get <id>", "Get board details"),
+            ("board create", "Create agile board"),
+            ("board update <id>", "Update agile board"),
+            ("board delete <id>", "Delete agile board"),
+            ("sprint list", "List board sprints"),
+            ("sprint current", "List current sprints"),
+            ("sprint get <id>", "Get sprint details"),
+            ("sprint create", "Create sprint"),
+            ("sprint update <id>", "Update sprint"),
+            ("sprint delete <id>", "Delete sprint"),
+        ],
+    );
+
+    println!("Global flags:");
+    print_help_items(&[
+        ("--format text|raw|md", "Output format (default: text)"),
+        ("--no-meta", "Suppress IDs, dates, author"),
+        ("-y", "Skip delete confirmation"),
+    ]);
+    println!("\nRun `ytd help <command>` for command-specific help.");
+}
+
+fn print_help_group(title: &str, items: &[(&str, &str)]) {
+    println!("{title}:");
+    print_help_items(items);
+    println!();
+}
+
+fn print_help_items(items: &[(&str, &str)]) {
+    const WIDTH: usize = 36;
+
+    for (command, description) in items {
+        println!("  {command:<WIDTH$}  {description}");
+    }
 }
 
 fn print_config_help() {
@@ -211,6 +276,7 @@ fn print_ticket_help() {
   ytd ticket set <id> <field> <value>
   ytd ticket fields <id>
   ytd ticket history <id> [--category <category>]
+  ytd ticket sprints <id>
   ytd ticket delete <id> [-y]
 
 Durations: 30m, 1h, 2h30m, 90 (plain number = minutes)
@@ -280,5 +346,22 @@ fn print_board_help() {
 For create, --project sets the board projects and accepts short names or database IDs.
 Templates: kanban, scrum, version, custom, personal.
 Use --json or stdin for advanced YouTrack Agile fields."
+    );
+}
+
+fn print_sprint_help() {
+    println!(
+        "Usage:
+  ytd sprint list --board <board-id>
+  ytd sprint current [--board <board-id>]
+  ytd sprint get <sprint-id>
+  ytd sprint create --board <board-id> --name <name> [--json '...']
+  ytd sprint update <sprint-id> [--name <name>] [--json '...']
+  ytd sprint delete <sprint-id> [-y]
+
+Use the returned id field with sprint get, update, and delete. The ytId field is the raw YouTrack sprint ID.
+Use ytd sprint current to list current sprints across boards, or --board for one board.
+current is not accepted as a sprint-id.
+Use --json or stdin for advanced YouTrack sprint fields."
     );
 }

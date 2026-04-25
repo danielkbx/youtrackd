@@ -76,6 +76,7 @@ ytd ticket worklog <id>
 ytd ticket set <id> <field> <value>
 ytd ticket fields <id>
 ytd ticket history <id> [--category <cat>]
+ytd ticket sprints <id>
 ytd ticket delete <id> [-y]
 
 ytd comment get <comment-id>
@@ -95,6 +96,12 @@ ytd board get <id>
 ytd board create --name <name> --project <project>[,<project>...] [--template <template>] [--json '{...}']
 ytd board update <id> [--name <name>] [--json '{...}']
 ytd board delete <id> [-y]
+ytd sprint list --board <board-id>
+ytd sprint current [--board <board-id>]
+ytd sprint get <sprint-id>
+ytd sprint create --board <board-id> --name <name> [--json '{...}']
+ytd sprint update <sprint-id> [--name <name>] [--json '{...}']
+ytd sprint delete <sprint-id> [-y]
 ```
 
 ### Output flags (global)
@@ -120,6 +127,11 @@ Attachment IDs returned by `ytd` also encode the parent resource because YouTrac
 `<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>`.
 Use the public `id` field with `ytd attachment ...`; raw YouTrack attachment IDs may appear only as `ytId`.
 Comment attachments can be listed, but adding files to existing comments is not implemented because the verified REST API flow does not assign uploaded parent attachments to comments.
+
+Sprint IDs returned by `ytd` encode the board because YouTrack sprint operations are board-scoped:
+`<board-id>:<sprint-id>`.
+Use the public `id` field with `ytd sprint get|update|delete`; raw YouTrack sprint IDs may appear only as `ytId`.
+Use `ytd sprint current` to list current sprints across boards, or `ytd sprint current --board <board-id>` for one board. `current` is not accepted as a sprint-id.
 
 ## Configuration
 
