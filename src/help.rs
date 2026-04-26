@@ -6,6 +6,7 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
         }
         Some("logout") => println!("Usage: ytd logout\n\nRemove stored credentials."),
         Some("open") => print_open_help(),
+        Some("completion") => print_completion_help(),
         Some("skill") => print_skill_help(),
         Some("whoami") => println!("Usage: ytd whoami\n\nShow current user info."),
         Some("config") => print_config_help(),
@@ -40,6 +41,7 @@ fn print_global_help() {
             ("logout", "Remove credentials"),
             ("url <target>", "Print web URL"),
             ("open <target>", "Open web URL in browser"),
+            ("completion <bash|zsh|fish>", "Generate shell completions"),
             ("whoami", "Show current user"),
         ],
     );
@@ -243,6 +245,22 @@ Examples:
   ytd open ABC-A-12
   ytd open ABC
   ytd open ABC-A"
+    );
+}
+
+fn print_completion_help() {
+    println!(
+        "Usage:
+  ytd completion <bash|zsh|fish>
+
+Generate shell completions for Bash, Zsh, or Fish.
+
+The generated script is written to stdout and does not require login.
+
+Examples:
+  ytd completion bash > ~/.local/share/bash-completion/completions/ytd
+  ytd completion zsh > ~/.zfunc/_ytd
+  ytd completion fish > ~/.config/fish/completions/ytd.fish"
     );
 }
 

@@ -18,6 +18,8 @@ brew tap danielkbx/tap
 brew install ytd
 ```
 
+The Homebrew formula installs Bash, Zsh, and Fish completion files to Homebrew's standard completion directories.
+
 ### Download
 
 Download the latest archive for your platform from the [Releases](../../releases) page.
@@ -45,6 +47,100 @@ cargo build --release
 ```
 
 The binary is written to `target/release/ytd`.
+
+## Shell Completions
+
+`ytd` can generate completion scripts for `bash`, `zsh`, and `fish`.
+Generated scripts are written to stdout and do not require login.
+
+Homebrew installs generated completions automatically. The manual steps below are for downloaded binaries, source builds, or custom shell setups.
+
+### Bash
+
+Install and enable Bash completion support first. With Homebrew:
+
+```bash
+brew install bash-completion@2
+```
+
+Then add this to `~/.bashrc` or another Bash startup file:
+
+```bash
+[[ -r /opt/homebrew/etc/profile.d/bash_completion.sh ]] && source /opt/homebrew/etc/profile.d/bash_completion.sh
+```
+
+On Intel macOS/Homebrew installations, use `/usr/local/etc/profile.d/bash_completion.sh` instead.
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+ytd completion bash > ~/.local/share/bash-completion/completions/ytd
+```
+
+Reload your shell, or source the generated file directly for the current session:
+
+```bash
+source ~/.local/share/bash-completion/completions/ytd
+```
+
+### Zsh
+
+Zsh completion support is built in through `compinit`. Homebrew installs `_ytd` into its standard `site-functions` directory; most Homebrew Zsh setups only need:
+
+```zsh
+autoload -Uz compinit
+compinit
+```
+
+For a manual install:
+
+```bash
+mkdir -p ~/.zfunc
+ytd completion zsh > ~/.zfunc/_ytd
+```
+
+Add the completion directory to your `fpath` before `compinit` in `~/.zshrc`:
+
+```zsh
+fpath=(~/.zfunc $fpath)
+autoload -Uz compinit
+compinit
+```
+
+Reload your shell after updating `~/.zshrc`.
+
+### Fish
+
+```fish
+mkdir -p ~/.config/fish/completions
+ytd completion fish > ~/.config/fish/completions/ytd.fish
+```
+
+Fish loads files from that directory automatically in new shells.
+
+### Troubleshooting
+
+Check whether your shell has loaded the completion:
+
+```bash
+complete -p ytd
+```
+
+```zsh
+print $_comps[ytd]
+```
+
+```fish
+complete --do-complete "ytd "
+```
+
+For Zsh, make sure custom completion directories are added to `fpath` before `compinit`. If an old completion is still used, clear the cache and reinitialize:
+
+```zsh
+rm -f ~/.zcompdump*
+unfunction _ytd 2>/dev/null
+autoload -Uz compinit
+compinit -u
+```
 
 ## Getting Started
 
@@ -106,6 +202,7 @@ ytd whoami
 ytd help
 ytd help <command>
 ytd <command> help
+ytd completion <bash|zsh|fish>
 ytd url <target>
 ytd open <target>
 ```

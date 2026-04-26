@@ -8,6 +8,8 @@
 src/
   main.rs         entry point, command routing, command validation
   args.rs         handwritten argument parsing
+  cli_spec.rs     canonical public CLI model for completion generation
+  completion.rs   Bash/Zsh/Fish completion renderers
   client.rs       HTTP transport trait and YouTrack API client
   config.rs       credential resolution and local settings
   duration.rs     duration parsing
@@ -40,6 +42,7 @@ ytd help / ytd help <command> / ytd <command> help
 ytd login / logout / whoami
 ytd url <target>
 ytd open <target>
+ytd completion <bash|zsh|fish>
 ytd skill [--scope brief|standard|full] [--project <project>]
 
 ytd config set visibility-group <group>

@@ -7,6 +7,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Use `ytd <resource> <action>` for resource operations.
 - Use nested actions only when the target is naturally scoped by another resource, for example `sprint ticket add`.
 - `ytd skill` is a deliberate top-level no-action exception because it prints current SKILL.md guidance for AI agents.
+- `ytd completion <bash|zsh|fish>` is a deliberate top-level no-auth exception because it prints static shell completion scripts to stdout.
 - Support `ytd help <resource>` and `ytd <resource> help` for every public resource.
 - Validate command/resource/action names before loading config, so typos return "Unknown command" instead of auth errors.
 - Validate global output flags before loading config for formatted commands.
@@ -38,6 +39,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - `md` is Markdown export, not a general structured format.
 - `--no-meta` suppresses metadata fields in formatted output where applicable.
 - `ytd skill` is Markdown-first: `--format text` and `--format md` print generated SKILL.md content, while `--format json` and `--format raw` are rejected.
+- `ytd completion` is shell-script-first and supports only the positional shells `bash`, `zsh`, and `fish`; it does not use structured output formats.
 
 ## Stdout And Stderr
 

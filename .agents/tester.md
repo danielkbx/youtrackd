@@ -61,6 +61,13 @@ Alias-specific coverage:
 5. `ytd <alias> create <text>` creates a ticket using the alias context and prints only the ticket ID
 6. `ytd <alias> list [--all]` uses the shared compact ticket formatter and matches `ticket list` output shape
 
+Completion-specific coverage:
+1. `completion bash`, `completion zsh`, and `completion fish` work without login or config
+2. Generated Bash and Fish completions are context-aware when sourced
+3. `completion <unsupported-shell>` exits non-zero with a useful error on stderr
+4. `completion <shell> <extra>` is rejected as an unknown command
+5. `help completion` and `completion help` both document Bash, Zsh, Fish, stdout behavior, and no-login behavior
+
 ## Rust-specific Test Notes
 
 - Config tests share env vars → use `Mutex` to serialize tests that modify `XDG_CONFIG_HOME` / `YOUTRACK_URL` / `YOUTRACK_TOKEN`

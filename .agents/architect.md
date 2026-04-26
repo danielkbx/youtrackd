@@ -6,6 +6,8 @@
 src/
   main.rs           ← entry point, command routing, KNOWN-map validation
   args.rs           ← argument parsing (handwritten, no clap)
+  cli_spec.rs       ← canonical public CLI model for completion generation
+  completion.rs     ← Bash/Zsh/Fish completion renderers
   client.rs         ← HttpTransport trait + YtClient + UreqTransport
   config.rs         ← credential resolution + storage (XDG, mode 600)
   duration.rs       ← parse_duration (30m, 1h, 2h30m → minutes)
@@ -81,6 +83,8 @@ The `sprint` key is optional and omitted when none. Because `alias list` has no 
 ## Help System
 
 Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markdown, no ANSI colors.
+
+`ytd completion <bash|zsh|fish>` is a deliberate top-level no-auth command. It renders static shell completion scripts from `cli_spec.rs`, runs before config loading, writes only the generated script to stdout, and never calls YouTrack.
 
 `ytd skill` is a deliberate top-level no-action command like `open` and `url`. It prints Markdown SKILL.md guidance for AI agents. Without `--project`, it must run before config loading and require no login. With `--project`, it loads config, resolves the project through YouTrack, and embeds resolved project context, including project-specific ticket/article ID examples. The global help must clearly state that AI agents can run `ytd skill` themselves to fetch current guidance. Generated skills must also point agents back to `ytd help` and command-specific help.
 

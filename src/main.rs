@@ -1,6 +1,8 @@
 mod args;
+mod cli_spec;
 mod client;
 mod commands;
+mod completion;
 mod config;
 mod duration;
 mod error;
@@ -45,6 +47,23 @@ fn run() -> Result<(), YtdError> {
 
     let resource = args.resource.as_deref().unwrap();
     let action = args.action.as_deref();
+
+    if let ("completion", Some(shell)) = (resource, action) {
+        if !args.positional.is_empty() {
+            return Err(YtdError::Input(format!(
+                "Unknown command: ytd completion {shell} {}",
+                args.positional.join(" ")
+            )));
+        }
+
+        let script = completion::render_completion(shell, &cli_spec::cli_spec())?;
+        print!("{script}");
+        if !script.ends_with('\n') {
+            println!();
+        }
+        return Ok(());
+    }
+
     let opts = format::OutputOptions::from_flags(&args.flags)?;
 
     // Validate command before loading config
@@ -198,6 +217,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                 "sprint",
                 Some("list" | "current" | "get" | "create" | "update" | "delete" | "ticket")
             )
+            | ("completion", Some("bash" | "zsh" | "fish"))
     )
 }
 
@@ -286,5 +306,32 @@ mod tests {
         assert!(is_known_command("sprint", Some("ticket")));
         assert!(is_known_command("ticket", Some("sprints")));
         assert!(!is_known_command("sprint", Some("attach")));
+    }
+
+    #[test]
+    fn knows_completion_commands() {
+        for shell in crate::cli_spec::COMPLETION_SHELLS {
+            assert!(is_known_command("completion", Some(shell)));
+        }
+        assert!(!is_known_command("completion", None));
+        assert!(!is_known_command("completion", Some("powershell")));
+    }
+
+    #[test]
+    fn cli_spec_routable_command_paths_are_known_commands() {
+        for path in crate::cli_spec::cli_spec().command_paths() {
+            if matches!(path.first().copied(), Some("help")) {
+                continue;
+            }
+
+            let resource = path[0];
+            let action = path.get(1).copied();
+
+            assert!(
+                is_known_command(resource, action),
+                "cli_spec command path is not accepted by router: {}",
+                path.join(" ")
+            );
+        }
     }
 }
