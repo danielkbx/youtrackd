@@ -19,6 +19,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Structured create/update input uses JSON via `--json` or stdin.
 - Stdin JSON takes precedence over `--json`.
 - JSON commands must require a JSON object unless the command explicitly documents another shape.
+- Structured JSON commands must reject unsupported top-level fields unless the command explicitly documents API pass-through behavior.
 - Create commands require all fields needed to create a useful resource.
 - Update commands require at least one actual update field or an explicit update flag such as `--visibility-group` or `--no-visibility-group`.
 - Boolean/destructive confirmation uses flags, not JSON.
@@ -55,6 +56,8 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Raw YouTrack database IDs, when exposed, use `ytId`.
 - Ticket outputs use the readable ticket ID as `id`, for example `DWP-28`.
 - Article outputs use the readable article ID as `id`, for example `DWP-A-1`.
+- Article `parentArticle` outputs use the readable article ID as nested `id` and expose the raw YouTrack article ID as nested `ytId`.
+- `article move <id> <parent-id|none>` changes article hierarchy and prints only the moved article ID.
 - Comment IDs encode parent scope as `<ticket-id>:<comment-id>` or `<article-id>:<comment-id>`.
 - Attachment IDs encode parent scope as `<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>`.
 - Sprint IDs encode board scope as `<board-id>:<sprint-id>`.

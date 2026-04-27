@@ -278,8 +278,10 @@ Durations can be written as `30m`, `1h`, `2h30m`, or a plain number of minutes.
 ytd article search <query> [--project <id>]
 ytd article list --project <id>
 ytd article get <id> [--no-comments]
-ytd article create --project <id> --json '{"summary":"...","content":"..."}'
-ytd article update <id> --json '{"summary":"...","content":"..."}'
+ytd article create --project <id> --json '{"summary":"...","content":"...","parentArticle":{"id":"PROJ-A-1"}}'
+ytd article update <id> --json '{"summary":"...","content":"...","parentArticle":{"id":"PROJ-A-1"}}'
+ytd article update <id> --json '{"parentArticle":null}'
+ytd article move <id> <parent-id|none>
 ytd article append <id> <text>
 ytd article comment <id> <text>
 ytd article comments <id>
@@ -287,6 +289,8 @@ ytd article attach <id> <file>
 ytd article attachments <id>
 ytd article delete <id> [-y]
 ```
+
+Use `parentArticle.id` with the reusable readable article ID. `parentArticle: null` on update clears the parent article. `article move <id> <parent-id>` is a shortcut for changing the parent, and `article move <id> none` clears it. `article get --format json` includes normalized `parentArticle` data with public `id`, raw `ytId`, and `summary`; `--format raw` includes YouTrack-shaped `parentArticle(id,idReadable,summary)`.
 
 Use `--format md` with `article get` when you want a Markdown export.
 
@@ -401,6 +405,8 @@ Global output flags:
 
 Text output renders Markdown content as readable terminal text. Ticket lists, saved search results, sprint ticket lists, and ticket links use compact ticket rows. `ticket get` and `article get` show details first, then the description or content.
 
+Article detail output includes parent article metadata when present.
+
 Use `--no-comments` with `ticket get` or `article get` to omit comments.
 
 Create, update, and delete commands that return one changed resource print only its ID on stdout, which makes them easy to use in scripts:
@@ -427,8 +433,8 @@ Common JSON commands:
 |---|---|
 | `ticket create` | `--project` and JSON `summary` |
 | `ticket update` | At least one JSON field or an explicit visibility flag |
-| `article create` | `--project` and JSON `summary` |
-| `article update` | At least one JSON field or an explicit visibility flag |
+| `article create` | `--project` and JSON `summary`; allowed JSON fields are `summary`, `content`, `parentArticle` |
+| `article update` | At least one JSON field or an explicit visibility flag; allowed JSON fields are `summary`, `content`, `parentArticle` |
 | `board create` | `--name` and `--project`, or equivalent JSON |
 | `board update` | At least one field or `--name` |
 | `sprint create` | `--board` and `--name`, or `--board` plus JSON `name` |

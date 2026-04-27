@@ -54,10 +54,29 @@ pub fn run<T: HttpTransport>(
             Ok(())
         }
         Some("update") => {
-            let id = args.positional.first()
-                .ok_or_else(|| YtdError::Input("Usage: ytd article update <id> --json '...'".into()))?;
+            let id = args.positional.first().ok_or_else(|| {
+                YtdError::Input("Usage: ytd article update <id> --json '...'".into())
+            })?;
             let json = input::read_json_input(&args.flags)?;
             let input = build_update_article_input(client, args, &json)?;
+            let article = client.update_article(id, &input)?;
+            println!("{}", article.id_readable.unwrap_or(article.id));
+            Ok(())
+        }
+        Some("move") => {
+            let id = args.positional.first().ok_or_else(|| {
+                YtdError::Input("Usage: ytd article move <id> <parent-id|none>".into())
+            })?;
+            let parent = args
+                .positional
+                .get(1)
+                .ok_or_else(|| YtdError::Input("Parent article ID or none is required".into()))?;
+            if args.positional.len() > 2 {
+                return Err(YtdError::Input(
+                    "Usage: ytd article move <id> <parent-id|none>".into(),
+                ));
+            }
+            let input = build_move_article_input(client, parent)?;
             let article = client.update_article(id, &input)?;
             println!("{}", article.id_readable.unwrap_or(article.id));
             Ok(())
@@ -133,7 +152,7 @@ pub fn run<T: HttpTransport>(
             }
             Ok(())
         }
-        _ => Err(YtdError::Input("Usage: ytd article <search|list|get|create|update|append|comment|comments|attach|attachments|delete>".into())),
+        _ => Err(YtdError::Input("Usage: ytd article <search|list|get|create|update|move|append|comment|comments|attach|attachments|delete>".into())),
     }
 }
 
@@ -156,6 +175,7 @@ fn build_create_article_input<T: HttpTransport>(
     args: &ParsedArgs,
     json: &serde_json::Value,
 ) -> Result<CreateArticleInput, YtdError> {
+    validate_article_json_fields(json, &["content", "parentArticle", "summary"])?;
     let project = args
         .flags
         .get("project")
@@ -177,6 +197,10 @@ fn build_create_article_input<T: HttpTransport>(
             .and_then(|v| v.as_str())
             .map(String::from),
         visibility: visibility::build_create_visibility_input(client, args)?,
+        parent_article: match json.get("parentArticle") {
+            Some(value) if !value.is_null() => Some(build_parent_article_input(client, value)?),
+            _ => None,
+        },
     })
 }
 
@@ -185,6 +209,7 @@ fn build_update_article_input<T: HttpTransport>(
     args: &ParsedArgs,
     json: &serde_json::Value,
 ) -> Result<UpdateArticleInput, YtdError> {
+    validate_article_json_fields(json, &["content", "parentArticle", "summary"])?;
     let summary = json
         .get("summary")
         .and_then(|v| v.as_str())
@@ -194,8 +219,13 @@ fn build_update_article_input<T: HttpTransport>(
         .and_then(|v| v.as_str())
         .map(String::from);
     let visibility = visibility::build_explicit_update_visibility_input(client, args)?;
+    let parent_article = match json.get("parentArticle") {
+        Some(value) if value.is_null() => Some(None),
+        Some(value) => Some(Some(build_parent_article_input(client, value)?)),
+        None => None,
+    };
 
-    if summary.is_none() && content.is_none() && visibility.is_none() {
+    if summary.is_none() && content.is_none() && visibility.is_none() && parent_article.is_none() {
         return Err(YtdError::Input(
             "At least one update field is required. Use JSON fields or explicit visibility flags."
                 .into(),
@@ -206,7 +236,85 @@ fn build_update_article_input<T: HttpTransport>(
         summary,
         content,
         visibility,
+        parent_article,
     })
+}
+
+fn build_move_article_input<T: HttpTransport>(
+    client: &YtClient<T>,
+    parent: &str,
+) -> Result<UpdateArticleInput, YtdError> {
+    let parent_article = if parent == "none" {
+        Some(None)
+    } else {
+        Some(Some(build_parent_article_input(
+            client,
+            &serde_json::json!({ "id": parent }),
+        )?))
+    };
+
+    Ok(UpdateArticleInput {
+        summary: None,
+        content: None,
+        visibility: None,
+        parent_article,
+    })
+}
+
+fn validate_article_json_fields(
+    json: &serde_json::Value,
+    allowed: &[&str],
+) -> Result<(), YtdError> {
+    let obj = json
+        .as_object()
+        .ok_or_else(|| YtdError::Input("JSON input must be an object".into()))?;
+    let mut unknown: Vec<&str> = obj
+        .keys()
+        .map(String::as_str)
+        .filter(|key| !allowed.contains(key))
+        .collect();
+    unknown.sort_unstable();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    Err(YtdError::Input(format!(
+        "Unknown article JSON field{}: {}. Allowed fields: {}",
+        if unknown.len() == 1 { "" } else { "s" },
+        unknown.join(", "),
+        allowed.join(", ")
+    )))
+}
+
+fn build_parent_article_input<T: HttpTransport>(
+    client: &YtClient<T>,
+    value: &serde_json::Value,
+) -> Result<ArticleParentInput, YtdError> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| YtdError::Input("parentArticle must be an object with id".into()))?;
+
+    if let Some(id) = obj.get("id").and_then(|v| v.as_str()) {
+        if id.trim().is_empty() {
+            return Err(YtdError::Input("parentArticle.id must not be empty".into()));
+        }
+        let article = client.get_article(id)?;
+        return Ok(ArticleParentInput { id: article.id });
+    }
+
+    if let Some(yt_id) = obj.get("ytId").and_then(|v| v.as_str()) {
+        if yt_id.trim().is_empty() {
+            return Err(YtdError::Input(
+                "parentArticle.ytId must not be empty".into(),
+            ));
+        }
+        return Ok(ArticleParentInput {
+            id: yt_id.to_string(),
+        });
+    }
+
+    Err(YtdError::Input(
+        "parentArticle must include id or ytId".into(),
+    ))
 }
 
 #[cfg(test)]
@@ -396,6 +504,151 @@ mod tests {
         assert!(input.visibility.is_none());
 
         clear_env();
+    }
+
+    #[test]
+    fn build_create_article_input_resolves_parent_article_readable_id() {
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("create".into()),
+            positional: vec![],
+            flags: [
+                ("project".to_string(), "DOC".to_string()),
+                ("no-visibility-group".to_string(), "true".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        };
+        let json = serde_json::json!({
+            "summary": "Child",
+            "parentArticle": {"id": "DOC-A-1"}
+        });
+        let client = test_client(vec![
+            r#"{"id":"109-812","idReadable":"DOC-A-1","summary":"Parent"}"#,
+        ]);
+
+        let input = build_create_article_input(&client, &args, &json).unwrap();
+
+        let value = serde_json::to_value(input).unwrap();
+        assert_eq!(value["parentArticle"], serde_json::json!({"id": "109-812"}));
+    }
+
+    #[test]
+    fn build_update_article_input_resolves_parent_article_readable_id() {
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("update".into()),
+            positional: vec!["DOC-A-2".into()],
+            flags: Default::default(),
+        };
+        let json = serde_json::json!({
+            "parentArticle": {"id": "DOC-A-1"}
+        });
+        let client = test_client(vec![
+            r#"{"id":"109-812","idReadable":"DOC-A-1","summary":"Parent"}"#,
+        ]);
+
+        let input = build_update_article_input(&client, &args, &json).unwrap();
+
+        let value = serde_json::to_value(input).unwrap();
+        assert_eq!(value["parentArticle"], serde_json::json!({"id": "109-812"}));
+    }
+
+    #[test]
+    fn build_update_article_input_clears_parent_article_with_null() {
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("update".into()),
+            positional: vec!["DOC-A-2".into()],
+            flags: Default::default(),
+        };
+        let json = serde_json::json!({"parentArticle": null});
+
+        let client = test_client(vec![]);
+        let input = build_update_article_input(&client, &args, &json).unwrap();
+        let value = serde_json::to_value(input).unwrap();
+
+        assert!(value.get("parentArticle").unwrap().is_null());
+    }
+
+    #[test]
+    fn build_move_article_input_resolves_parent_article_readable_id() {
+        let client = test_client(vec![
+            r#"{"id":"109-812","idReadable":"DOC-A-1","summary":"Parent"}"#,
+        ]);
+
+        let input = build_move_article_input(&client, "DOC-A-1").unwrap();
+        let value = serde_json::to_value(input).unwrap();
+
+        assert_eq!(value["parentArticle"], serde_json::json!({"id": "109-812"}));
+    }
+
+    #[test]
+    fn build_move_article_input_clears_parent_with_none() {
+        let client = test_client(vec![]);
+
+        let input = build_move_article_input(&client, "none").unwrap();
+        let value = serde_json::to_value(input).unwrap();
+
+        assert!(value.get("parentArticle").unwrap().is_null());
+    }
+
+    #[test]
+    fn build_create_article_input_rejects_unknown_json_fields() {
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("create".into()),
+            positional: vec![],
+            flags: [("project".to_string(), "DOC".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let json = serde_json::json!({
+            "summary": "Child",
+            "foo": "bar"
+        });
+
+        let client = test_client(vec![]);
+        let err = build_create_article_input(&client, &args, &json).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Unknown article JSON field: foo. Allowed fields: content, parentArticle, summary"
+        );
+    }
+
+    #[test]
+    fn build_update_article_input_rejects_unknown_json_fields() {
+        let args = ParsedArgs {
+            resource: Some("article".into()),
+            action: Some("update".into()),
+            positional: vec!["DOC-A-2".into()],
+            flags: Default::default(),
+        };
+        let json = serde_json::json!({
+            "content": "Updated",
+            "foo": "bar"
+        });
+
+        let client = test_client(vec![]);
+        let err = build_update_article_input(&client, &args, &json).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Unknown article JSON field: foo. Allowed fields: content, parentArticle, summary"
+        );
+    }
+
+    #[test]
+    fn build_parent_article_input_rejects_invalid_shapes() {
+        let client = test_client(vec![]);
+
+        let err = build_parent_article_input(&client, &serde_json::json!("DOC-A-1")).unwrap_err();
+        assert_eq!(err.to_string(), "parentArticle must be an object with id");
+
+        let err = build_parent_article_input(&client, &serde_json::json!({"id": ""})).unwrap_err();
+        assert_eq!(err.to_string(), "parentArticle.id must not be empty");
+
+        let err = build_parent_article_input(&client, &serde_json::json!({})).unwrap_err();
+        assert_eq!(err.to_string(), "parentArticle must include id or ytId");
     }
 
     #[test]

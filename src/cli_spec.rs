@@ -387,12 +387,28 @@ fn article_command() -> CommandSpec {
                 vec![],
             ),
             content_get_command("get", "Get article", "article-id"),
-            command("create", "Create article", create_options(), vec![], vec![]),
+            command(
+                "create",
+                "Create article; JSON fields: summary, content, parentArticle",
+                article_create_options(),
+                vec![],
+                vec![],
+            ),
             command(
                 "update",
-                "Update article",
-                update_options(),
+                "Update article; parentArticle null clears parent",
+                article_update_options(),
                 vec![positional("article-id", "Article ID", false, &[])],
+                vec![],
+            ),
+            command(
+                "move",
+                "Move article under another parent or clear parent",
+                vec![],
+                vec![
+                    positional("article-id", "Article ID", false, &[]),
+                    positional("parent-id", "Parent article ID or none", false, &["none"]),
+                ],
                 vec![],
             ),
             command(
@@ -768,6 +784,31 @@ fn create_options() -> Vec<OptionSpec> {
 
 fn update_options() -> Vec<OptionSpec> {
     let mut options = vec![option_value("json", "JSON object", "json", &[])];
+    options.extend(visibility_update_options());
+    options
+}
+
+fn article_create_options() -> Vec<OptionSpec> {
+    let mut options = vec![
+        option_value("project", "Project ID", "id", &[]),
+        option_value(
+            "json",
+            "Article JSON: summary, content, parentArticle",
+            "json",
+            &[],
+        ),
+    ];
+    options.extend(visibility_create_options());
+    options
+}
+
+fn article_update_options() -> Vec<OptionSpec> {
+    let mut options = vec![option_value(
+        "json",
+        "Article JSON: summary, content, parentArticle; parentArticle:null clears parent",
+        "json",
+        &[],
+    )];
     options.extend(visibility_update_options());
     options
 }

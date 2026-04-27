@@ -172,6 +172,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "get"
                         | "create"
                         | "update"
+                        | "move"
                         | "append"
                         | "comment"
                         | "comments"
@@ -268,6 +269,7 @@ mod tests {
 
     #[test]
     fn knows_comment_commands() {
+        assert!(is_known_command("article", Some("move")));
         assert!(is_known_command("comment", Some("get")));
         assert!(is_known_command("comment", Some("update")));
         assert!(is_known_command("comment", Some("delete")));

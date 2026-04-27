@@ -30,7 +30,7 @@ src/
     user.rs         ← user list/get
     alias.rs        ← local alias config + dynamic alias ticket workflows
     project.rs      ← project list/get
-    article.rs      ← article CRUD + comments + attachments + delete
+    article.rs      ← article CRUD + parent move + comments + attachments + delete
     ticket.rs       ← ticket CRUD + tags + links + attachments + time + custom fields + history + delete
     comment.rs      ← global comment get/update/delete + comment attachment listing
     attachment.rs   ← global attachment get/delete/download

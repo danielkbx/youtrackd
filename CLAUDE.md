@@ -61,6 +61,7 @@ ytd article list --project <id>
 ytd article get <id> [--no-comments]
 ytd article create --project <id> --json '...'
 ytd article update <id> --json '...'
+ytd article move <id> <parent-id|none>
 ytd article append <id> <text>
 ytd article comment <id> <text> [--visibility-group <group> | --no-visibility-group]
 ytd article comments <id>
@@ -155,6 +156,7 @@ Any CLI-facing `id` must be reusable as input to the corresponding command. Raw 
 | Sprint | `<board-id>:<sprint-id>` |
 
 Normalized ticket and article outputs do not expose `idReadable`.
+Article detail output includes normalized `parentArticle` when present: `id` is the readable reusable article ID and `ytId` is the raw YouTrack ID.
 
 ## Text Output
 
@@ -173,6 +175,14 @@ Normalized ticket and article outputs do not expose `idReadable`.
 - `--visibility-group <group>` sets limited visibility.
 - `--no-visibility-group` clears visibility on updates.
 - Combining `--visibility-group` and `--no-visibility-group` is an input error.
+
+## Article Parent
+
+- `article create` and `article update` accept JSON `parentArticle: {"id":"PROJ-A-1"}` where `id` is a readable reusable article ID.
+- ytd resolves the readable parent article ID and sends the internal YouTrack article ID to the API.
+- `article update <id> --json '{"parentArticle":null}'` clears the parent article.
+- `article move <id> <parent-id>` is a convenience command for changing the parent article; `article move <id> none` clears it.
+- `article create` and `article update` reject unknown top-level JSON fields. Allowed article JSON fields are `summary`, `content`, and `parentArticle`.
 
 ## Aliases
 

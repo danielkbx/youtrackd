@@ -92,7 +92,35 @@ ytd article create --project $PROJECT --json '{"summary": "[YTD-TEST] API Compat
 ytd article get $ARTICLE_ID --format raw
 ```
 
-**Erwartung**: Artikel existiert. `project.shortName` entspricht `$PROJECT`.
+**Erwartung**: Artikel existiert. `project.shortName` entspricht `$PROJECT`. Raw-Felder enthalten `parentArticle(id,idReadable,summary)` wenn ein Parent gesetzt ist.
+
+### 6a. Artikel-Parent mit interner ID-Kompatibilität prüfen
+
+```
+ytd article create --project $PROJECT --json '{"summary": "[YTD-TEST] API Compat Guard Parent Article", "content": "Parent fuer API-Kompatibilitaet."}'
+```
+
+**Erwartung**: Gibt nur die Artikel-ID aus. Exit-Code 0.
+
+**Merke** die ID als `$PARENT_ARTICLE_ID`.
+
+```
+ytd article move $ARTICLE_ID $PARENT_ARTICLE_ID
+```
+
+**Erwartung**: Gibt `$ARTICLE_ID` aus. ytd akzeptiert die lesbare Parent-Artikel-ID, löst intern die YouTrack-Datenbank-ID auf und sendet diese im API-Payload.
+
+```
+ytd article get $ARTICLE_ID --format raw
+```
+
+**Erwartung**: `parentArticle.id` ist eine interne YouTrack-ID, `parentArticle.idReadable` entspricht `$PARENT_ARTICLE_ID`, und `parentArticle.summary` enthält `[YTD-TEST] API Compat Guard Parent Article`.
+
+```
+ytd article move $ARTICLE_ID none
+```
+
+**Erwartung**: Gibt `$ARTICLE_ID` aus. Danach ist der Artikel wieder Top-Level.
 
 ### 7. Artikel-Suche prüfen
 
@@ -237,4 +265,5 @@ rm -f /tmp/ytd-api-compat-attachment.txt
 ytd ticket delete $TICKET_ID -y
 ytd ticket delete $LINK_TARGET_ID -y
 ytd article delete $ARTICLE_ID -y
+ytd article delete $PARENT_ARTICLE_ID -y
 ```

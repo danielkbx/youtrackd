@@ -1,6 +1,6 @@
 # Journey 3: Artikel-Lifecycle
 
-Testet: `article create`, `article get`, `article update`, `article append`, `article comment`, `article comments`, `article search`, `article list`, `--format md`, Visibility-Defaults bei Create, explizite Visibility-Änderung bei Update, explizites Clear via `--no-visibility-group`
+Testet: `article create`, `article get`, `article update`, `article append`, `article comment`, `article comments`, `article search`, `article list`, `--format md`, Parent-Artikel, Visibility-Defaults bei Create, explizite Visibility-Änderung bei Update, explizites Clear via `--no-visibility-group`
 
 ## Zusätzliche Voraussetzung
 
@@ -108,6 +108,62 @@ ytd article get $DEFAULT_ARTICLE_ID --format json
 
 **Erwartung**: Content ist `Default-Visibility wurde per Flag entfernt.` Im JSON ist keine eingeschränkte Visibility mit `$VIS_GROUP` mehr vorhanden.
 
+### 12a. Parent-Artikel erstellen und setzen
+
+```
+ytd article create --project $PROJECT --json '{"summary": "[YTD-TEST] Article Lifecycle Parent", "content": "Parent fuer Hierarchie-Test."}'
+```
+
+**Erwartung**: Gibt nur die Artikel-ID aus. Exit-Code 0.
+
+**Merke** die ID als `$PARENT_ARTICLE_ID`.
+
+```
+ytd article move $ARTICLE_ID $PARENT_ARTICLE_ID
+```
+
+**Erwartung**: Gibt `$ARTICLE_ID` aus. Exit-Code 0. Das Kommando ist aequivalent zu einem Update mit `parentArticle.id`.
+
+```
+ytd article get $ARTICLE_ID --format json
+```
+
+**Erwartung**: `parentArticle.id` entspricht `$PARENT_ARTICLE_ID`, `parentArticle.ytId` ist vorhanden, `parentArticle.summary` enthält `[YTD-TEST] Article Lifecycle Parent`, und es gibt kein `parentArticle.idReadable`.
+
+```
+ytd article get $ARTICLE_ID
+```
+
+**Erwartung**: Textausgabe enthält eine Parent-Metadatenzeile mit `$PARENT_ARTICLE_ID`.
+
+```
+ytd article get $ARTICLE_ID --format md
+```
+
+**Erwartung**: Markdown-Ausgabe enthält `Parent article: $PARENT_ARTICLE_ID`.
+
+### 12b. Parent-Artikel per null entfernen
+
+```
+ytd article move $ARTICLE_ID none
+```
+
+**Erwartung**: Gibt `$ARTICLE_ID` aus. Exit-Code 0. Das Kommando ist aequivalent zu einem Update mit `parentArticle:null`.
+
+```
+ytd article get $ARTICLE_ID --format json
+```
+
+**Erwartung**: `parentArticle` ist nicht gesetzt oder `null`.
+
+### 12c. Unbekannte Artikel-JSON-Felder ablehnen
+
+```
+ytd article update $ARTICLE_ID --json '{"unknownField":"nope"}'
+```
+
+**Erwartung**: Exit-Code ungleich 0. Fehlermeldung nennt unbekannte Artikel-JSON-Felder. Der Artikel wird nicht verändert.
+
 ### 13. Kommentar zu Artikel hinzufügen
 
 ```
@@ -183,5 +239,6 @@ ytd article get $ARTICLE_ID --format md > /tmp/ytd-test-article.md
 ```
 ytd article delete $ARTICLE_ID -y
 ytd article delete $DEFAULT_ARTICLE_ID -y
+ytd article delete $PARENT_ARTICLE_ID -y
 rm -f /tmp/ytd-test-article.md
 ```

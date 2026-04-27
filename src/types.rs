@@ -99,6 +99,25 @@ pub struct Article {
     pub reporter: Option<User>,
     pub project: Option<ProjectRef>,
     pub visibility: Option<LimitedVisibility>,
+    #[serde(default)]
+    pub parent_article: Option<ArticleRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticleRef {
+    pub id: String,
+    #[serde(default)]
+    pub id_readable: Option<String>,
+    pub summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticleRefOutput {
+    pub id: String,
+    pub yt_id: String,
+    pub summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -113,6 +132,8 @@ pub struct ArticleOutput {
     pub reporter: Option<User>,
     pub project: Option<ProjectRef>,
     pub visibility: Option<LimitedVisibility>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_article: Option<ArticleRefOutput>,
 }
 
 pub fn article_output(article: Article) -> ArticleOutput {
@@ -126,6 +147,15 @@ pub fn article_output(article: Article) -> ArticleOutput {
         reporter: article.reporter,
         project: article.project,
         visibility: article.visibility,
+        parent_article: article.parent_article.map(article_ref_output),
+    }
+}
+
+pub fn article_ref_output(article: ArticleRef) -> ArticleRefOutput {
+    ArticleRefOutput {
+        id: article.id_readable.unwrap_or_else(|| article.id.clone()),
+        yt_id: article.id,
+        summary: article.summary,
     }
 }
 
@@ -819,6 +849,8 @@ pub struct CreateArticleInput {
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visibility: Option<LimitedVisibilityInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_article: Option<ArticleParentInput>,
 }
 
 #[derive(Debug, Serialize)]
@@ -830,6 +862,14 @@ pub struct UpdateArticleInput {
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visibility: Option<LimitedVisibilityInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_article: Option<Option<ArticleParentInput>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticleParentInput {
+    pub id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -997,11 +1037,37 @@ mod tests {
             reporter: None,
             project: None,
             visibility: None,
+            parent_article: None,
         });
 
         assert_eq!(output.id, "DWP-A-1");
         assert_eq!(output.yt_id, "6-1");
         assert_eq!(output.summary.as_deref(), Some("Runbook"));
+    }
+
+    #[test]
+    fn article_output_normalizes_parent_article_id() {
+        let output = article_output(Article {
+            id: "109-813".into(),
+            id_readable: Some("GRA-A-32".into()),
+            summary: Some("Child".into()),
+            content: None,
+            created: None,
+            updated: None,
+            reporter: None,
+            project: None,
+            visibility: None,
+            parent_article: Some(ArticleRef {
+                id: "109-812".into(),
+                id_readable: Some("GRA-A-31".into()),
+                summary: Some("Parent summary".into()),
+            }),
+        });
+
+        let parent = output.parent_article.expect("parent article");
+        assert_eq!(parent.id, "GRA-A-31");
+        assert_eq!(parent.yt_id, "109-812");
+        assert_eq!(parent.summary.as_deref(), Some("Parent summary"));
     }
 
     #[test]

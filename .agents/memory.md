@@ -28,6 +28,8 @@ Issue creation requires the YouTrack project database ID in the payload, not onl
 
 Article creation accepts a project in the create payload, but the article `project` field is read-only after creation.
 
+Article parent assignment accepts `parentArticle` in create/update payloads, but the nested `id` must be the internal YouTrack article ID. The CLI accepts readable article IDs and resolves them before sending the payload.
+
 ## Article Search
 
 `GET /api/articles` accepts a `query` parameter. Project filtering can be expressed through YouTrack search syntax instead of a separate article search endpoint.

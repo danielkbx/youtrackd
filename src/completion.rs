@@ -584,6 +584,7 @@ fn path_sibling_blockers(path: &[&str]) -> Vec<&'static str> {
             "get",
             "create",
             "update",
+            "move",
             "append",
             "comment",
             "comments",

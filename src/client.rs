@@ -577,7 +577,7 @@ impl<T: HttpTransport> YtClient<T> {
 
     pub fn get_article(&self, id: &str) -> Result<Article, YtdError> {
         self.get(&format!("/articles/{id}"), &[
-            ("fields", "id,idReadable,summary,content,created,updated,reporter(id,login,fullName),project(id,shortName,name),visibility($type,permittedGroups(id,name))"),
+            ("fields", "id,idReadable,summary,content,created,updated,reporter(id,login,fullName),project(id,shortName,name),visibility($type,permittedGroups(id,name)),parentArticle(id,idReadable,summary)"),
         ])
     }
 
@@ -605,6 +605,7 @@ impl<T: HttpTransport> YtClient<T> {
             summary: None,
             content: Some(new_content),
             visibility: None,
+            parent_article: None,
         };
         self.update_article(id, &input)?;
         Ok(())
@@ -1742,6 +1743,7 @@ mod tests {
                 visibility_type: "LimitedVisibility",
                 permitted_groups: vec![UserGroupInput { id: "3-8".into() }],
             }),
+            parent_article: None,
         };
 
         client.create_article(&input).unwrap();
@@ -1764,6 +1766,53 @@ mod tests {
     }
 
     #[test]
+    fn get_article_requests_parent_article_fields() {
+        let client = test_client(vec![
+            r#"{"id":"109-813","idReadable":"GRA-A-32","summary":"Child","parentArticle":{"id":"109-812","idReadable":"GRA-A-31","summary":"Parent"}}"#,
+        ]);
+
+        let article = client.get_article("GRA-A-32").unwrap();
+
+        assert_eq!(article.parent_article.unwrap().id, "109-812");
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request
+            .url
+            .contains("parentArticle%28id%2CidReadable%2Csummary%29"));
+    }
+
+    #[test]
+    fn create_article_serializes_parent_article_internal_id() {
+        let client = test_client(vec![r#"{"id":"109-813","idReadable":"GRA-A-32"}"#]);
+        let input = CreateArticleInput {
+            project: ProjectRef {
+                id: "0-1".into(),
+                short_name: None,
+                name: None,
+            },
+            summary: "Child".into(),
+            content: None,
+            visibility: None,
+            parent_article: Some(ArticleParentInput {
+                id: "109-812".into(),
+            }),
+        };
+
+        client.create_article(&input).unwrap();
+
+        let request = client.transport.request(0);
+        let body = request.body.expect("missing request body");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({
+                "project": {"id": "0-1"},
+                "summary": "Child",
+                "parentArticle": {"id": "109-812"}
+            })
+        );
+    }
+
+    #[test]
     fn update_article_serializes_visibility_clear_payload() {
         let client = test_client(vec![r#"{"id":"109-1","idReadable":"KB-1"}"#]);
         let input = UpdateArticleInput {
@@ -1773,6 +1822,7 @@ mod tests {
                 visibility_type: "LimitedVisibility",
                 permitted_groups: vec![],
             }),
+            parent_article: None,
         };
 
         client.update_article("KB-1", &input).unwrap();
@@ -1788,6 +1838,28 @@ mod tests {
                     "$type": "LimitedVisibility",
                     "permittedGroups": []
                 }
+            })
+        );
+    }
+
+    #[test]
+    fn update_article_serializes_parent_article_null() {
+        let client = test_client(vec![r#"{"id":"109-813","idReadable":"GRA-A-32"}"#]);
+        let input = UpdateArticleInput {
+            summary: None,
+            content: None,
+            visibility: None,
+            parent_article: Some(None),
+        };
+
+        client.update_article("GRA-A-32", &input).unwrap();
+
+        let request = client.transport.request(0);
+        let body = request.body.expect("missing request body");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({
+                "parentArticle": null
             })
         );
     }
@@ -2154,6 +2226,7 @@ mod tests {
             reporter: None,
             project: None,
             visibility: None,
+            parent_article: None,
         };
 
         assert!(YtClient::<MockTransport>::article_matches_query(

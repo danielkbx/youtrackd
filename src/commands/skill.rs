@@ -259,8 +259,10 @@ fn push_core_commands(out: &mut String, project: Option<&SkillProjectContext>) {
     ));
     out.push_str("ytd article get <article-id> --format json\n");
     out.push_str(&format!(
-        "ytd article create{required_project_flag} --json '{{\"summary\":\"...\",\"content\":\"...\"}}'\n"
+        "ytd article create{required_project_flag} --json '{{\"summary\":\"...\",\"content\":\"...\",\"parentArticle\":{{\"id\":\"<parent-article-id>\"}}}}'\n"
     ));
+    out.push_str("ytd article update <article-id> --json '{\"parentArticle\":null}'\n");
+    out.push_str("ytd article move <article-id> <parent-article-id|none>\n");
     out.push_str("```\n\n");
 }
 
@@ -278,6 +280,7 @@ fn push_public_ids(out: &mut String, project: Option<&SkillProjectContext>) {
     out.push_str(&format!(
         "- Articles use readable IDs such as `{article_id}`.\n"
     ));
+    out.push_str("- Article `parentArticle.id` values also use readable reusable article IDs; ytd resolves the internal YouTrack ID before sending updates.\n");
     out.push_str("- Comment IDs encode parent scope: `<ticket-id>:<comment-id>` or `<article-id>:<comment-id>`.\n");
     out.push_str("- Attachment IDs encode parent scope: `<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>`.\n");
     out.push_str("- Sprint IDs encode board scope: `<board-id>:<sprint-id>`.\n\n");
@@ -346,6 +349,14 @@ fn push_recipes(out: &mut String, project: Option<&SkillProjectContext>) {
     out.push_str(&format!(
         "- List project articles: `ytd article list{required_project_flag} --format json`.\n"
     ));
+    out.push_str("- Inspect article hierarchy: `ytd article get <article-id> --format json` includes normalized `parentArticle` when present.\n");
+    out.push_str("- Create a child article: `ytd article create");
+    out.push_str(&format!(
+        "{required_project_flag} --json '{{\"summary\":\"...\",\"content\":\"...\",\"parentArticle\":{{\"id\":\"<parent-article-id>\"}}}}'`.\n"
+    ));
+    out.push_str("- Move or nest an article: `ytd article update <article-id> --json '{\"parentArticle\":{\"id\":\"<parent-article-id>\"}}'`.\n");
+    out.push_str("- Clear an article parent: `ytd article update <article-id> --json '{\"parentArticle\":null}'`.\n");
+    out.push_str("- Shortcut for article hierarchy changes: `ytd article move <article-id> <parent-article-id>` or `ytd article move <article-id> none`.\n");
     out.push_str("- Export an article as Markdown: `ytd article get <article-id> --format md > article.md`.\n");
     out.push_str("- List current sprints: `ytd sprint current --format json`.\n");
     out.push_str("- Log work: `ytd ticket log <ticket-id> 30m \"work summary\"`.\n\n");
@@ -356,6 +367,7 @@ fn push_visibility(out: &mut String) {
     out.push_str("- Ticket/article create and new comment commands may inherit configured visibility defaults.\n");
     out.push_str("- Update commands preserve existing visibility unless `--visibility-group <group>` or `--no-visibility-group` is passed explicitly.\n");
     out.push_str("- Use `--no-visibility-group` on create/comment commands to suppress inherited visibility defaults.\n\n");
+    out.push_str("- Article create/update JSON rejects unknown top-level fields. Use only `summary`, `content`, and `parentArticle`.\n\n");
 }
 
 fn push_full_reference(out: &mut String) {
@@ -364,7 +376,7 @@ fn push_full_reference(out: &mut String) {
     out.push_str("ytd login / logout / whoami\n");
     out.push_str("ytd project list|get\n");
     out.push_str("ytd user list|get\n");
-    out.push_str("ytd article search|list|get|create|update|append|comment|comments|attach|attachments|delete\n");
+    out.push_str("ytd article search|list|get|create|update|move|append|comment|comments|attach|attachments|delete\n");
     out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
     out.push_str("ytd comment get|update|attachments|delete\n");
     out.push_str("ytd attachment get|delete|download\n");

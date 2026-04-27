@@ -94,6 +94,10 @@ fn print_global_help() {
             ("article get <id>", "Get article"),
             ("article create", "Create article (--project, --json)"),
             ("article update <id>", "Update article (--json)"),
+            (
+                "article move <id> <parent|none>",
+                "Move article in hierarchy",
+            ),
             ("article append <id> <t>", "Append text to article"),
             ("article comment <id> <t>", "Add comment to article"),
             ("article comments <id>", "List article comments"),
@@ -341,8 +345,10 @@ fn print_article_help() {
   ytd article search <query> [--project <id>]
   ytd article list --project <id>
   ytd article get <id> [--no-comments]
-  ytd article create --project <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
-  ytd article update <id> --json '{{\"summary\":\"...\",\"content\":\"...\"}}' [--visibility-group <group> | --no-visibility-group]
+  ytd article create --project <id> --json '{{\"summary\":\"...\",\"content\":\"...\",\"parentArticle\":{{\"id\":\"PROJ-A-1\"}}}}' [--visibility-group <group> | --no-visibility-group]
+  ytd article update <id> --json '{{\"summary\":\"...\",\"content\":\"...\",\"parentArticle\":{{\"id\":\"PROJ-A-1\"}}}}' [--visibility-group <group> | --no-visibility-group]
+  ytd article update <id> --json '{{\"parentArticle\":null}}'
+  ytd article move <id> <parent-id|none>
   ytd article append <id> <text>
   ytd article comment <id> <text> [--visibility-group <group> | --no-visibility-group]
   ytd article comments <id>
@@ -351,6 +357,8 @@ fn print_article_help() {
   ytd article delete <id> [-y]
 
 Create/update print only the article ID on stdout.
+Create/update JSON supports summary, content, and parentArticle. Use parentArticle.id with a reusable readable article ID. Unknown article JSON fields are rejected. Use parentArticle:null on update, or article move <id> none, to clear the parent.
+article move prints only the moved article ID on stdout.
 Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
 Text output renders Markdown content as readable terminal text with ASCII tables and prints content after metadata, after a blank line and without a field label. Use article get --no-comments to omit comments from text, json, raw, or md output."

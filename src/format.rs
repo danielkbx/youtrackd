@@ -29,6 +29,7 @@ const META_FIELDS: &[&str] = &[
     "project",
     "parentType",
     "parentId",
+    "parentArticle",
     "boardId",
 ];
 
@@ -59,7 +60,7 @@ pub fn print_value(value: &Value, opts: &OutputOptions) {
             );
         }
         Format::Md => {
-            print_md(value);
+            print_md(value, opts);
         }
         Format::Text => {
             print_text(value, opts);
@@ -82,7 +83,7 @@ pub fn print_items<T: serde::Serialize>(items: &[T], opts: &OutputOptions) {
                     if i > 0 {
                         println!("\n---\n");
                     }
-                    print_md(item);
+                    print_md(item, opts);
                 }
             }
         }
@@ -138,7 +139,7 @@ where
     Ok(())
 }
 
-fn print_md(value: &Value) {
+fn print_md(value: &Value, opts: &OutputOptions) {
     let obj = match value {
         Value::Object(map) => map,
         _ => {
@@ -152,6 +153,13 @@ fn print_md(value: &Value) {
     if !summary.is_empty() {
         println!("# {summary}");
         println!();
+    }
+
+    if !opts.no_meta {
+        if let Some(line) = md_parent_article_line(obj) {
+            println!("{line}");
+            println!();
+        }
     }
 
     // Body: content (articles) or description (tickets)
@@ -184,6 +192,14 @@ fn print_md(value: &Value) {
             }
         }
     }
+}
+
+fn md_parent_article_line(obj: &serde_json::Map<String, Value>) -> Option<String> {
+    let formatted = format_value("parentArticle", obj.get("parentArticle")?);
+    if formatted.is_empty() {
+        return None;
+    }
+    Some(format!("Parent article: {formatted}"))
 }
 
 fn print_text(value: &Value, opts: &OutputOptions) {
@@ -280,6 +296,20 @@ fn format_value(key: &str, val: &Value) -> String {
             // Project: shortName or name
             if let Some(short) = map.get("shortName").and_then(|v| v.as_str()) {
                 return short.to_string();
+            }
+            if key == "parentArticle" {
+                if let Some(id) = map
+                    .get("id")
+                    .or_else(|| map.get("idReadable"))
+                    .and_then(|v| v.as_str())
+                {
+                    if let Some(summary) = map.get("summary").and_then(|v| v.as_str()) {
+                        if !summary.is_empty() {
+                            return format!("{id} - {summary}");
+                        }
+                    }
+                    return id.to_string();
+                }
             }
             if let Some(name) = map.get("name").and_then(|v| v.as_str()) {
                 return name.to_string();
@@ -470,6 +500,43 @@ mod tests {
     fn format_user_object() {
         let val = serde_json::json!({"fullName": "Alice Smith", "login": "asmith"});
         assert_eq!(format_value("reporter", &val), "Alice Smith (asmith)");
+    }
+
+    #[test]
+    fn format_parent_article_object() {
+        let val = serde_json::json!({
+            "id": "GRA-A-31",
+            "ytId": "109-812",
+            "summary": "Parent summary"
+        });
+
+        assert_eq!(
+            format_value("parentArticle", &val),
+            "GRA-A-31 - Parent summary"
+        );
+    }
+
+    #[test]
+    fn no_meta_suppresses_parent_article() {
+        assert!(META_FIELDS.contains(&"parentArticle"));
+    }
+
+    #[test]
+    fn markdown_parent_article_line_is_rendered_from_metadata() {
+        let value = serde_json::json!({
+            "summary": "Child",
+            "parentArticle": {
+                "id": "GRA-A-31",
+                "ytId": "109-812",
+                "summary": "Parent summary"
+            }
+        });
+        let obj = value.as_object().unwrap();
+
+        assert_eq!(
+            md_parent_article_line(obj).as_deref(),
+            Some("Parent article: GRA-A-31 - Parent summary")
+        );
     }
 
     #[test]
