@@ -299,13 +299,14 @@ Use `--format md` with `article get` when you want a Markdown export.
 ```bash
 ytd comment get <comment-id>
 ytd comment update <comment-id> <text>
+ytd comment attach <comment-id> <file>
 ytd comment attachments <comment-id>
 ytd comment delete <comment-id> [-y]
 ```
 
 Comment IDs are returned by `ticket comments` and `article comments`. Use the returned `id` value with `ytd comment ...`.
 
-Adding files to existing comments is not supported. You can list attachments that YouTrack reports for a comment.
+Use `comment attach` to upload a file to an existing ticket or article comment. Use `comment attachments` to list files attached to the comment. Attachment IDs returned by comment attachment listings can be used with `ytd attachment get|download|delete`.
 
 ### Attachments
 

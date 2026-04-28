@@ -42,9 +42,14 @@ Specific comment get/update/delete operations require the parent issue or articl
 
 Attachment get/delete/download operations require the parent issue or article path, even when YouTrack reports the attachment on a comment.
 
-## Comment Attachment Limit
+## Comment Attachment Upload
 
-Adding files to existing comments is not implemented because the verified REST flow does not assign an uploaded parent attachment to the existing comment. The CLI supports listing comment attachments reported by YouTrack.
+Verified against YouTrack Cloud on 2026-04-28 and confirmed by JetBrains support on 2026-04-27: existing issue and article comments accept multipart uploads directly on parent-scoped comment attachment endpoints:
+
+- `POST /api/issues/{issueID}/comments/{commentID}/attachments`
+- `POST /api/articles/{articleID}/comments/{commentID}/attachments`
+
+The multipart field name `file` works. Reading the comment back with `attachments(...,comment(id))` shows the uploaded attachment associated with the target comment.
 
 ## Board-Scoped Sprints
 

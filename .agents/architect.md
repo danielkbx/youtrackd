@@ -32,7 +32,7 @@ src/
     project.rs      ← project list/get
     article.rs      ← article CRUD + parent move + comments + attachments + delete
     ticket.rs       ← ticket CRUD + tags + links + attachments + time + custom fields + history + delete
-    comment.rs      ← global comment get/update/delete + comment attachment listing
+    comment.rs      ← global comment get/update/delete + comment attachment upload/listing
     attachment.rs   ← global attachment get/delete/download
     tag.rs          ← tag list (client-side project filter)
     search.rs       ← saved search list/run
@@ -120,6 +120,7 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 - Always use `?fields=` to request only needed fields
 - Always set `$top` explicitly (server default is 42)
 - Attachments: manual multipart/form-data body building; downloads use signed attachment `url` values
+- Comment attachment upload uses parent-scoped comment attachment endpoints: `/api/issues/{issueID}/comments/{commentID}/attachments` and `/api/articles/{articleID}/comments/{commentID}/attachments`
 - Errors: HTTP status + detail to stderr, exit non-zero
 
 Sprint ticket membership uses an Agile/Sprint-scoped API:

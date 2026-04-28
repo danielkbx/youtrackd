@@ -38,16 +38,16 @@ fn attachment_help_shows_commands() {
 }
 
 #[test]
-fn comment_help_lists_attachments_but_not_attach() {
+fn comment_help_lists_attach_and_attachments() {
     let output = run_ytd(&["help", "comment"], &[]);
 
     assert!(output.status.success());
     let text = stdout(&output);
+    assert!(text.contains("ytd comment attach <comment-id> <file>"));
     assert!(text.contains("ytd comment attachments <comment-id>"));
     assert!(
         text.contains("Delete commands ask for confirmation. Use -y to confirm non-interactively.")
     );
-    assert!(!text.contains("ytd comment attach <comment-id>"));
 }
 
 #[test]
@@ -71,10 +71,10 @@ fn ticket_article_and_search_help_describe_consistency_rules() {
 }
 
 #[test]
-fn comment_attach_is_rejected_before_config_load() {
+fn comment_attach_is_known_before_config_load() {
     let output = run_ytd(&["comment", "attach", "DWP-1:4-1", "/tmp/a.txt"], &[]);
 
     assert!(!output.status.success());
     assert_eq!(stdout(&output), "");
-    assert_eq!(stderr(&output), "Unknown command: ytd comment attach\n");
+    assert_ne!(stderr(&output), "Unknown command: ytd comment attach\n");
 }

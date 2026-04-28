@@ -206,7 +206,10 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "delete"
                 )
             )
-            | ("comment", Some("get" | "update" | "delete" | "attachments"))
+            | (
+                "comment",
+                Some("get" | "update" | "attach" | "delete" | "attachments")
+            )
             | ("attachment", Some("get" | "delete" | "download"))
             | ("tag", Some("list"))
             | ("search", Some("list" | "run"))
@@ -272,10 +275,10 @@ mod tests {
         assert!(is_known_command("article", Some("move")));
         assert!(is_known_command("comment", Some("get")));
         assert!(is_known_command("comment", Some("update")));
+        assert!(is_known_command("comment", Some("attach")));
         assert!(is_known_command("comment", Some("delete")));
         assert!(is_known_command("comment", Some("attachments")));
         assert!(is_known_command("ticket", Some("comments")));
-        assert!(!is_known_command("comment", Some("attach")));
         assert!(!is_known_command("comment", Some("create")));
     }
 

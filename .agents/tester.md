@@ -89,14 +89,14 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Ticket-Lifecycle | `02-ticket-lifecycle.md` | ticket create/get/update/comment/search/list |
 | Artikel-Lifecycle | `03-article-lifecycle.md` | article create/get/update/move/append/comment/comments/search/list |
 | Tags & Links | `04-tags-and-links.md` | tag list, ticket tag/untag/link/links |
-| Attachments | `05-attachments.md` | ticket/article attach/attachments, global attachment get/delete/download, comment attachment listing |
+| Attachments | `05-attachments.md` | ticket/article/comment attach/attachments, global attachment get/delete/download, comment attachment listing |
 | Time Tracking | `06-time-tracking.md` | ticket log/worklog |
 | Custom Fields | `07-custom-fields.md` | ticket fields/set |
 | Searches & Boards | `08-search-and-boards.md` | search list/run, board list/get |
 | History | `09-history.md` | ticket history |
 | API Compatibility Guard | `10-api-compat-guard.md` | risky YouTrack API assumptions and server behavior |
 | Visibility Defaults | `11-visibility-defaults.md` | visibility config, env, CLI precedence, update preservation |
-| Kommentare | `12-comments.md` | ticket/article comments, global comment get/update/delete/attachments, encoded comment IDs |
+| Kommentare | `12-comments.md` | ticket/article comments, global comment get/update/attach/delete/attachments, encoded comment IDs |
 | Board CRUD | `13-board-crud.md` | board create/update/get/list/delete, JSON/stdin input, validation |
 | Sprint CRUD | `14-sprint-crud.md` | sprint create/update/get/list/delete/current, JSON input, sprint-id validation |
 | Current Sprints | `15-current-sprints.md` | sprint current across all boards and reusable sprint IDs |

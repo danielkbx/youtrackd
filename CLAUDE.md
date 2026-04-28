@@ -92,6 +92,7 @@ ytd ticket delete <id> [-y]
 
 ytd comment get <comment-id>
 ytd comment update <comment-id> <text> [--visibility-group <group> | --no-visibility-group]
+ytd comment attach <comment-id> <file>
 ytd comment attachments <comment-id>
 ytd comment delete <comment-id> [-y]
 

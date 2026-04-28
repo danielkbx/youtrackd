@@ -267,6 +267,16 @@ pub fn cli_spec() -> CommandSpec {
                         vec![],
                     ),
                     command(
+                        "attach",
+                        "Attach file to comment",
+                        vec![],
+                        vec![
+                            positional("comment-id", "Comment ID", false, &[]),
+                            positional("file", "File path", false, &[]),
+                        ],
+                        vec![],
+                    ),
+                    command(
                         "delete",
                         "Delete comment",
                         vec![option_short_flag('y', "Confirm without prompting")],

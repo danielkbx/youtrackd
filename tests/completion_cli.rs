@@ -65,6 +65,11 @@ COMP_CWORD=2
 _ytd
 printf 'ticket:%s\n' "${{COMPREPLY[*]}}"
 
+COMP_WORDS=(ytd comment "")
+COMP_CWORD=2
+_ytd
+printf 'comment:%s\n' "${{COMPREPLY[*]}}"
+
 COMP_WORDS=(ytd sprint ticket "")
 COMP_CWORD=3
 _ytd
@@ -107,6 +112,7 @@ printf 'format:%s\n' "${{COMPREPLY[*]}}"
     let candidates = String::from_utf8_lossy(&complete_output.stdout);
     assert!(candidates.contains("top:help login logout url open skill whoami config group user project alias article ticket comment attachment tag search board sprint completion"));
     assert!(candidates.contains("ticket:search list get create update comment comments tag untag link links attach attachments log worklog set fields history sprints delete"));
+    assert!(candidates.contains("comment:get update attachments attach delete"));
     assert!(candidates.contains("sprint-ticket:list add remove"));
     assert!(candidates.contains("completion:bash zsh fish"));
     assert!(candidates.contains("ticket-options:--format --no-meta --version"));

@@ -641,6 +641,20 @@ impl<T: HttpTransport> YtClient<T> {
         )
     }
 
+    pub fn upload_article_comment_attachment(
+        &self,
+        article_id: &str,
+        comment_id: &str,
+        file_path: &Path,
+    ) -> Result<(), YtdError> {
+        self.upload(
+            &format!("/articles/{article_id}/comments/{comment_id}/attachments"),
+            file_path,
+            &[],
+        )?;
+        Ok(())
+    }
+
     pub fn add_article_comment(
         &self,
         article_id: &str,
@@ -851,6 +865,20 @@ impl<T: HttpTransport> YtClient<T> {
             &format!("/issues/{issue_id}/comments/{comment_id}"),
             &[("fields", COMMENT_ATTACHMENT_FIELDS)],
         )
+    }
+
+    pub fn upload_issue_comment_attachment(
+        &self,
+        issue_id: &str,
+        comment_id: &str,
+        file_path: &Path,
+    ) -> Result<(), YtdError> {
+        self.upload(
+            &format!("/issues/{issue_id}/comments/{comment_id}/attachments"),
+            file_path,
+            &[],
+        )?;
+        Ok(())
     }
 
     pub fn get_issue_comment(
@@ -2170,6 +2198,40 @@ mod tests {
         assert_eq!(request.method, "GET");
         assert!(request.url.contains("/api/issues/DWP-12/comments/4-17?"));
         assert!(request.url.contains("attachments%28id%2Cname%2Curl%2Csize%2CmimeType%2Ccreated%2Cauthor%28id%2Clogin%2CfullName%29%2Ccomment%28id%29%29"));
+    }
+
+    #[test]
+    fn upload_issue_comment_attachment_uses_issue_comment_attachment_endpoint() {
+        let client = test_client(vec![r#""#]);
+        let temp = tempfile::NamedTempFile::new().unwrap();
+
+        client
+            .upload_issue_comment_attachment("DWP-12", "4-17", temp.path())
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST multipart");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/comments/4-17/attachments"
+        );
+    }
+
+    #[test]
+    fn upload_article_comment_attachment_uses_article_comment_attachment_endpoint() {
+        let client = test_client(vec![r#""#]);
+        let temp = tempfile::NamedTempFile::new().unwrap();
+
+        client
+            .upload_article_comment_attachment("DWP-A-1", "187-66", temp.path())
+            .unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST multipart");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/articles/DWP-A-1/comments/187-66/attachments"
+        );
     }
 
     #[test]

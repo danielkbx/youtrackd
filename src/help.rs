@@ -137,6 +137,7 @@ fn print_global_help() {
         &[
             ("comment get <id>", "Get comment details"),
             ("comment update <id> <t>", "Update comment text"),
+            ("comment attach <id> <f>", "Attach file to comment"),
             ("comment attachments <id>", "List comment attachments"),
             ("comment delete <id>", "Delete comment"),
         ],
@@ -406,6 +407,7 @@ fn print_comment_help() {
         "Usage:
   ytd comment get <comment-id>
   ytd comment update <comment-id> <text> [--visibility-group <group> | --no-visibility-group]
+  ytd comment attach <comment-id> <file>
   ytd comment attachments <comment-id>
   ytd comment delete <comment-id> [-y]
 
@@ -420,7 +422,8 @@ Use the returned id field, for example:
 New comments use configured visibility defaults. Comment updates change visibility only with explicit visibility flags.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
 Text output for comment get renders Markdown text as terminal text after metadata, without a text field label.
-Comment attachment upload is not supported by the YouTrack REST API flow verified for ytd."
+Use comment attach to upload a file directly to an existing ticket or article comment.
+Use comment attachments to list files attached to a comment."
     );
 }
 

@@ -283,6 +283,8 @@ fn push_public_ids(out: &mut String, project: Option<&SkillProjectContext>) {
     out.push_str("- Article `parentArticle.id` values also use readable reusable article IDs; ytd resolves the internal YouTrack ID before sending updates.\n");
     out.push_str("- Comment IDs encode parent scope: `<ticket-id>:<comment-id>` or `<article-id>:<comment-id>`.\n");
     out.push_str("- Attachment IDs encode parent scope: `<ticket-id>:<attachment-id>` or `<article-id>:<attachment-id>`.\n");
+    out.push_str("- Use `ytd comment attach <comment-id> <file>` to upload a file to an existing ticket or article comment.\n");
+    out.push_str("- Use `ytd comment attachments <comment-id>` to retrieve normalized reusable attachment IDs.\n");
     out.push_str("- Sprint IDs encode board scope: `<board-id>:<sprint-id>`.\n\n");
 }
 
@@ -378,7 +380,7 @@ fn push_full_reference(out: &mut String) {
     out.push_str("ytd user list|get\n");
     out.push_str("ytd article search|list|get|create|update|move|append|comment|comments|attach|attachments|delete\n");
     out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
-    out.push_str("ytd comment get|update|attachments|delete\n");
+    out.push_str("ytd comment get|update|attach|attachments|delete\n");
     out.push_str("ytd attachment get|delete|download\n");
     out.push_str("ytd alias create|list|delete and ytd <alias> create|list\n");
     out.push_str("ytd tag list / search list|run / board list|get|create|update|delete\n");

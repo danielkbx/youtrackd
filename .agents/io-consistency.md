@@ -48,6 +48,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Errors, prompts, and diagnostics go to stderr.
 - Create/update/delete commands that return a single mutated resource print only its reusable public ID on stdout.
 - Commands that intentionally perform an action without returning a resource may be silent on success unless existing command behavior documents a status line.
+- Attachment upload commands (`ticket attach`, `article attach`, `comment attach`) print `Attached <filename>` on success.
 - Credentials and tokens must never be printed to stdout, stderr, logs, or error messages.
 
 ## Public IDs
