@@ -7,7 +7,7 @@
 
 The default output is compact plain text for humans and AI agents. Use JSON when you want stable scriptable output.
 
-`ytd` can also generate current `SKILL.md` guidance for AI agents with `ytd skill`. Agents can run that command themselves to fetch up-to-date usage instructions, including project-specific examples with `ytd skill --project <project>`. See [AI Agent Skill File](#ai-agent-skill-file).
+`ytd` can also generate current `SKILL.md` guidance for AI agents with `ytd skill`. Agents can run that command themselves to fetch up-to-date usage instructions, including project-specific examples with `ytd skill --project <project>`. Use `ytd schema <resource> <action>` to inspect JSON fields before creating or updating with `--json`. See [AI Agent Skill File](#ai-agent-skill-file).
 
 ## Installation
 
@@ -190,6 +190,8 @@ Agents can also run `ytd skill` themselves to fetch up-to-date usage guidance in
 ytd skill --project MYPROJECT > SKILL.md
 ytd skill --project MYPROJECT --scope full
 ```
+
+Agents should run `ytd schema <resource> <action>` before guessing JSON fields for create/update commands.
 
 ## Command Guide
 
@@ -391,6 +393,15 @@ ytd skill [--scope brief|standard|full] [--project <project>]
 
 `ytd skill` supports `--format text` and `--format md`. Both print Markdown. `--format json` and `--format raw` are not supported for this command.
 
+### JSON Schemas
+
+```bash
+ytd schema [list]
+ytd schema <ticket|article|board|sprint> <create|update>
+```
+
+`ytd schema` shows the JSON input contract for commands that accept `--json` or stdin. It works without login and supports `--format text` and `--format json`.
+
 ## Working With Output
 
 Global output flags:
@@ -447,6 +458,18 @@ Boards and sprints also accept `--json` for additional YouTrack Agile fields:
 ytd board create --name "Team Board" --project PROJ --template scrum --json '{"visibleForProjectBased":true}'
 ytd sprint update 108-4:113-6 --json '{"goal":"Finish onboarding"}'
 ```
+
+## JSON Schema / Field Discovery
+
+Use `ytd schema` to discover the JSON input contract before using `--json` or stdin. This command does not require login.
+
+```bash
+ytd schema
+ytd schema ticket create
+ytd schema article update --format json
+```
+
+`ytd schema <resource> <action>` shows required flags, required and optional JSON fields, flag-vs-JSON precedence rules, examples, and pass-through caveats for board and sprint advanced fields.
 
 ## Common Workflows
 

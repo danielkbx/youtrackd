@@ -43,6 +43,8 @@ ytd login / logout / whoami
 ytd url <target>
 ytd open <target>
 ytd completion <bash|zsh|fish>
+ytd schema [list]
+ytd schema <ticket|article|board|sprint> <create|update>
 ytd skill [--scope brief|standard|full] [--project <project>]
 
 ytd config set visibility-group <group>
@@ -138,6 +140,7 @@ Public command behavior is governed by `.agents/io-consistency.md`.
 - `json` is the stable ytd-normalized scripting format.
 - `raw` is YouTrack API-shaped JSON.
 - `md` is Markdown export where supported.
+- `ytd schema <resource> <action>` shows required and optional JSON fields for commands that accept `--json` or stdin, and does not require login.
 - `--no-meta` suppresses metadata fields where applicable.
 - Successful data goes to stdout; errors, prompts, and diagnostics go to stderr.
 - Tokens and credentials must never be printed.
@@ -211,6 +214,7 @@ Dynamic alias commands are the exception to command-name validation before confi
 - It accepts `--format text` and `--format md`.
 - It rejects `--format json` and `--format raw`.
 - Generated skills include the ytd version, regeneration command, JSON-first automation guidance, and reminders to use `ytd help`, `ytd help <command>`, or `ytd <command> help`.
+- Generated skills remind agents to use `ytd schema <resource> <action>` before guessing JSON fields.
 
 ## Configuration
 

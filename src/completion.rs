@@ -597,6 +597,11 @@ fn path_sibling_blockers(path: &[&str]) -> Vec<&'static str> {
             "list", "current", "get", "create", "update", "delete", "ticket",
         ],
         ["sprint", "ticket"] => vec!["list", "add", "remove"],
+        ["schema"] => vec!["list", "ticket", "article", "board", "sprint"],
+        ["schema", "ticket"]
+        | ["schema", "article"]
+        | ["schema", "board"]
+        | ["schema", "sprint"] => vec!["create", "update"],
         ["completion"] => vec!["bash", "zsh", "fish"],
         _ => vec![],
     }

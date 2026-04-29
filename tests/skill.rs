@@ -62,6 +62,7 @@ fn skill_generates_standard_markdown_without_credentials() {
     assert!(text.contains("ytd --version"));
     assert!(text.contains("ytd skill --scope standard > SKILL.md"));
     assert!(text.contains("Prefer `--format json`"));
+    assert!(text.contains("ytd schema <resource> <action>"));
     assert!(text.contains("ytd comment attach <comment-id> <file>"));
 }
 
@@ -79,6 +80,7 @@ fn full_skill_lists_comment_attach_command() {
     let output = run_ytd(&["skill", "--scope", "full"], &[]);
 
     assert!(output.status.success());
+    assert!(stdout(&output).contains("ytd schema ticket|article|board|sprint create|update"));
     assert!(stdout(&output).contains("ytd comment get|update|attach|attachments|delete"));
     assert!(stderr(&output).is_empty());
 }

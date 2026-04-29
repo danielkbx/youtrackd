@@ -95,6 +95,7 @@ fn render_skill(scope: SkillScope, project: Option<&SkillProjectContext>) -> Str
     }
     push_help_guidance(&mut out);
     push_json_guidance(&mut out);
+    push_schema_guidance(&mut out);
     push_core_commands(&mut out, project);
     push_public_ids(&mut out, project);
     push_safety(&mut out);
@@ -236,6 +237,13 @@ fn push_json_guidance(out: &mut String) {
     );
 }
 
+fn push_schema_guidance(out: &mut String) {
+    out.push_str("## JSON Field Discovery\n\n");
+    out.push_str("- Use `ytd schema <resource> <action>` before creating/updating with JSON.\n");
+    out.push_str("- Before using `--json` or stdin JSON, run `ytd schema <resource> <action>` to inspect required fields, optional fields, flag-vs-JSON precedence, and examples.\n");
+    out.push_str("- JSON-schema discovery is no-auth: `ytd schema`, `ytd schema ticket create`, `ytd schema article update`.\n\n");
+}
+
 fn push_core_commands(out: &mut String, project: Option<&SkillProjectContext>) {
     let optional_project_flag = project
         .map(|p| format!(" --project {}", p.short_name))
@@ -249,6 +257,7 @@ fn push_core_commands(out: &mut String, project: Option<&SkillProjectContext>) {
         "ytd ticket search \"<query>\"{optional_project_flag} --format json\n"
     ));
     out.push_str("ytd ticket get <ticket-id> --format json\n");
+    out.push_str("ytd schema ticket create\n");
     out.push_str(&format!(
         "ytd ticket create{required_project_flag} --json '{{\"summary\":\"...\",\"description\":\"...\"}}'\n"
     ));
@@ -378,6 +387,8 @@ fn push_full_reference(out: &mut String) {
     out.push_str("ytd login / logout / whoami\n");
     out.push_str("ytd project list|get\n");
     out.push_str("ytd user list|get\n");
+    out.push_str("ytd schema [list]\n");
+    out.push_str("ytd schema ticket|article|board|sprint create|update\n");
     out.push_str("ytd article search|list|get|create|update|move|append|comment|comments|attach|attachments|delete\n");
     out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
     out.push_str("ytd comment get|update|attach|attachments|delete\n");
@@ -397,6 +408,7 @@ fn push_full_reference(out: &mut String) {
     out.push_str("- `--format raw` exposes YouTrack API-shaped JSON for debugging.\n");
     out.push_str("- `--no-meta` suppresses metadata where supported.\n");
     out.push_str("- Structured create/update input uses `--json '{...}'` or stdin; stdin takes precedence.\n");
+    out.push_str("- Use `ytd schema <resource> <action>` to inspect JSON fields before using `--json` or stdin.\n");
     out.push_str("- Create/update JSON input must be an object.\n");
     out.push_str("- Delete commands ask for interactive confirmation; non-interactive delete requires `-y`.\n\n");
     out.push_str("## Alias, Board, And Sprint Workflows\n\n");

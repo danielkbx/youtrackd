@@ -66,6 +66,10 @@ fn run() -> Result<(), YtdError> {
 
     let opts = format::OutputOptions::from_flags(&args.flags)?;
 
+    if resource == "schema" {
+        return commands::schema::run(&args, &opts);
+    }
+
     // Validate command before loading config
     let runtime_alias = if is_known_command(resource, action) {
         None
@@ -158,6 +162,10 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
             | ("open", None)
             | ("url", None)
             | ("skill", None)
+            | (
+                "schema",
+                None | Some("list" | "ticket" | "article" | "board" | "sprint")
+            )
             | ("whoami", None)
             | ("config", Some("set" | "get" | "unset"))
             | ("alias", Some("create" | "list" | "delete"))
@@ -265,6 +273,10 @@ mod tests {
         assert!(is_known_command("open", None));
         assert!(is_known_command("url", None));
         assert!(is_known_command("skill", None));
+        assert!(is_known_command("schema", None));
+        assert!(is_known_command("schema", Some("list")));
+        assert!(is_known_command("schema", Some("ticket")));
+        assert!(!is_known_command("schema", Some("foo")));
         assert!(!is_known_command("open", Some("now")));
         assert!(!is_known_command("url", Some("raw")));
         assert!(!is_known_command("skill", Some("generate")));

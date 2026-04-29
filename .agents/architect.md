@@ -22,6 +22,7 @@ src/
     open_target.rs  ← shared web target parsing for open/url
     open.rs         ← open YouTrack web URL in default browser
     url.rs          ← print YouTrack web URL
+    schema.rs       ← no-auth JSON field discovery for commands accepting --json/stdin
     visibility.rs   ← shared visibility flag/default handling
     group.rs        ← group list
     login.rs        ← interactive login flow
@@ -85,6 +86,8 @@ The `sprint` key is optional and omitted when none. Because `alias list` has no 
 Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markdown, no ANSI colors.
 
 `ytd completion <bash|zsh|fish>` is a deliberate top-level no-auth command. It renders static shell completion scripts from `cli_spec.rs`, runs before config loading, writes only the generated script to stdout, and never calls YouTrack.
+
+`ytd schema` is a deliberate top-level no-auth command. It lists commands that accept JSON input and prints ytd's static JSON input contract for `ticket|article|board|sprint create|update`, including required fields, flag precedence, examples, and pass-through caveats.
 
 `ytd skill` is a deliberate top-level no-action command like `open` and `url`. It prints Markdown SKILL.md guidance for AI agents. Without `--project`, it must run before config loading and require no login. With `--project`, it loads config, resolves the project through YouTrack, and embeds resolved project context, including project-specific ticket/article ID examples. The global help must clearly state that AI agents can run `ytd skill` themselves to fetch current guidance. Generated skills must also point agents back to `ytd help` and command-specific help.
 

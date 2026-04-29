@@ -8,6 +8,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Use nested actions only when the target is naturally scoped by another resource, for example `sprint ticket add`.
 - `ytd skill` is a deliberate top-level no-action exception because it prints current SKILL.md guidance for AI agents.
 - `ytd completion <bash|zsh|fish>` is a deliberate top-level no-auth exception because it prints static shell completion scripts to stdout.
+- `ytd schema` is a deliberate top-level no-auth exception because it prints static JSON input contracts for commands accepting `--json` or stdin.
 - Support `ytd help <resource>` and `ytd <resource> help` for every public resource.
 - Validate command/resource/action names before loading config, so typos return "Unknown command" instead of auth errors.
 - Validate global output flags before loading config for formatted commands.
@@ -18,6 +19,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Free text positionals may consume the remaining arguments, for example comment text or worklog text.
 - Structured create/update input uses JSON via `--json` or stdin.
 - Stdin JSON takes precedence over `--json`.
+- Commands accepting JSON input must be documented in `ytd schema`.
 - JSON commands must require a JSON object unless the command explicitly documents another shape.
 - Structured JSON commands must reject unsupported top-level fields unless the command explicitly documents API pass-through behavior.
 - Create commands require all fields needed to create a useful resource.
@@ -41,6 +43,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - `--no-meta` suppresses metadata fields in formatted output where applicable.
 - `ytd skill` is Markdown-first: `--format text` and `--format md` print generated SKILL.md content, while `--format json` and `--format raw` are rejected.
 - `ytd completion` is shell-script-first and supports only the positional shells `bash`, `zsh`, and `fish`; it does not use structured output formats.
+- `ytd schema` supports `--format text` and `--format json`; `raw` and `md` are rejected.
 
 ## Stdout And Stderr
 
@@ -95,4 +98,5 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Any public CLI behavior change must update `src/help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys when affected.
 - Help text and README usage must match parser behavior exactly.
 - `ytd help` and `ytd help skill` must clearly state that AI agents can run `ytd skill` themselves to fetch current ytd guidance. Generated skill content must also tell agents to use `ytd help`, `ytd help <command>`, or `ytd <command> help` before guessing command usage.
+- `ytd help` must clearly advertise `ytd schema <resource> <action>` for JSON field discovery. Generated skill content must tell agents to use schema discovery before guessing JSON fields.
 - If a command has a deliberate exception to these rules, document the exception near the command help and in README.

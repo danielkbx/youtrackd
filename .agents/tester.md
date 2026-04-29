@@ -68,6 +68,13 @@ Completion-specific coverage:
 4. `completion <shell> <extra>` is rejected as an unknown command
 5. `help completion` and `completion help` both document Bash, Zsh, Fish, stdout behavior, and no-login behavior
 
+Schema-specific coverage:
+1. `schema` and `schema list` work without login or config
+2. `schema <resource> <action>` documents JSON fields for ticket/article/board/sprint create/update
+3. `schema --format json` emits stable machine-readable schema metadata
+4. `schema --format raw|md` is rejected with a useful error
+5. `help`, generated skills, and completions advertise schema discovery
+
 ## Rust-specific Test Notes
 
 - Config tests share env vars → use `Mutex` to serialize tests that modify `XDG_CONFIG_HOME` / `YOUTRACK_URL` / `YOUTRACK_TOKEN`
@@ -104,6 +111,7 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 | Sprint Ticket Assignment | `17-sprint-ticket-assignment.md` | sprint ticket list/add/remove, board-scoped sprint IDs, duplicate add, remove errors |
 | Aliases | `18-aliases.md` | user list/get, alias create/list/delete, dynamic alias create/list, config-backed output |
 | Skill Generation | `19-skill-generation.md` | agent SKILL.md generation, scopes, version/update instructions, project context |
+| Schema Discovery | `20-schema-discovery.md` | no-auth JSON field discovery for commands accepting --json/stdin |
 
 **Cleanup-Regeln**: Tickets und Artikel per `delete -y` löschen, Tags vor Delete entfernen. Details in `PROCESS.md`.
 Boards per `board delete -y` löschen.
@@ -125,7 +133,7 @@ When extending the ticket/article journeys, include visibility coverage for inhe
 
 **Aliases**: Journey 18 must use an isolated `YTD_CONFIG` file with valid credentials so alias create/list/delete does not mutate the user's normal config. Alias config stores only IDs; names and readable labels must not be persisted in `aliases`.
 
-**Skill Generation**: Journey 19 is review-oriented rather than exact-text oriented. It must verify that generated skills include valid frontmatter, JSON-first agent guidance, help lookup guidance (`ytd help`, `ytd help <command>`, `ytd <command> help`), current ytd version, regeneration instructions with the same effective scope, and resolved project context/examples when `--project` is used.
+**Skill Generation**: Journey 19 is review-oriented rather than exact-text oriented. It must verify that generated skills include valid frontmatter, JSON-first agent guidance, schema discovery guidance (`ytd schema <resource> <action>`), help lookup guidance (`ytd help`, `ytd help <command>`, `ytd <command> help`), current ytd version, regeneration instructions with the same effective scope, and resolved project context/examples when `--project` is used.
 
 ## Conventions
 

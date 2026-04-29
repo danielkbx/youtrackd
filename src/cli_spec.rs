@@ -151,6 +151,7 @@ pub fn cli_spec() -> CommandSpec {
                 vec![],
                 vec![],
             ),
+            schema_command(),
             leaf("whoami", "Show current user"),
             command(
                 "config",
@@ -451,6 +452,35 @@ fn article_command() -> CommandSpec {
             attach_command("article-id"),
             attachments_command("article-id"),
             delete_command("article-id"),
+        ],
+    )
+}
+
+fn schema_command() -> CommandSpec {
+    command(
+        "schema",
+        "Show JSON input schemas",
+        vec![],
+        vec![],
+        vec![
+            leaf("list", "List JSON input schemas"),
+            schema_resource_command("ticket"),
+            schema_resource_command("article"),
+            schema_resource_command("board"),
+            schema_resource_command("sprint"),
+        ],
+    )
+}
+
+fn schema_resource_command(resource: &'static str) -> CommandSpec {
+    command(
+        resource,
+        "Show JSON input schema for resource",
+        vec![],
+        vec![],
+        vec![
+            leaf("create", "Show create JSON schema"),
+            leaf("update", "Show update JSON schema"),
         ],
     )
 }
@@ -964,6 +994,7 @@ mod tests {
                 "url",
                 "open",
                 "skill",
+                "schema",
                 "whoami",
                 "config",
                 "group",

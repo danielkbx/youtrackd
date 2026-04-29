@@ -89,5 +89,6 @@ Empfohlene Reihenfolge:
 17. `17-sprint-ticket-assignment.md` — sprint ticket list/add/remove mit board-scoped sprint IDs
 18. `18-aliases.md` — User-Auflösung, Alias-Konfiguration und dynamische Alias-Kommandos
 19. `19-skill-generation.md` — generierte Agent-Skills, Scopes und Projektkontext
+20. `20-schema-discovery.md` — JSON-Feldentdeckung ohne Login oder Config
 
 Sprint ticket assignment journeys must remove assigned tickets from test sprints before deleting the sprint when possible, then delete ticket, sprint, and board.

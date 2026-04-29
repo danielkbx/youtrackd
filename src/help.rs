@@ -7,6 +7,7 @@ pub fn print_help(resource: Option<&str>, _action: Option<&str>) {
         Some("logout") => println!("Usage: ytd logout\n\nRemove stored credentials."),
         Some("open") => print_open_help(),
         Some("completion") => print_completion_help(),
+        Some("schema") => print_schema_help(),
         Some("skill") => print_skill_help(),
         Some("whoami") => println!("Usage: ytd whoami\n\nShow current user info."),
         Some("config") => print_config_help(),
@@ -42,6 +43,11 @@ fn print_global_help() {
             ("url <target>", "Print web URL"),
             ("open <target>", "Open web URL in browser"),
             ("completion <bash|zsh|fish>", "Generate shell completions"),
+            ("schema", "List commands with JSON input schemas"),
+            (
+                "schema <resource> <action>",
+                "Show JSON fields for one command",
+            ),
             ("whoami", "Show current user"),
         ],
     );
@@ -188,6 +194,9 @@ fn print_global_help() {
     ]);
     println!("\nAI agents can run `ytd skill` to get current ytd usage instructions.");
     println!("Use `ytd skill --project <project>` for project-specific examples.");
+    println!(
+        "Run `ytd schema <resource> <action>` to inspect JSON fields before using --json or stdin."
+    );
     println!("\nRun `ytd help <command>` for command-specific help.");
 }
 
@@ -292,6 +301,23 @@ Examples:
     );
 }
 
+fn print_schema_help() {
+    println!(
+        "Usage:
+  ytd schema
+  ytd schema list
+  ytd schema <ticket|article|board|sprint> <create|update> [--format text|json]
+
+Show JSON input fields for commands that accept --json or stdin.
+This command does not require login.
+
+Examples:
+  ytd schema
+  ytd schema ticket create
+  ytd schema article update --format json"
+    );
+}
+
 fn print_project_help() {
     println!(
         "Usage:
@@ -359,6 +385,7 @@ fn print_article_help() {
 
 Create/update print only the article ID on stdout.
 Create/update JSON supports summary, content, and parentArticle. Use parentArticle.id with a reusable readable article ID. Unknown article JSON fields are rejected. Use parentArticle:null on update, or article move <id> none, to clear the parent.
+Run `ytd schema article create` or `ytd schema article update` for JSON field details.
 article move prints only the moved article ID on stdout.
 Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
@@ -393,6 +420,7 @@ fn print_ticket_help() {
 Durations: 30m, 1h, 2h30m, 90 (plain number = minutes)
 Create/update print only the ticket ID on stdout.
 Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
+Run `ytd schema ticket create` or `ytd schema ticket update` for JSON field details.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
 
 Text output for ticket search/list/get and linked or sprint tickets is specialized:
@@ -472,7 +500,8 @@ fn print_board_help() {
 For create, --project sets the board projects and accepts short names or database IDs.
 Templates: kanban, scrum, version, custom, personal.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
-Use --json or stdin for advanced YouTrack Agile fields."
+Use --json or stdin for advanced YouTrack Agile fields.
+Run `ytd schema board create` or `ytd schema board update` for JSON field details."
     );
 }
 
@@ -496,6 +525,7 @@ current is not accepted as a sprint-id.
 Sprint ticket commands list, add, and remove tickets in a sprint.
 Sprint ticket list text output uses the same compact ticket format as ticket list.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
-Use --json or stdin for advanced YouTrack sprint fields."
+Use --json or stdin for advanced YouTrack sprint fields.
+Run `ytd schema sprint create` or `ytd schema sprint update` for JSON field details."
     );
 }

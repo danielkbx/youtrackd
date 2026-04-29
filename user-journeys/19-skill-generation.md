@@ -34,6 +34,7 @@ Review:
   - standard file uses `--scope standard`
   - full file uses `--scope full`
 - Each file tells agents to prefer `--format json` for machine-readable work.
+- Each file tells agents to use `ytd schema <resource> <action>` before guessing JSON fields.
 - Each file tells agents to use `ytd help`, `ytd help <command>`, or `ytd <command> help` before guessing command details.
 
 ## 2. Scope Review
@@ -76,6 +77,7 @@ Read the generated skill files as an AI agent would. The journey passes when the
 - Does this skill explain how to keep itself current?
 - Does it clearly say to regenerate when installed `ytd` is newer than the skill version?
 - Does it clearly prefer JSON output for agent automation?
+- Does it tell agents to use schema discovery before creating or updating with JSON?
 - Does it tell agents how to look up global and command-specific help?
 - Does it give enough project context when `--project` was used?
 - Does the level of detail match the requested scope?
