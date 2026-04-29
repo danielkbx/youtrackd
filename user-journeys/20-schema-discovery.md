@@ -1,11 +1,12 @@
 # Journey 20: Schema Discovery
 
-Purpose: verify that humans and agents can discover JSON input fields without login or config. This journey is read-only and creates no YouTrack resources.
+Purpose: verify that humans and agents can discover JSON input fields. Static schema discovery works without login or config; project-specific ticket schema discovery requires login and reads project custom field metadata. This journey is read-only and creates no YouTrack resources.
 
 ## Scope
 
 - No YouTrack mutation.
-- No login or config required.
+- Static schema steps require no login or config.
+- Project-specific schema steps require valid credentials and `$PROJECT`.
 - Verifies `ytd schema` output for commands that accept `--json` or stdin JSON.
 
 ## 1. List Schemas Without Login
@@ -33,8 +34,24 @@ env -u YOUTRACK_URL -u YOUTRACK_TOKEN YTD_CONFIG=/tmp/nonexistent-ytd-config ytd
 Expected:
 
 - Exit code 0.
-- Output includes `summary`, `description`, `--project`, and `stdin takes precedence`.
-- Output explains that ytd only consumes `summary` and `description`.
+- Output includes `summary`, `description`, `customFields`, `tags`, `--project`, and `stdin takes precedence`.
+- Output explains that unknown ticket JSON fields are rejected and JSON `project` is not accepted.
+
+## 2a. Project-Specific Ticket Fields
+
+Run:
+
+```bash
+ytd schema ticket create --project $PROJECT --format json
+```
+
+Expected:
+
+- Exit code 0.
+- Output parses with `jq`.
+- JSON has `project.shortName` matching `$PROJECT` or the resolved project short name.
+- JSON includes `projectFields` and `projectExamples`.
+- Typical projects include examples for fields such as `Assignee`, `Priority`, `Type`, or `State` when those fields are attached to the project.
 
 ## 3. Article Update JSON Schema
 

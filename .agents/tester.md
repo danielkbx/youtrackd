@@ -71,9 +71,10 @@ Completion-specific coverage:
 Schema-specific coverage:
 1. `schema` and `schema list` work without login or config
 2. `schema <resource> <action>` documents JSON fields for ticket/article/board/sprint create/update
-3. `schema --format json` emits stable machine-readable schema metadata
-4. `schema --format raw|md` is rejected with a useful error
-5. `help`, generated skills, and completions advertise schema discovery
+3. `schema ticket create|update --project <project>` requires login and includes project custom field examples
+4. `schema --format json` emits stable machine-readable schema metadata
+5. `schema --format raw|md` is rejected with a useful error
+6. `help`, generated skills, and completions advertise schema discovery
 
 ## Rust-specific Test Notes
 

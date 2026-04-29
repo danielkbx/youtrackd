@@ -67,7 +67,10 @@ fn run() -> Result<(), YtdError> {
     let opts = format::OutputOptions::from_flags(&args.flags)?;
 
     if resource == "schema" {
-        return commands::schema::run(&args, &opts);
+        if !args.flags.contains_key("project") {
+            return commands::schema::run(&args, &opts);
+        }
+        commands::schema::validate(&opts)?;
     }
 
     // Validate command before loading config
@@ -115,6 +118,7 @@ fn run() -> Result<(), YtdError> {
     }
 
     match resource {
+        "schema" => commands::schema::run_project(&client, &args, &opts),
         "whoami" => commands::whoami::run(&client, &opts),
         "group" => commands::group::run(&client, &args, &opts),
         "project" => commands::project::run(&client, &args, &opts),

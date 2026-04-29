@@ -397,10 +397,11 @@ ytd skill [--scope brief|standard|full] [--project <project>]
 
 ```bash
 ytd schema [list]
-ytd schema <ticket|article|board|sprint> <create|update>
+ytd schema [--project <project>]
+ytd schema <ticket|article|board|sprint> <create|update> [--project <project>]
 ```
 
-`ytd schema` shows the JSON input contract for commands that accept `--json` or stdin. It works without login and supports `--format text` and `--format json`.
+`ytd schema` shows the JSON input contract for commands that accept `--json` or stdin. Static schema discovery works without login; `--project` requires login and adds ticket custom field examples. It supports `--format text` and `--format json`.
 
 ## Working With Output
 
@@ -443,8 +444,8 @@ Common JSON commands:
 
 | Command | Required input |
 |---|---|
-| `ticket create` | `--project` and JSON `summary` |
-| `ticket update` | At least one JSON field or an explicit visibility flag |
+| `ticket create` | `--project` and JSON `summary`; allowed JSON fields are `summary`, `description`, `customFields`, `tags` |
+| `ticket update` | At least one JSON field or an explicit visibility flag; allowed JSON fields are `summary`, `description`, `customFields`, `tags` |
 | `article create` | `--project` and JSON `summary`; allowed JSON fields are `summary`, `content`, `parentArticle` |
 | `article update` | At least one JSON field or an explicit visibility flag; allowed JSON fields are `summary`, `content`, `parentArticle` |
 | `board create` | `--name` and `--project`, or equivalent JSON |
@@ -461,15 +462,23 @@ ytd sprint update 108-4:113-6 --json '{"goal":"Finish onboarding"}'
 
 ## JSON Schema / Field Discovery
 
-Use `ytd schema` to discover the JSON input contract before using `--json` or stdin. This command does not require login.
+Use `ytd schema` to discover the JSON input contract before using `--json` or stdin. Static schema discovery does not require login.
 
 ```bash
 ytd schema
+ytd schema --project PROJ
 ytd schema ticket create
+ytd schema ticket create --project PROJ
 ytd schema article update --format json
 ```
 
-`ytd schema <resource> <action>` shows required flags, required and optional JSON fields, flag-vs-JSON precedence rules, examples, and pass-through caveats for board and sprint advanced fields.
+`ytd schema <resource> <action>` shows required flags, required and optional JSON fields, flag-vs-JSON precedence rules, examples, and pass-through caveats for board and sprint advanced fields. Without `--project`, schema discovery is static and requires no login. With `--project`, ytd resolves the project, requires login, and adds ticket custom field examples based on the project's YouTrack field configuration.
+
+Ticket `customFields` uses YouTrack API shape:
+
+```bash
+ytd ticket create --project PROJ --json '{"summary":"Fix login","customFields":[{"name":"Assignee","$type":"SingleUserIssueCustomField","value":{"login":"jane.doe"}}]}'
+```
 
 ## Common Workflows
 

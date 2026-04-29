@@ -54,9 +54,20 @@ fn ticket_create_schema_includes_fields_and_examples() {
     let text = stdout(&output);
     assert!(text.contains("summary"));
     assert!(text.contains("description"));
+    assert!(text.contains("customFields"));
+    assert!(text.contains("tags"));
     assert!(text.contains("--project"));
     assert!(text.contains("stdin takes precedence"));
     assert!(text.contains("ytd ticket create --project PROJ"));
+}
+
+#[test]
+fn project_schema_requires_login() {
+    let output = run_ytd(&["schema", "ticket", "create", "--project", "PROJ"]);
+
+    assert!(!output.status.success());
+    assert_eq!(stdout(&output), "");
+    assert!(stderr(&output).contains("Not logged in"));
 }
 
 #[test]
@@ -96,6 +107,15 @@ fn board_create_schema_labels_pass_through() {
 fn schema_rejects_raw_and_md_formats() {
     let raw = run_ytd(&["schema", "sprint", "update", "--format", "raw"]);
     let md = run_ytd(&["schema", "sprint", "update", "--format", "md"]);
+    let project_raw = run_ytd(&[
+        "schema",
+        "ticket",
+        "create",
+        "--project",
+        "PROJ",
+        "--format",
+        "raw",
+    ]);
 
     assert!(!raw.status.success());
     assert_eq!(stdout(&raw), "");
@@ -107,6 +127,12 @@ fn schema_rejects_raw_and_md_formats() {
     assert_eq!(stdout(&md), "");
     assert_eq!(
         stderr(&md),
+        "ytd schema only supports --format text or --format json\n"
+    );
+    assert!(!project_raw.status.success());
+    assert_eq!(stdout(&project_raw), "");
+    assert_eq!(
+        stderr(&project_raw),
         "ytd schema only supports --format text or --format json\n"
     );
 }

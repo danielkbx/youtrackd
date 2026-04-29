@@ -556,6 +556,8 @@ fn runtime_create<T: HttpTransport>(
         },
         summary: text,
         description: None,
+        custom_fields: None,
+        tags: None,
         visibility: visibility::build_create_visibility_input(client, args)?,
     };
     let issue = client.create_issue(&input)?;

@@ -522,6 +522,22 @@ impl<T: HttpTransport> YtClient<T> {
         )
     }
 
+    pub fn list_project_custom_fields(
+        &self,
+        project_id: &str,
+    ) -> Result<Vec<ProjectCustomField>, YtdError> {
+        self.get(
+            &format!("/admin/projects/{project_id}/customFields"),
+            &[
+                (
+                    "fields",
+                    "id,name,field(id,name,fieldType(id,valueType,isMultiValue)),canBeEmpty,emptyFieldText,isPublic,bundle(values(id,name,login,fullName,presentation,$type)),$type",
+                ),
+                ("$top", "500"),
+            ],
+        )
+    }
+
     // --- Articles ---
 
     pub fn search_articles(
@@ -1671,6 +1687,31 @@ mod tests {
     }
 
     #[test]
+    fn list_project_custom_fields_requests_project_field_metadata() {
+        let client = test_client(vec![
+            r#"[{"id":"92-1","field":{"id":"58-1","name":"Assignee","fieldType":{"id":"user[1]","valueType":"user","isMultiValue":false}},"canBeEmpty":true,"$type":"UserProjectCustomField"}]"#,
+        ]);
+
+        let fields = client.list_project_custom_fields("0-96").unwrap();
+
+        assert_eq!(
+            fields[0].field.as_ref().unwrap().name.as_deref(),
+            Some("Assignee")
+        );
+        assert_eq!(
+            fields[0].field_type.as_deref(),
+            Some("UserProjectCustomField")
+        );
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request
+            .url
+            .contains("/api/admin/projects/0-96/customFields?"));
+        assert!(request.url.contains("field%28id%2Cname%2CfieldType"));
+        assert!(request.url.contains("%24top=500"));
+    }
+
+    #[test]
     fn create_issue() {
         let client = test_client(vec![r#"{"id":"2-1","idReadable":"TEST-1"}"#]);
         let input = CreateIssueInput {
@@ -1681,6 +1722,8 @@ mod tests {
             },
             summary: "Test".into(),
             description: None,
+            custom_fields: None,
+            tags: None,
             visibility: None,
         };
         let issue = client.create_issue(&input).unwrap();
@@ -1698,6 +1741,8 @@ mod tests {
             },
             summary: "Restricted".into(),
             description: Some("Secret".into()),
+            custom_fields: None,
+            tags: None,
             visibility: Some(LimitedVisibilityInput {
                 visibility_type: "LimitedVisibility",
                 permitted_groups: vec![UserGroupInput { id: "3-7".into() }],
@@ -1733,6 +1778,8 @@ mod tests {
         let input = UpdateIssueInput {
             summary: None,
             description: Some("Visible again".into()),
+            custom_fields: None,
+            tags: None,
             visibility: Some(LimitedVisibilityInput {
                 visibility_type: "LimitedVisibility",
                 permitted_groups: vec![],

@@ -460,7 +460,12 @@ fn schema_command() -> CommandSpec {
     command(
         "schema",
         "Show JSON input schemas",
-        vec![],
+        vec![option_value(
+            "project",
+            "Resolve project-specific ticket custom field examples",
+            "project",
+            &[],
+        )],
         vec![],
         vec![
             leaf("list", "List JSON input schemas"),
@@ -479,8 +484,30 @@ fn schema_resource_command(resource: &'static str) -> CommandSpec {
         vec![],
         vec![],
         vec![
-            leaf("create", "Show create JSON schema"),
-            leaf("update", "Show update JSON schema"),
+            command(
+                "create",
+                "Show create JSON schema",
+                vec![option_value(
+                    "project",
+                    "Resolve project-specific ticket custom field examples",
+                    "project",
+                    &[],
+                )],
+                vec![],
+                vec![],
+            ),
+            command(
+                "update",
+                "Show update JSON schema",
+                vec![option_value(
+                    "project",
+                    "Resolve project-specific ticket custom field examples",
+                    "project",
+                    &[],
+                )],
+                vec![],
+                vec![],
+            ),
         ],
     )
 }

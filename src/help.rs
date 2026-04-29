@@ -306,14 +306,17 @@ fn print_schema_help() {
         "Usage:
   ytd schema
   ytd schema list
-  ytd schema <ticket|article|board|sprint> <create|update> [--format text|json]
+  ytd schema [--project <project>]
+  ytd schema <ticket|article|board|sprint> <create|update> [--project <project>] [--format text|json]
 
 Show JSON input fields for commands that accept --json or stdin.
-This command does not require login.
+Without --project this command does not require login.
+With --project it resolves the project and adds ticket custom field examples.
 
 Examples:
   ytd schema
   ytd schema ticket create
+  ytd schema ticket create --project PROJ
   ytd schema article update --format json"
     );
 }
@@ -420,7 +423,8 @@ fn print_ticket_help() {
 Durations: 30m, 1h, 2h30m, 90 (plain number = minutes)
 Create/update print only the ticket ID on stdout.
 Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
-Run `ytd schema ticket create` or `ytd schema ticket update` for JSON field details.
+Ticket JSON supports summary, description, customFields, and tags. customFields uses YouTrack API shape.
+Run `ytd schema ticket create --project <project>` or `ytd schema ticket update --project <project>` for project custom field examples.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
 
 Text output for ticket search/list/get and linked or sprint tickets is specialized:

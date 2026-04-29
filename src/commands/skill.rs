@@ -241,7 +241,8 @@ fn push_schema_guidance(out: &mut String) {
     out.push_str("## JSON Field Discovery\n\n");
     out.push_str("- Use `ytd schema <resource> <action>` before creating/updating with JSON.\n");
     out.push_str("- Before using `--json` or stdin JSON, run `ytd schema <resource> <action>` to inspect required fields, optional fields, flag-vs-JSON precedence, and examples.\n");
-    out.push_str("- JSON-schema discovery is no-auth: `ytd schema`, `ytd schema ticket create`, `ytd schema article update`.\n\n");
+    out.push_str("- Static JSON-schema discovery is no-auth: `ytd schema`, `ytd schema ticket create`, `ytd schema article update`.\n");
+    out.push_str("- For ticket custom fields, use `ytd schema ticket create --project <project>` or `ytd schema ticket update --project <project>` to get project-specific API-shaped `customFields` examples.\n\n");
 }
 
 fn push_core_commands(out: &mut String, project: Option<&SkillProjectContext>) {
@@ -388,7 +389,7 @@ fn push_full_reference(out: &mut String) {
     out.push_str("ytd project list|get\n");
     out.push_str("ytd user list|get\n");
     out.push_str("ytd schema [list]\n");
-    out.push_str("ytd schema ticket|article|board|sprint create|update\n");
+    out.push_str("ytd schema ticket|article|board|sprint create|update [--project <project>]\n");
     out.push_str("ytd article search|list|get|create|update|move|append|comment|comments|attach|attachments|delete\n");
     out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
     out.push_str("ytd comment get|update|attach|attachments|delete\n");

@@ -8,7 +8,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Use nested actions only when the target is naturally scoped by another resource, for example `sprint ticket add`.
 - `ytd skill` is a deliberate top-level no-action exception because it prints current SKILL.md guidance for AI agents.
 - `ytd completion <bash|zsh|fish>` is a deliberate top-level no-auth exception because it prints static shell completion scripts to stdout.
-- `ytd schema` is a deliberate top-level no-auth exception because it prints static JSON input contracts for commands accepting `--json` or stdin.
+- `ytd schema` without `--project` is a deliberate top-level no-auth exception because it prints static JSON input contracts for commands accepting `--json` or stdin.
 - Support `ytd help <resource>` and `ytd <resource> help` for every public resource.
 - Validate command/resource/action names before loading config, so typos return "Unknown command" instead of auth errors.
 - Validate global output flags before loading config for formatted commands.
@@ -20,8 +20,10 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Structured create/update input uses JSON via `--json` or stdin.
 - Stdin JSON takes precedence over `--json`.
 - Commands accepting JSON input must be documented in `ytd schema`.
+- `ytd schema` without `--project` is static and no-auth; `ytd schema --project <project>` may load auth config and call YouTrack to include project-specific ticket custom field examples.
 - JSON commands must require a JSON object unless the command explicitly documents another shape.
 - Structured JSON commands must reject unsupported top-level fields unless the command explicitly documents API pass-through behavior.
+- Ticket create/update JSON accepts only `summary`, `description`, `customFields`, and `tags`; `customFields` and `tags` use YouTrack API shape.
 - Create commands require all fields needed to create a useful resource.
 - Update commands require at least one actual update field or an explicit update flag such as `--visibility-group` or `--no-visibility-group`.
 - Boolean/destructive confirmation uses flags, not JSON.

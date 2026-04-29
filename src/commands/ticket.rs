@@ -9,6 +9,8 @@ use crate::input;
 use crate::types::*;
 use std::path::Path;
 
+const TICKET_JSON_FIELDS: &[&str] = &["customFields", "description", "summary", "tags"];
+
 pub fn run<T: HttpTransport>(
     client: &YtClient<T>,
     args: &ParsedArgs,
@@ -153,6 +155,7 @@ fn build_create_issue_input<T: HttpTransport>(
     args: &ParsedArgs,
     json: &serde_json::Value,
 ) -> Result<CreateIssueInput, YtdError> {
+    validate_ticket_json_fields(json)?;
     let project = args
         .flags
         .get("project")
@@ -173,6 +176,8 @@ fn build_create_issue_input<T: HttpTransport>(
             .get("description")
             .and_then(|v| v.as_str())
             .map(String::from),
+        custom_fields: json.get("customFields").cloned(),
+        tags: json.get("tags").cloned(),
         visibility: visibility::build_create_visibility_input(client, args)?,
     })
 }
@@ -182,6 +187,7 @@ fn build_update_issue_input<T: HttpTransport>(
     args: &ParsedArgs,
     json: &serde_json::Value,
 ) -> Result<UpdateIssueInput, YtdError> {
+    validate_ticket_json_fields(json)?;
     let summary = json
         .get("summary")
         .and_then(|v| v.as_str())
@@ -190,9 +196,16 @@ fn build_update_issue_input<T: HttpTransport>(
         .get("description")
         .and_then(|v| v.as_str())
         .map(String::from);
+    let custom_fields = json.get("customFields").cloned();
+    let tags = json.get("tags").cloned();
     let visibility = visibility::build_explicit_update_visibility_input(client, args)?;
 
-    if summary.is_none() && description.is_none() && visibility.is_none() {
+    if summary.is_none()
+        && description.is_none()
+        && custom_fields.is_none()
+        && tags.is_none()
+        && visibility.is_none()
+    {
         return Err(YtdError::Input(
             "At least one update field is required. Use JSON fields or explicit visibility flags."
                 .into(),
@@ -202,8 +215,31 @@ fn build_update_issue_input<T: HttpTransport>(
     Ok(UpdateIssueInput {
         summary,
         description,
+        custom_fields,
+        tags,
         visibility,
     })
+}
+
+fn validate_ticket_json_fields(json: &serde_json::Value) -> Result<(), YtdError> {
+    let obj = json
+        .as_object()
+        .ok_or_else(|| YtdError::Input("JSON input must be an object".into()))?;
+    let mut unknown: Vec<&str> = obj
+        .keys()
+        .map(String::as_str)
+        .filter(|key| !TICKET_JSON_FIELDS.contains(key))
+        .collect();
+    unknown.sort_unstable();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    Err(YtdError::Input(format!(
+        "Unknown ticket JSON field{}: {}. Allowed fields: {}",
+        if unknown.len() == 1 { "" } else { "s" },
+        unknown.join(", "),
+        TICKET_JSON_FIELDS.join(", ")
+    )))
 }
 
 fn cmd_comment<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
@@ -1447,6 +1483,106 @@ mod tests {
         assert!(input.visibility.is_none());
 
         clear_env();
+    }
+
+    #[test]
+    fn build_create_issue_input_forwards_custom_fields_and_tags() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("create".into()),
+            positional: vec![],
+            flags: [("project".to_string(), "DEMO".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let json = serde_json::json!({
+            "summary": "Custom",
+            "customFields": [{
+                "name": "Assignee",
+                "$type": "SingleUserIssueCustomField",
+                "value": {"login": "jane.doe"}
+            }],
+            "tags": [{"name": "backend"}]
+        });
+
+        let client = test_client(vec![]);
+        let input = build_create_issue_input(&client, &args, &json).unwrap();
+        assert_eq!(input.custom_fields, json.get("customFields").cloned());
+        assert_eq!(input.tags, json.get("tags").cloned());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_update_issue_input_allows_only_custom_fields() {
+        let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner());
+        clear_env();
+
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("update".into()),
+            positional: vec!["DEMO-1".into()],
+            flags: Default::default(),
+        };
+        let json = serde_json::json!({
+            "customFields": [{
+                "name": "Priority",
+                "$type": "SingleEnumIssueCustomField",
+                "value": {"name": "Critical"}
+            }]
+        });
+
+        let client = test_client(vec![]);
+        let input = build_update_issue_input(&client, &args, &json).unwrap();
+        assert_eq!(input.custom_fields, json.get("customFields").cloned());
+        assert!(input.summary.is_none());
+        assert!(input.description.is_none());
+
+        clear_env();
+    }
+
+    #[test]
+    fn build_create_issue_input_rejects_json_project() {
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("create".into()),
+            positional: vec![],
+            flags: [("project".to_string(), "DEMO".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let json = serde_json::json!({
+            "summary": "Custom",
+            "project": {"id": "0-1"}
+        });
+
+        let client = test_client(vec![]);
+        let err = build_create_issue_input(&client, &args, &json).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Unknown ticket JSON field: project. Allowed fields: customFields, description, summary, tags"
+        );
+    }
+
+    #[test]
+    fn build_update_issue_input_rejects_unknown_ticket_field() {
+        let args = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("update".into()),
+            positional: vec!["DEMO-1".into()],
+            flags: Default::default(),
+        };
+        let json = serde_json::json!({"unknown": true});
+
+        let client = test_client(vec![]);
+        let err = build_update_issue_input(&client, &args, &json).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Unknown ticket JSON field: unknown. Allowed fields: customFields, description, summary, tags"
+        );
     }
 
     #[test]

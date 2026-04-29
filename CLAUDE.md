@@ -44,7 +44,8 @@ ytd url <target>
 ytd open <target>
 ytd completion <bash|zsh|fish>
 ytd schema [list]
-ytd schema <ticket|article|board|sprint> <create|update>
+ytd schema [--project <project>]
+ytd schema <ticket|article|board|sprint> <create|update> [--project <project>]
 ytd skill [--scope brief|standard|full] [--project <project>]
 
 ytd config set visibility-group <group>
@@ -140,7 +141,8 @@ Public command behavior is governed by `.agents/io-consistency.md`.
 - `json` is the stable ytd-normalized scripting format.
 - `raw` is YouTrack API-shaped JSON.
 - `md` is Markdown export where supported.
-- `ytd schema <resource> <action>` shows required and optional JSON fields for commands that accept `--json` or stdin, and does not require login.
+- `ytd schema <resource> <action>` shows required and optional JSON fields for commands that accept `--json` or stdin, and does not require login unless `--project` is provided.
+- `ytd schema ticket create --project <project>` and `ytd schema ticket update --project <project>` resolve project custom fields and include API-shaped `customFields` examples.
 - `--no-meta` suppresses metadata fields where applicable.
 - Successful data goes to stdout; errors, prompts, and diagnostics go to stderr.
 - Tokens and credentials must never be printed.

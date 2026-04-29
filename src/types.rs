@@ -75,6 +75,50 @@ pub struct Project {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProjectCustomField {
+    pub id: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub field: Option<CustomFieldPrototype>,
+    #[serde(default)]
+    pub can_be_empty: Option<bool>,
+    #[serde(default)]
+    pub empty_field_text: Option<String>,
+    #[serde(default)]
+    pub is_public: Option<bool>,
+    #[serde(default)]
+    pub bundle: Option<CustomFieldBundle>,
+    #[serde(default, rename = "$type")]
+    pub field_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomFieldPrototype {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    #[serde(default)]
+    pub field_type: Option<CustomFieldType>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomFieldType {
+    pub id: Option<String>,
+    pub value_type: Option<String>,
+    pub is_multi_value: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomFieldBundle {
+    #[serde(default)]
+    pub values: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectRef {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub id: String,
@@ -879,6 +923,10 @@ pub struct CreateIssueInput {
     pub summary: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(rename = "customFields", skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visibility: Option<LimitedVisibilityInput>,
 }
@@ -890,6 +938,10 @@ pub struct UpdateIssueInput {
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(rename = "customFields", skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visibility: Option<LimitedVisibilityInput>,
 }

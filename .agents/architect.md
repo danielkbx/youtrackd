@@ -87,7 +87,7 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 
 `ytd completion <bash|zsh|fish>` is a deliberate top-level no-auth command. It renders static shell completion scripts from `cli_spec.rs`, runs before config loading, writes only the generated script to stdout, and never calls YouTrack.
 
-`ytd schema` is a deliberate top-level no-auth command. It lists commands that accept JSON input and prints ytd's static JSON input contract for `ticket|article|board|sprint create|update`, including required fields, flag precedence, examples, and pass-through caveats.
+`ytd schema` is a deliberate top-level no-auth command when run without `--project`. It lists commands that accept JSON input and prints ytd's static JSON input contract for `ticket|article|board|sprint create|update`, including required fields, flag precedence, examples, and pass-through caveats. With `--project`, it loads auth config, resolves the project, and augments ticket create/update schemas with project custom field metadata from `/api/admin/projects/{projectID}/customFields`.
 
 `ytd skill` is a deliberate top-level no-action command like `open` and `url`. It prints Markdown SKILL.md guidance for AI agents. Without `--project`, it must run before config loading and require no login. With `--project`, it loads config, resolves the project through YouTrack, and embeds resolved project context, including project-specific ticket/article ID examples. The global help must clearly state that AI agents can run `ytd skill` themselves to fetch current guidance. Generated skills must also point agents back to `ytd help` and command-specific help.
 
