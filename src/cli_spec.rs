@@ -423,6 +423,13 @@ fn article_command() -> CommandSpec {
                 vec![],
             ),
             command(
+                "dump",
+                "Dump project articles as Markdown files",
+                vec![option_value("project", "Project ID", "id", &[])],
+                vec![positional("dir", "Output directory", false, &[])],
+                vec![],
+            ),
+            command(
                 "append",
                 "Append article text",
                 vec![],

@@ -584,7 +584,7 @@ impl<T: HttpTransport> YtClient<T> {
             &[
                 (
                     "fields",
-                    "id,idReadable,summary,updated,project(id,shortName,name)",
+                    "id,idReadable,summary,updated,project(id,shortName,name),parentArticle(id,idReadable,summary)",
                 ),
                 ("$top", "500"),
             ],
@@ -2373,7 +2373,7 @@ mod tests {
         assert_eq!(requests[1].method, "GET");
         assert_eq!(
             requests[1].url,
-            "https://test.youtrack.cloud/api/admin/projects/0-96/articles?fields=id%2CidReadable%2Csummary%2Cupdated%2Cproject%28id%2CshortName%2Cname%29&%24top=500"
+            "https://test.youtrack.cloud/api/admin/projects/0-96/articles?fields=id%2CidReadable%2Csummary%2Cupdated%2Cproject%28id%2CshortName%2Cname%29%2CparentArticle%28id%2CidReadable%2Csummary%29&%24top=500"
         );
     }
 

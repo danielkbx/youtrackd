@@ -218,7 +218,33 @@ ytd article list --project $PROJECT
 
 **Erwartung**: `$ARTICLE_ID` und `$DEFAULT_ARTICLE_ID` sind in der Liste im Feld `id` enthalten. Es gibt kein Feld `idReadable`; falls eine rohe YouTrack-Datenbank-ID ausgegeben wird, heißt sie `ytId`.
 
-### 18. Artikel als Markdown abrufen
+### 18. Artikel-Hierarchie dumpen
+
+```
+ytd article move $ARTICLE_ID $PARENT_ARTICLE_ID
+ytd article create --project $PROJECT --json '{"summary": "[YTD-TEST] Article Lifecycle Sibling", "content": "Sibling fuer Dump-Hierarchie."}'
+ytd article create --project $PROJECT --json '{"summary": "[YTD-TEST] Article Lifecycle Nested Child", "content": "Nested Child fuer Dump-Hierarchie."}'
+```
+
+**Erwartung**: Das Move-Kommando gibt `$ARTICLE_ID` aus. Die beiden Create-Kommandos geben jeweils nur die Artikel-ID aus. Merke sie als `$SIBLING_ARTICLE_ID` und `$NESTED_ARTICLE_ID`.
+
+```
+ytd article move $SIBLING_ARTICLE_ID $PARENT_ARTICLE_ID
+ytd article move $NESTED_ARTICLE_ID $ARTICLE_ID
+ytd article dump --project $PROJECT /tmp/ytd-test-article-dump
+```
+
+**Erwartung**: Die beiden Move-Kommandos geben jeweils die verschobene Artikel-ID aus. Dump-Kommando gibt eine Zahl aus. Im Verzeichnis `/tmp/ytd-test-article-dump` existiert eine Markdown-Datei fuer den Parent-Artikel und darunter ein Unterverzeichnis mit Markdown-Dateien fuer `$ARTICLE_ID` und `$SIBLING_ARTICLE_ID`. Unter der Datei von `$ARTICLE_ID` existiert ein weiteres Unterverzeichnis mit einer Markdown-Datei fuer `$NESTED_ARTICLE_ID`. Dateinamen enthalten die lesbaren Artikel-IDs. Die Datei fuer `$ARTICLE_ID` beginnt mit `# [YTD-TEST] Article Lifecycle Test (updated)`, enthält Frontmatter-Kommentar mit `id: $ARTICLE_ID` und `parent: $PARENT_ARTICLE_ID`, und enthält den Artikelinhalt. Die Datei fuer `$NESTED_ARTICLE_ID` enthält `parent: $ARTICLE_ID`.
+
+```
+ytd article move $NESTED_ARTICLE_ID none
+ytd article move $SIBLING_ARTICLE_ID none
+ytd article move $ARTICLE_ID none
+```
+
+**Erwartung**: Gibt jeweils die Artikel-ID aus und stellt den Cleanup-Zustand ohne Parent wieder her.
+
+### 19. Artikel als Markdown abrufen
 
 ```
 ytd article get $ARTICLE_ID --format md
@@ -226,7 +252,7 @@ ytd article get $ARTICLE_ID --format md
 
 **Erwartung**: Ausgabe beginnt mit `# [YTD-TEST] Article Lifecycle Test (updated)` (H1 aus Summary). Danach folgt der Content als Markdown-Body.
 
-### 19. Artikel als Markdown in Datei schreiben
+### 20. Artikel als Markdown in Datei schreiben
 
 ```
 ytd article get $ARTICLE_ID --format md > /tmp/ytd-test-article.md
@@ -237,8 +263,11 @@ ytd article get $ARTICLE_ID --format md > /tmp/ytd-test-article.md
 ## Cleanup
 
 ```
+ytd article delete $NESTED_ARTICLE_ID -y
+ytd article delete $SIBLING_ARTICLE_ID -y
 ytd article delete $ARTICLE_ID -y
 ytd article delete $DEFAULT_ARTICLE_ID -y
 ytd article delete $PARENT_ARTICLE_ID -y
 rm -f /tmp/ytd-test-article.md
+rm -rf /tmp/ytd-test-article-dump
 ```

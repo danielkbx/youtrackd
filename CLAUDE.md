@@ -65,6 +65,7 @@ ytd article get <id> [--no-comments]
 ytd article create --project <id> --json '...'
 ytd article update <id> --json '...'
 ytd article move <id> <parent-id|none>
+ytd article dump --project <id> <dir>
 ytd article append <id> <text>
 ytd article comment <id> <text> [--visibility-group <group> | --no-visibility-group]
 ytd article comments <id>

@@ -370,6 +370,9 @@ fn push_recipes(out: &mut String, project: Option<&SkillProjectContext>) {
     out.push_str("- Clear an article parent: `ytd article update <article-id> --json '{\"parentArticle\":null}'`.\n");
     out.push_str("- Shortcut for article hierarchy changes: `ytd article move <article-id> <parent-article-id>` or `ytd article move <article-id> none`.\n");
     out.push_str("- Export an article as Markdown: `ytd article get <article-id> --format md > article.md`.\n");
+    out.push_str(&format!(
+        "- Dump project articles as Markdown files: `ytd article dump{required_project_flag} <dir>` preserves article hierarchy as directories.\n"
+    ));
     out.push_str("- List current sprints: `ytd sprint current --format json`.\n");
     out.push_str("- Log work: `ytd ticket log <ticket-id> 30m \"work summary\"`.\n\n");
 }
@@ -390,7 +393,7 @@ fn push_full_reference(out: &mut String) {
     out.push_str("ytd user list|get\n");
     out.push_str("ytd schema [list]\n");
     out.push_str("ytd schema ticket|article|board|sprint create|update [--project <project>]\n");
-    out.push_str("ytd article search|list|get|create|update|move|append|comment|comments|attach|attachments|delete\n");
+    out.push_str("ytd article search|list|get|create|update|move|dump|append|comment|comments|attach|attachments|delete\n");
     out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
     out.push_str("ytd comment get|update|attach|attachments|delete\n");
     out.push_str("ytd attachment get|delete|download\n");
@@ -607,6 +610,13 @@ mod tests {
         assert!(!brief.contains("## Common Recipes"));
         assert!(standard.contains("## Common Recipes"));
         assert!(full.contains("## Command Reference"));
+    }
+
+    #[test]
+    fn skill_documents_article_dump() {
+        let text = render_skill(SkillScope::Full, None);
+        assert!(text.contains("ytd article dump --project <project> <dir>"));
+        assert!(text.contains("search|list|get|create|update|move|dump|append"));
     }
 
     #[test]
