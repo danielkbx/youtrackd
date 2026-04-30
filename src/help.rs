@@ -104,6 +104,10 @@ fn print_global_help() {
                 "article move <id> <parent|none>",
                 "Move article in hierarchy",
             ),
+            (
+                "article dump --project <id> <dir>",
+                "Dump articles to Markdown files",
+            ),
             ("article append <id> <t>", "Append text to article"),
             ("article comment <id> <t>", "Add comment to article"),
             ("article comments <id>", "List article comments"),
@@ -379,6 +383,7 @@ fn print_article_help() {
   ytd article update <id> --json '{{\"summary\":\"...\",\"content\":\"...\",\"parentArticle\":{{\"id\":\"PROJ-A-1\"}}}}' [--visibility-group <group> | --no-visibility-group]
   ytd article update <id> --json '{{\"parentArticle\":null}}'
   ytd article move <id> <parent-id|none>
+  ytd article dump --project <id> <dir>
   ytd article append <id> <text>
   ytd article comment <id> <text> [--visibility-group <group> | --no-visibility-group]
   ytd article comments <id>
@@ -390,6 +395,7 @@ Create/update print only the article ID on stdout.
 Create/update JSON supports summary, content, and parentArticle. Use parentArticle.id with a reusable readable article ID. Unknown article JSON fields are rejected. Use parentArticle:null on update, or article move <id> none, to clear the parent.
 Run `ytd schema article create` or `ytd schema article update` for JSON field details.
 article move prints only the moved article ID on stdout.
+article dump writes one Markdown file per article, preserving parentArticle hierarchy as directories. Files are named '<id> - <summary>.md' with filesystem-unsafe characters replaced. It prints only the number of dumped articles on stdout.
 Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
 Text output renders Markdown content as readable terminal text with ASCII tables and prints content after metadata, after a blank line and without a field label. Use article get --no-comments to omit comments from text, json, raw, or md output."

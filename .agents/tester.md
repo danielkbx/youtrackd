@@ -95,7 +95,7 @@ End-to-End-Tests, die ein AI-Agent gegen eine echte YouTrack-Instanz ausführt. 
 |---|---|---|
 | Auth & Projekte | `01-auth-and-projects.md` | whoami, project list/get, --format, --no-meta |
 | Ticket-Lifecycle | `02-ticket-lifecycle.md` | ticket create/get/update/comment/search/list |
-| Artikel-Lifecycle | `03-article-lifecycle.md` | article create/get/update/move/append/comment/comments/search/list |
+| Artikel-Lifecycle | `03-article-lifecycle.md` | article create/get/update/move/dump/append/comment/comments/search/list |
 | Tags & Links | `04-tags-and-links.md` | tag list, ticket tag/untag/link/links |
 | Attachments | `05-attachments.md` | ticket/article/comment attach/attachments, global attachment get/delete/download, comment attachment listing |
 | Time Tracking | `06-time-tracking.md` | ticket log/worklog |

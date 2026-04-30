@@ -284,6 +284,7 @@ ytd article create --project <id> --json '{"summary":"...","content":"...","pare
 ytd article update <id> --json '{"summary":"...","content":"...","parentArticle":{"id":"PROJ-A-1"}}'
 ytd article update <id> --json '{"parentArticle":null}'
 ytd article move <id> <parent-id|none>
+ytd article dump --project <id> <dir>
 ytd article append <id> <text>
 ytd article comment <id> <text>
 ytd article comments <id>
@@ -294,7 +295,7 @@ ytd article delete <id> [-y]
 
 Use `parentArticle.id` with the reusable readable article ID. `parentArticle: null` on update clears the parent article. `article move <id> <parent-id>` is a shortcut for changing the parent, and `article move <id> none` clears it. `article get --format json` includes normalized `parentArticle` data with public `id`, raw `ytId`, and `summary`; `--format raw` includes YouTrack-shaped `parentArticle(id,idReadable,summary)`.
 
-Use `--format md` with `article get` when you want a Markdown export.
+Use `--format md` with `article get` when you want a single Markdown export. Use `article dump --project <id> <dir>` to export all project articles as Markdown files. The dump preserves article hierarchy as directories and names files `<id> - <summary>.md`.
 
 ### Comments
 
@@ -502,6 +503,12 @@ ytd ticket log PROJ-42 45m --date 2026-04-25
 
 ```bash
 ytd article get PROJ-A-1 --format md > article.md
+```
+
+### Dump A Knowledge Base
+
+```bash
+ytd article dump --project PROJ ./kb-dump
 ```
 
 ### Update A Comment

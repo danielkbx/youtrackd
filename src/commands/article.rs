@@ -6,7 +6,11 @@ use crate::error::YtdError;
 use crate::format::{self, OutputOptions};
 use crate::input;
 use crate::types::*;
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 
 pub fn run<T: HttpTransport>(
     client: &YtClient<T>,
@@ -81,6 +85,7 @@ pub fn run<T: HttpTransport>(
             println!("{}", article.id_readable.unwrap_or(article.id));
             Ok(())
         }
+        Some("dump") => cmd_dump(client, args),
         Some("append") => {
             let id = args.positional.first()
                 .ok_or_else(|| YtdError::Input("Usage: ytd article append <id> <text>".into()))?;
@@ -152,8 +157,38 @@ pub fn run<T: HttpTransport>(
             }
             Ok(())
         }
-        _ => Err(YtdError::Input("Usage: ytd article <search|list|get|create|update|move|append|comment|comments|attach|attachments|delete>".into())),
+        _ => Err(YtdError::Input("Usage: ytd article <search|list|get|create|update|move|dump|append|comment|comments|attach|attachments|delete>".into())),
     }
+}
+
+fn cmd_dump<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
+    let project = args
+        .flags
+        .get("project")
+        .ok_or_else(|| YtdError::Input("Usage: ytd article dump --project <id> <dir>".into()))?;
+    let dir = args
+        .positional
+        .first()
+        .ok_or_else(|| YtdError::Input("Usage: ytd article dump --project <id> <dir>".into()))?;
+    if args.positional.len() > 1 {
+        return Err(YtdError::Input(
+            "Usage: ytd article dump --project <id> <dir>".into(),
+        ));
+    }
+
+    let root = Path::new(dir);
+    fs::create_dir_all(root)?;
+
+    let summaries = client.list_articles(project)?;
+    let mut articles = Vec::with_capacity(summaries.len());
+    for article in summaries {
+        let id = article.id_readable.as_deref().unwrap_or(&article.id);
+        articles.push(client.get_article(id)?);
+    }
+
+    let dumped = dump_articles(root, articles)?;
+    println!("{dumped}");
+    Ok(())
 }
 
 fn remove_comments_if_requested(value: &mut serde_json::Value, args: &ParsedArgs) {
@@ -317,6 +352,182 @@ fn build_parent_article_input<T: HttpTransport>(
     ))
 }
 
+#[derive(Debug, Clone)]
+struct ArticleDumpItem {
+    id: String,
+    yt_id: String,
+    summary: String,
+    content: String,
+    updated: Option<u64>,
+    parent_id: Option<String>,
+    parent_yt_id: Option<String>,
+    parent_summary: Option<String>,
+}
+
+impl From<Article> for ArticleDumpItem {
+    fn from(article: Article) -> Self {
+        let parent = article.parent_article.map(article_ref_output);
+        Self {
+            id: article.id_readable.unwrap_or_else(|| article.id.clone()),
+            yt_id: article.id,
+            summary: article.summary.unwrap_or_else(|| "Untitled".into()),
+            content: article.content.unwrap_or_default(),
+            updated: article.updated,
+            parent_id: parent.as_ref().map(|parent| parent.id.clone()),
+            parent_yt_id: parent.as_ref().map(|parent| parent.yt_id.clone()),
+            parent_summary: parent.and_then(|parent| parent.summary),
+        }
+    }
+}
+
+fn dump_articles(root: &Path, articles: Vec<Article>) -> Result<usize, YtdError> {
+    let items: Vec<ArticleDumpItem> = articles.into_iter().map(ArticleDumpItem::from).collect();
+    let by_id: HashMap<String, ArticleDumpItem> = items
+        .iter()
+        .cloned()
+        .map(|article| (article.id.clone(), article))
+        .collect();
+    let by_yt_id: HashMap<String, String> = items
+        .iter()
+        .map(|article| (article.yt_id.clone(), article.id.clone()))
+        .collect();
+
+    let mut used_paths = HashSet::new();
+    for article in &items {
+        let path = article_dump_path(article, root, &by_id, &by_yt_id, &mut vec![]);
+        let unique = unique_markdown_path(path, &mut used_paths);
+        if let Some(parent) = unique.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut file = fs::File::create(&unique)?;
+        file.write_all(render_article_dump(article).as_bytes())?;
+    }
+
+    Ok(items.len())
+}
+
+fn article_dump_path(
+    article: &ArticleDumpItem,
+    root: &Path,
+    by_id: &HashMap<String, ArticleDumpItem>,
+    by_yt_id: &HashMap<String, String>,
+    stack: &mut Vec<String>,
+) -> PathBuf {
+    let mut path = if stack.contains(&article.id) {
+        root.to_path_buf()
+    } else if let Some(parent_id) = resolve_dump_parent_id(article, by_id, by_yt_id) {
+        if let Some(parent) = by_id.get(parent_id) {
+            stack.push(article.id.clone());
+            let mut parent_path = article_dump_path(parent, root, by_id, by_yt_id, stack);
+            stack.pop();
+            parent_path.set_extension("");
+            parent_path
+        } else {
+            root.to_path_buf()
+        }
+    } else {
+        root.to_path_buf()
+    };
+
+    path.push(article_dump_stem(article));
+    path.set_extension("md");
+    path
+}
+
+fn resolve_dump_parent_id<'a>(
+    article: &'a ArticleDumpItem,
+    by_id: &'a HashMap<String, ArticleDumpItem>,
+    by_yt_id: &'a HashMap<String, String>,
+) -> Option<&'a String> {
+    if let Some(parent_id) = &article.parent_id {
+        if by_id.contains_key(parent_id) {
+            return Some(parent_id);
+        }
+    }
+    article
+        .parent_yt_id
+        .as_ref()
+        .and_then(|id| by_yt_id.get(id))
+}
+
+fn article_dump_stem(article: &ArticleDumpItem) -> String {
+    sanitize_path_segment(&format!("{} - {}", article.id, article.summary))
+}
+
+fn sanitize_path_segment(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    let mut last_was_space = false;
+    for ch in value.chars() {
+        let replacement = match ch {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '-',
+            ch if ch.is_control() => '-',
+            ch => ch,
+        };
+
+        if replacement.is_whitespace() {
+            if !last_was_space {
+                out.push(' ');
+            }
+            last_was_space = true;
+        } else {
+            out.push(replacement);
+            last_was_space = false;
+        }
+    }
+
+    let trimmed = out.trim().trim_matches('.').to_string();
+    if trimmed.is_empty() {
+        "untitled".into()
+    } else {
+        trimmed.chars().take(120).collect()
+    }
+}
+
+fn unique_markdown_path(path: PathBuf, used: &mut HashSet<PathBuf>) -> PathBuf {
+    if used.insert(path.clone()) {
+        return path;
+    }
+
+    let parent = path.parent().map(Path::to_path_buf).unwrap_or_default();
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("article");
+
+    for index in 2.. {
+        let candidate = parent.join(format!("{stem} ({index}).md"));
+        if used.insert(candidate.clone()) {
+            return candidate;
+        }
+    }
+    unreachable!()
+}
+
+fn render_article_dump(article: &ArticleDumpItem) -> String {
+    let mut out = String::new();
+    out.push_str("# ");
+    out.push_str(&article.summary);
+    out.push_str("\n\n<!--\n");
+    out.push_str(&format!("id: {}\n", article.id));
+    out.push_str(&format!("ytId: {}\n", article.yt_id));
+    if let Some(parent) = &article.parent_id {
+        out.push_str(&format!("parent: {parent}\n"));
+    }
+    if let Some(parent_yt_id) = &article.parent_yt_id {
+        out.push_str(&format!("parentYtId: {parent_yt_id}\n"));
+    }
+    if let Some(parent_summary) = &article.parent_summary {
+        out.push_str(&format!("parentSummary: {parent_summary}\n"));
+    }
+    if let Some(updated) = article.updated {
+        out.push_str(&format!("updated: {updated}\n"));
+    }
+    out.push_str("-->\n\n");
+    out.push_str(article.content.trim());
+    out.push('\n');
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -428,6 +639,98 @@ mod tests {
         remove_comments_if_requested(&mut value, &args);
 
         assert!(value.get("comments").is_some());
+    }
+
+    #[test]
+    fn sanitize_path_segment_replaces_unsafe_characters() {
+        assert_eq!(
+            sanitize_path_segment(" DWP-A-1: Root/Article? "),
+            "DWP-A-1- Root-Article-"
+        );
+        assert_eq!(sanitize_path_segment("..."), "untitled");
+    }
+
+    #[test]
+    fn dump_articles_preserves_parent_hierarchy() {
+        let dir = tempfile::tempdir().unwrap();
+        let articles = vec![
+            Article {
+                id: "109-1".into(),
+                id_readable: Some("DWP-A-1".into()),
+                summary: Some("Root".into()),
+                content: Some("Root body".into()),
+                created: None,
+                updated: Some(1),
+                reporter: None,
+                project: None,
+                visibility: None,
+                parent_article: None,
+            },
+            Article {
+                id: "109-2".into(),
+                id_readable: Some("DWP-A-2".into()),
+                summary: Some("Child".into()),
+                content: Some("Child body".into()),
+                created: None,
+                updated: Some(2),
+                reporter: None,
+                project: None,
+                visibility: None,
+                parent_article: Some(ArticleRef {
+                    id: "109-1".into(),
+                    id_readable: Some("DWP-A-1".into()),
+                    summary: Some("Root".into()),
+                }),
+            },
+        ];
+
+        let count = dump_articles(dir.path(), articles).unwrap();
+
+        assert_eq!(count, 2);
+        let root_file = dir.path().join("DWP-A-1 - Root.md");
+        let child_file = dir.path().join("DWP-A-1 - Root").join("DWP-A-2 - Child.md");
+        assert!(root_file.exists(), "missing {}", root_file.display());
+        assert!(child_file.exists(), "missing {}", child_file.display());
+        let child = std::fs::read_to_string(child_file).unwrap();
+        assert!(child.contains("# Child"));
+        assert!(child.contains("parent: DWP-A-1"));
+        assert!(child.contains("Child body"));
+    }
+
+    #[test]
+    fn dump_articles_disambiguates_duplicate_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let articles = vec![
+            Article {
+                id: "109-1".into(),
+                id_readable: Some("DWP-A-1".into()),
+                summary: Some("Same".into()),
+                content: None,
+                created: None,
+                updated: None,
+                reporter: None,
+                project: None,
+                visibility: None,
+                parent_article: None,
+            },
+            Article {
+                id: "109-2".into(),
+                id_readable: Some("DWP-A-1".into()),
+                summary: Some("Same".into()),
+                content: None,
+                created: None,
+                updated: None,
+                reporter: None,
+                project: None,
+                visibility: None,
+                parent_article: None,
+            },
+        ];
+
+        dump_articles(dir.path(), articles).unwrap();
+
+        assert!(dir.path().join("DWP-A-1 - Same.md").exists());
+        assert!(dir.path().join("DWP-A-1 - Same (2).md").exists());
     }
 
     #[test]
