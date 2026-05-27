@@ -597,6 +597,16 @@ fn ticket_command() -> CommandSpec {
                 vec![],
             ),
             command(
+                "unlink",
+                "Unlink ticket",
+                vec![option_value("type", "Link type", "type", &[])],
+                vec![
+                    positional("ticket-id", "Ticket ID", false, &[]),
+                    positional("target", "Target ticket", false, &[]),
+                ],
+                vec![],
+            ),
+            command(
                 "links",
                 "List ticket links",
                 vec![],
@@ -1094,6 +1104,7 @@ mod tests {
         let paths = cli_spec().command_paths();
 
         assert!(paths.contains(&vec!["config", "set"]));
+        assert!(paths.contains(&vec!["ticket", "unlink"]));
         assert!(paths.contains(&vec!["sprint", "ticket", "list"]));
         assert!(paths.contains(&vec!["sprint", "ticket", "add"]));
         assert!(paths.contains(&vec!["sprint", "ticket", "remove"]));

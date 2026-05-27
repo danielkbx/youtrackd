@@ -83,6 +83,7 @@ ytd ticket comments <id>
 ytd ticket tag <id> <tag>
 ytd ticket untag <id> <tag>
 ytd ticket link <id> <target> [--type <type>]
+ytd ticket unlink <id> <target> [--type <type>]
 ytd ticket links <id>
 ytd ticket attach <id> <file>
 ytd ticket attachments <id>

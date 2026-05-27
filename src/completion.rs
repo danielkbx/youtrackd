@@ -567,6 +567,7 @@ fn path_sibling_blockers(path: &[&str]) -> Vec<&'static str> {
             "tag",
             "untag",
             "link",
+            "unlink",
             "links",
             "attach",
             "attachments",
@@ -702,6 +703,17 @@ mod tests {
                     "{shell} completion output is missing {value}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn ticket_unlink_appears_in_generated_output() {
+        for shell in crate::cli_spec::COMPLETION_SHELLS {
+            let output = render(shell);
+            assert!(
+                output.contains("unlink"),
+                "{shell} completion output is missing unlink"
+            );
         }
     }
 

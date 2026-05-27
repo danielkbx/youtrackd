@@ -207,6 +207,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "tag"
                         | "untag"
                         | "link"
+                        | "unlink"
                         | "links"
                         | "attach"
                         | "attachments"
@@ -297,6 +298,7 @@ mod tests {
         assert!(is_known_command("comment", Some("delete")));
         assert!(is_known_command("comment", Some("attachments")));
         assert!(is_known_command("ticket", Some("comments")));
+        assert!(is_known_command("ticket", Some("unlink")));
         assert!(!is_known_command("comment", Some("create")));
     }
 

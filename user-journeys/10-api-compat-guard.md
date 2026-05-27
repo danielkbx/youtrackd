@@ -229,7 +229,24 @@ ytd ticket links $LINK_TARGET_ID
 
 **Erwartung**: Beide Ausgaben referenzieren jeweils das andere Ticket.
 
-### 19. Zeit auf Ticket buchen
+### 19. Link entfernen
+
+```
+ytd ticket unlink $TICKET_ID $LINK_TARGET_ID --type "relates to"
+```
+
+**Erwartung**: Exit-Code 0.
+
+### 20. Entfernten Link in beide Richtungen verifizieren
+
+```
+ytd ticket links $TICKET_ID
+ytd ticket links $LINK_TARGET_ID
+```
+
+**Erwartung**: Die Ausgaben referenzieren das jeweils andere Ticket nicht mehr.
+
+### 21. Zeit auf Ticket buchen
 
 ```
 ytd ticket log $TICKET_ID 30m "[YTD-TEST] API Compat Guard Worklog"
@@ -237,7 +254,7 @@ ytd ticket log $TICKET_ID 30m "[YTD-TEST] API Compat Guard Worklog"
 
 **Erwartung**: Exit-Code 0.
 
-### 20. Worklog strukturiert verifizieren
+### 22. Worklog strukturiert verifizieren
 
 ```
 ytd ticket worklog $TICKET_ID --format raw

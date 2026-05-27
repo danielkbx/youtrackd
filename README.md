@@ -261,6 +261,7 @@ Ticket management commands:
 ytd ticket tag <id> <tag>
 ytd ticket untag <id> <tag>
 ytd ticket link <id> <target> [--type <type>]
+ytd ticket unlink <id> <target> [--type <type>]
 ytd ticket links <id>
 ytd ticket attach <id> <file>
 ytd ticket attachments <id>
@@ -418,6 +419,8 @@ Global output flags:
 | `-y` | Confirm delete commands without prompting |
 
 Text output renders Markdown content as readable terminal text. Ticket lists, saved search results, sprint ticket lists, and ticket links use compact ticket rows. `ticket get` and `article get` show details first, then the description or content.
+
+`ticket link` and `ticket unlink` default to the link type `relates to` when `--type` is omitted.
 
 Article detail output includes parent article metadata when present.
 

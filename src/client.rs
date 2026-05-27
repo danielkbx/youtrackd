@@ -959,6 +959,17 @@ impl<T: HttpTransport> YtClient<T> {
         ])
     }
 
+    pub fn delete_issue_link(
+        &self,
+        issue_id: &str,
+        link_id: &str,
+        target_issue_database_id: &str,
+    ) -> Result<(), YtdError> {
+        self.delete(&format!(
+            "/issues/{issue_id}/links/{link_id}/issues/{target_issue_database_id}"
+        ))
+    }
+
     pub fn apply_command(&self, issue_id: &str, command: &str) -> Result<(), YtdError> {
         let body = serde_json::json!({
             "query": command,
@@ -1973,6 +1984,20 @@ mod tests {
             .url
             .contains("issues%28id%2CidReadable%2Csummary%2Cupdated%2Cresolved"));
         assert!(request.url.contains("customFields%28id%2Cname%2C%24type"));
+    }
+
+    #[test]
+    fn delete_issue_link_uses_specific_link_issue_endpoint() {
+        let client = test_client(vec![]);
+
+        client.delete_issue_link("DWP-12", "80-0", "2-99").unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "DELETE");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/links/80-0/issues/2-99"
+        );
     }
 
     #[test]

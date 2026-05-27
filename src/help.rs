@@ -129,6 +129,7 @@ fn print_global_help() {
             ("ticket tag <id> <tag>", "Add tag"),
             ("ticket untag <id> <tag>", "Remove tag"),
             ("ticket link <id> <t>", "Link to another ticket"),
+            ("ticket unlink <id> <t>", "Remove link to another ticket"),
             ("ticket links <id>", "Show links"),
             ("ticket attach <id> <f>", "Attach file"),
             ("ticket attachments <id>", "List attachments"),
@@ -415,6 +416,7 @@ fn print_ticket_help() {
   ytd ticket tag <id> <tag>
   ytd ticket untag <id> <tag>
   ytd ticket link <id> <target> [--type <linktype>]
+  ytd ticket unlink <id> <target> [--type <linktype>]
   ytd ticket links <id>
   ytd ticket attach <id> <file>
   ytd ticket attachments <id>

@@ -27,6 +27,7 @@ pub fn run<T: HttpTransport>(
         Some("tag") => cmd_tag(client, args),
         Some("untag") => cmd_untag(client, args),
         Some("link") => cmd_link(client, args),
+        Some("unlink") => cmd_unlink(client, args),
         Some("links") => cmd_links(client, args, opts),
         Some("attach") => cmd_attach(client, args),
         Some("attachments") => cmd_attachments(client, args, opts),
@@ -37,7 +38,7 @@ pub fn run<T: HttpTransport>(
         Some("history") => cmd_history(client, args, opts),
         Some("sprints") => cmd_sprints(client, args, opts),
         Some("delete") => cmd_delete(client, args),
-        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|links|attach|attachments|log|worklog|set|fields|history|sprints|delete>".into())),
+        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|attach|attachments|log|worklog|set|fields|history|sprints|delete>".into())),
     }
 }
 
@@ -327,6 +328,92 @@ fn cmd_link<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result
     let command = format!("{link_type} {target}");
     client.apply_command(id, &command)?;
     Ok(())
+}
+
+fn cmd_unlink<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
+    let id = require_id(args)?;
+    let target = args
+        .positional
+        .get(1)
+        .ok_or_else(|| YtdError::Input("Target ticket ID is required".into()))?;
+    let link_type = args
+        .flags
+        .get("type")
+        .map(|s| s.as_str())
+        .unwrap_or("relates to");
+
+    let links = client.list_issue_links(id)?;
+    let (link_id, target_database_id) = find_issue_link_to_unlink(&links, id, target, link_type)?;
+    client.delete_issue_link(id, link_id, target_database_id)?;
+    Ok(())
+}
+
+fn find_issue_link_to_unlink<'a>(
+    links: &'a [IssueLink],
+    source: &str,
+    target: &str,
+    link_type: &str,
+) -> Result<(&'a str, &'a str), YtdError> {
+    let link = links
+        .iter()
+        .find(|link| {
+            link_type_matches(link, link_type)
+                && link
+                    .issues
+                    .as_ref()
+                    .map(|issues| {
+                        issues
+                            .iter()
+                            .any(|issue| linked_issue_matches(issue, target))
+                    })
+                    .unwrap_or(false)
+        })
+        .ok_or_else(|| {
+            YtdError::Input(format!(
+                "Link not found: {source} -> {target} (type: {link_type})"
+            ))
+        })?;
+
+    let link_id = link
+        .id
+        .as_deref()
+        .ok_or_else(|| YtdError::Input(format!("Issue link has no ID for type: {link_type}")))?;
+    let target_database_id = link
+        .issues
+        .as_ref()
+        .and_then(|issues| {
+            issues
+                .iter()
+                .find(|issue| linked_issue_matches(issue, target))
+        })
+        .map(|issue| issue.id.as_str())
+        .filter(|id| !id.is_empty())
+        .ok_or_else(|| YtdError::Input(format!("Linked issue has no database ID: {target}")))?;
+
+    Ok((link_id, target_database_id))
+}
+
+fn link_type_matches(link: &IssueLink, requested: &str) -> bool {
+    let Some(link_type) = link.link_type.as_ref() else {
+        return false;
+    };
+    [
+        link_type.name.as_deref(),
+        link_type.source_to_target.as_deref(),
+        link_type.target_to_source.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|value| value.eq_ignore_ascii_case(requested))
+}
+
+fn linked_issue_matches(issue: &Issue, target: &str) -> bool {
+    issue.id.eq_ignore_ascii_case(target)
+        || issue
+            .id_readable
+            .as_deref()
+            .map(|id| id.eq_ignore_ascii_case(target))
+            .unwrap_or(false)
 }
 
 fn cmd_links<T: HttpTransport>(
@@ -1359,6 +1446,159 @@ mod tests {
 
         let rendered = render_issue_links_text(&links);
         assert_eq!(rendered, "No linked tickets.\n");
+    }
+
+    #[test]
+    fn find_issue_link_to_unlink_matches_source_to_target() {
+        let links = vec![IssueLink {
+            id: Some("80-0".into()),
+            direction: Some("OUTWARD".into()),
+            link_type: Some(IssueLinkType {
+                id: Some("74-0".into()),
+                name: Some("Relates".into()),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some("relates to".into()),
+            }),
+            issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
+        }];
+
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates to").unwrap();
+
+        assert_eq!(found, ("80-0", "2-14"));
+    }
+
+    #[test]
+    fn find_issue_link_to_unlink_matches_target_to_source() {
+        let links = vec![IssueLink {
+            id: Some("80-0".into()),
+            direction: Some("INWARD".into()),
+            link_type: Some(IssueLinkType {
+                id: Some("74-0".into()),
+                name: Some("Depend".into()),
+                source_to_target: Some("is required for".into()),
+                target_to_source: Some("depends on".into()),
+            }),
+            issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
+        }];
+
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "depends on").unwrap();
+
+        assert_eq!(found, ("80-0", "2-14"));
+    }
+
+    #[test]
+    fn find_issue_link_to_unlink_matches_link_type_name() {
+        let links = vec![IssueLink {
+            id: Some("80-0".into()),
+            direction: Some("OUTWARD".into()),
+            link_type: Some(IssueLinkType {
+                id: Some("74-0".into()),
+                name: Some("Relates".into()),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some("relates to".into()),
+            }),
+            issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
+        }];
+
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates").unwrap();
+
+        assert_eq!(found, ("80-0", "2-14"));
+    }
+
+    #[test]
+    fn find_issue_link_to_unlink_accepts_raw_target_id() {
+        let links = vec![IssueLink {
+            id: Some("80-0".into()),
+            direction: Some("OUTWARD".into()),
+            link_type: Some(IssueLinkType {
+                id: Some("74-0".into()),
+                name: Some("Relates".into()),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some("relates to".into()),
+            }),
+            issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
+        }];
+
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "2-14", "relates to").unwrap();
+
+        assert_eq!(found, ("80-0", "2-14"));
+    }
+
+    #[test]
+    fn find_issue_link_to_unlink_errors_when_missing() {
+        let links = vec![IssueLink {
+            id: Some("80-0".into()),
+            direction: Some("OUTWARD".into()),
+            link_type: Some(IssueLinkType {
+                id: Some("74-0".into()),
+                name: Some("Relates".into()),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some("relates to".into()),
+            }),
+            issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
+        }];
+
+        let error =
+            find_issue_link_to_unlink(&links, "DWP-12", "DWP-99", "relates to").unwrap_err();
+
+        assert!(error.to_string().contains("Link not found"));
+    }
+
+    #[test]
+    fn find_issue_link_to_unlink_errors_without_link_id() {
+        let links = vec![IssueLink {
+            id: None,
+            direction: Some("OUTWARD".into()),
+            link_type: Some(IssueLinkType {
+                id: Some("74-0".into()),
+                name: Some("Relates".into()),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some("relates to".into()),
+            }),
+            issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
+        }];
+
+        let error =
+            find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates to").unwrap_err();
+
+        assert!(error.to_string().contains("Issue link has no ID"));
+    }
+
+    #[test]
+    fn find_issue_link_to_unlink_errors_without_target_database_id() {
+        let links = vec![IssueLink {
+            id: Some("80-0".into()),
+            direction: Some("OUTWARD".into()),
+            link_type: Some(IssueLinkType {
+                id: Some("74-0".into()),
+                name: Some("Relates".into()),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some("relates to".into()),
+            }),
+            issues: Some(vec![sample_issue("", Some("DWP-14"), Some("Target"))]),
+        }];
+
+        let error =
+            find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates to").unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("Linked issue has no database ID"));
+    }
+
+    #[test]
+    fn cmd_unlink_requires_target_ticket_id() {
+        let parsed = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("unlink".into()),
+            positional: vec!["DWP-12".into()],
+            flags: Default::default(),
+        };
+        let client = test_client(vec![]);
+
+        let error = cmd_unlink(&client, &parsed).unwrap_err();
+
+        assert!(error.to_string().contains("Target ticket ID is required"));
     }
 
     #[test]

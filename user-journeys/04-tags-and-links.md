@@ -1,6 +1,6 @@
 # Journey 4: Tags & Links
 
-Testet: `tag list`, `ticket tag`, `ticket untag`, `ticket link`, `ticket links`
+Testet: `tag list`, `ticket tag`, `ticket untag`, `ticket link`, `ticket unlink`, `ticket links`
 
 ## Vorbereitung
 
@@ -93,6 +93,41 @@ ytd ticket links $TICKET_B
 ```
 
 **Erwartung**: Enthält `$TICKET_A` im kompakten Ticketformat.
+
+### 11. Link entfernen
+
+```
+ytd ticket unlink $TICKET_A $TICKET_B --type "relates to"
+```
+
+**Erwartung**: Exit-Code 0.
+
+### 12. Entfernten Link in beide Richtungen verifizieren
+
+```
+ytd ticket links $TICKET_A
+ytd ticket links $TICKET_B
+```
+
+**Erwartung**: Die Ausgaben enthalten das jeweils andere Ticket nicht mehr als `relates to`-Link.
+
+### 13. Default-Linktyp beim Entfernen verifizieren
+
+```
+ytd ticket link $TICKET_A $TICKET_B
+ytd ticket unlink $TICKET_A $TICKET_B
+```
+
+**Erwartung**: Beide Kommandos beenden sich mit Exit-Code 0. Ohne `--type` wird der Default-Linktyp `relates to` verwendet.
+
+### 14. Default-Unlink verifizieren
+
+```
+ytd ticket links $TICKET_A
+ytd ticket links $TICKET_B
+```
+
+**Erwartung**: Die Ausgaben enthalten das jeweils andere Ticket nicht mehr als `relates to`-Link.
 
 ## Cleanup
 

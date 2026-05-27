@@ -38,6 +38,10 @@ Article parent assignment accepts `parentArticle` in create/update payloads, but
 
 Specific comment get/update/delete operations require the parent issue or article path. A raw comment ID is not enough to address a comment.
 
+## Issue Link Removal
+
+Issue link removal uses `DELETE /api/issues/{issueID}/links/{linkID}/issues/{targetIssueDatabaseID}`. The final issue path segment needs the internal target issue database ID, which can be read from `GET /api/issues/{issueID}/links` as the linked issue `id`.
+
 ## Parent-Scoped Attachments
 
 Attachment get/delete/download operations require the parent issue or article path, even when YouTrack reports the attachment on a comment.
