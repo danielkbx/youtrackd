@@ -569,6 +569,7 @@ fn path_sibling_blockers(path: &[&str]) -> Vec<&'static str> {
             "link",
             "unlink",
             "links",
+            "link-types",
             "attach",
             "attachments",
             "log",

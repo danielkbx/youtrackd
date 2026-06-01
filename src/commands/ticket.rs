@@ -29,6 +29,7 @@ pub fn run<T: HttpTransport>(
         Some("link") => cmd_link(client, args),
         Some("unlink") => cmd_unlink(client, args),
         Some("links") => cmd_links(client, args, opts),
+        Some("link-types") => cmd_link_types(client, opts),
         Some("attach") => cmd_attach(client, args),
         Some("attachments") => cmd_attachments(client, args, opts),
         Some("log") => cmd_log(client, args),
@@ -38,7 +39,7 @@ pub fn run<T: HttpTransport>(
         Some("history") => cmd_history(client, args, opts),
         Some("sprints") => cmd_sprints(client, args, opts),
         Some("delete") => cmd_delete(client, args),
-        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|attach|attachments|log|worklog|set|fields|history|sprints|delete>".into())),
+        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|link-types|attach|attachments|log|worklog|set|fields|history|sprints|delete>".into())),
     }
 }
 
@@ -319,14 +320,22 @@ fn cmd_link<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result
         .positional
         .get(1)
         .ok_or_else(|| YtdError::Input("Target ticket ID is required".into()))?;
-    let link_type = args
+    let requested_type = args
         .flags
         .get("type")
         .map(|s| s.as_str())
-        .unwrap_or("relates to");
+        .unwrap_or("Relates");
+    let requested_direction = args.flags.get("direction").map(|s| s.as_str());
+    if requested_direction.is_some() && !args.flags.contains_key("type") {
+        return Err(YtdError::Input(
+            "--direction requires --type for ticket link".into(),
+        ));
+    }
 
-    let command = format!("{link_type} {target}");
-    client.apply_command(id, &command)?;
+    let link_types = client.list_issue_link_types()?;
+    let resolved = resolve_link_type(&link_types, requested_type, requested_direction)?;
+    let target_issue = client.get_issue(target)?;
+    client.add_issue_link(id, &resolved.link_id, &target_issue.id)?;
     Ok(())
 }
 
@@ -336,23 +345,322 @@ fn cmd_unlink<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Resu
         .positional
         .get(1)
         .ok_or_else(|| YtdError::Input("Target ticket ID is required".into()))?;
-    let link_type = args
+    let requested_type = args
         .flags
         .get("type")
         .map(|s| s.as_str())
-        .unwrap_or("relates to");
+        .unwrap_or("Relates");
+    let requested_direction = args.flags.get("direction").map(|s| s.as_str());
+    if requested_direction.is_some() && !args.flags.contains_key("type") {
+        return Err(YtdError::Input(
+            "--direction requires --type for ticket unlink".into(),
+        ));
+    }
 
     let links = client.list_issue_links(id)?;
-    let (link_id, target_database_id) = find_issue_link_to_unlink(&links, id, target, link_type)?;
+    let link_types = client.list_issue_link_types()?;
+    let resolved = resolve_link_type(&link_types, requested_type, requested_direction)?;
+    let (link_id, target_database_id) = find_issue_link_to_unlink(&links, id, target, &resolved)?;
     client.delete_issue_link(id, link_id, target_database_id)?;
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LinkDirection {
+    Inward,
+    Outward,
+}
+
+impl LinkDirection {
+    fn parse(value: &str) -> Result<Self, YtdError> {
+        match normalize_link_value(value).as_str() {
+            "inward" => Ok(Self::Inward),
+            "outward" => Ok(Self::Outward),
+            _ => Err(YtdError::Input(format!(
+                "Invalid direction: {value}. Expected one of: inward, outward"
+            ))),
+        }
+    }
+
+    fn link_suffix(self) -> &'static str {
+        match self {
+            Self::Inward => "t",
+            Self::Outward => "s",
+        }
+    }
+
+    fn youtrack_direction(self) -> &'static str {
+        match self {
+            Self::Inward => "INWARD",
+            Self::Outward => "OUTWARD",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Inward => "inward",
+            Self::Outward => "outward",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedLinkType {
+    name: String,
+    link_id: String,
+    direction: Option<LinkDirection>,
+    phrase: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum LinkTypeMatchKind {
+    Name,
+    SourceToTarget,
+    TargetToSource,
+}
+
+fn resolve_link_type(
+    link_types: &[IssueLinkType],
+    requested_type: &str,
+    requested_direction: Option<&str>,
+) -> Result<ResolvedLinkType, YtdError> {
+    let requested = normalize_link_value(requested_type);
+    if requested.is_empty() {
+        return Err(YtdError::Input("Link type must not be empty".into()));
+    }
+    let direction = requested_direction.map(LinkDirection::parse).transpose()?;
+
+    let mut matches = Vec::new();
+    for link_type in link_types {
+        if matches_link_value(link_type.name.as_deref(), &requested) {
+            matches.push((link_type, LinkTypeMatchKind::Name));
+        }
+        if matches_link_value(link_type.source_to_target.as_deref(), &requested) {
+            matches.push((link_type, LinkTypeMatchKind::SourceToTarget));
+        }
+        if matches_link_value(link_type.target_to_source.as_deref(), &requested) {
+            matches.push((link_type, LinkTypeMatchKind::TargetToSource));
+        }
+    }
+
+    if matches.is_empty() {
+        return Err(unknown_link_type_error(requested_type, link_types));
+    }
+
+    let first_id = matches[0].0.id.as_deref();
+    let first_kind = std::mem::discriminant(&matches[0].1);
+    let ambiguous = matches.iter().skip(1).any(|(link_type, kind)| {
+        link_type.id.as_deref() != first_id || std::mem::discriminant(kind) != first_kind
+    });
+    if ambiguous {
+        return Err(YtdError::Input(format!(
+            "Ambiguous link type: {requested_type}. Run `ytd ticket link-types` to list valid link types."
+        )));
+    }
+
+    resolve_link_type_match(matches[0].0, matches[0].1, direction)
+}
+
+fn resolve_link_type_match(
+    link_type: &IssueLinkType,
+    kind: LinkTypeMatchKind,
+    requested_direction: Option<LinkDirection>,
+) -> Result<ResolvedLinkType, YtdError> {
+    let id = link_type
+        .id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| YtdError::Input("Issue link type has no ID".into()))?;
+    let name = link_type.name.clone().unwrap_or_else(|| id.to_string());
+    let directed = link_type.directed.unwrap_or_else(|| {
+        link_type
+            .target_to_source
+            .as_deref()
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+    });
+
+    match kind {
+        LinkTypeMatchKind::Name => {
+            if !directed {
+                if requested_direction.is_some() {
+                    return Err(YtdError::Input(format!(
+                        "Link type `{name}` is not directed; omit --direction"
+                    )));
+                }
+                let phrase = first_non_empty(&[
+                    link_type.source_to_target.as_deref(),
+                    link_type.target_to_source.as_deref(),
+                    link_type.name.as_deref(),
+                ])
+                .ok_or_else(|| {
+                    YtdError::Input(format!("Issue link type `{name}` has no usable phrase"))
+                })?;
+                return Ok(ResolvedLinkType {
+                    name,
+                    link_id: id.to_string(),
+                    direction: None,
+                    phrase: phrase.to_string(),
+                });
+            }
+
+            let direction = requested_direction.unwrap_or(LinkDirection::Inward);
+            let phrase = phrase_for_direction(link_type, direction, &name)?;
+            Ok(ResolvedLinkType {
+                name,
+                link_id: format!("{id}{}", direction.link_suffix()),
+                direction: Some(direction),
+                phrase: phrase.to_string(),
+            })
+        }
+        LinkTypeMatchKind::SourceToTarget => resolve_link_phrase_match(
+            id,
+            name,
+            directed,
+            LinkDirection::Outward,
+            link_type.source_to_target.as_deref(),
+            requested_direction,
+        ),
+        LinkTypeMatchKind::TargetToSource => resolve_link_phrase_match(
+            id,
+            name,
+            directed,
+            LinkDirection::Inward,
+            link_type.target_to_source.as_deref(),
+            requested_direction,
+        ),
+    }
+}
+
+fn resolve_link_phrase_match(
+    id: &str,
+    name: String,
+    directed: bool,
+    phrase_direction: LinkDirection,
+    phrase: Option<&str>,
+    requested_direction: Option<LinkDirection>,
+) -> Result<ResolvedLinkType, YtdError> {
+    if !directed && requested_direction.is_some() {
+        return Err(YtdError::Input(format!(
+            "Link type `{name}` is not directed; omit --direction"
+        )));
+    }
+
+    if let Some(requested_direction) = requested_direction {
+        if requested_direction != phrase_direction {
+            return Err(YtdError::Input(format!(
+                "Link phrase `{}` implies {} direction; remove --direction or use --direction {}",
+                phrase.unwrap_or(""),
+                phrase_direction.label(),
+                phrase_direction.label()
+            )));
+        }
+    }
+
+    let phrase = phrase
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| YtdError::Input(format!("Issue link type `{name}` has no usable phrase")))?;
+    let direction = if directed {
+        Some(phrase_direction)
+    } else {
+        None
+    };
+    let link_id = if directed {
+        format!("{id}{}", phrase_direction.link_suffix())
+    } else {
+        id.to_string()
+    };
+
+    Ok(ResolvedLinkType {
+        name,
+        link_id,
+        direction,
+        phrase: phrase.to_string(),
+    })
+}
+
+fn phrase_for_direction<'a>(
+    link_type: &'a IssueLinkType,
+    direction: LinkDirection,
+    name: &str,
+) -> Result<&'a str, YtdError> {
+    let phrase = match direction {
+        LinkDirection::Inward => link_type.target_to_source.as_deref(),
+        LinkDirection::Outward => link_type.source_to_target.as_deref(),
+    };
+    phrase
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            YtdError::Input(format!(
+                "Issue link type `{name}` has no {} phrase",
+                direction.label()
+            ))
+        })
+}
+
+fn first_non_empty<'a>(values: &[Option<&'a str>]) -> Option<&'a str> {
+    values
+        .iter()
+        .flatten()
+        .copied()
+        .find(|value| !value.trim().is_empty())
+}
+
+fn matches_link_value(value: Option<&str>, requested: &str) -> bool {
+    value
+        .map(|value| normalize_link_value(value) == requested)
+        .unwrap_or(false)
+}
+
+fn normalize_link_value(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
+}
+
+fn unknown_link_type_error(requested_type: &str, link_types: &[IssueLinkType]) -> YtdError {
+    let examples = link_type_examples(link_types);
+    let mut message = format!(
+        "Unknown link type: {requested_type}\nRun `ytd ticket link-types` to list valid link types."
+    );
+    if !examples.is_empty() {
+        message.push_str("\nAvailable examples: ");
+        message.push_str(&examples.join(", "));
+    }
+    YtdError::Input(message)
+}
+
+fn link_type_examples(link_types: &[IssueLinkType]) -> Vec<String> {
+    let mut examples = Vec::new();
+    for link_type in link_types {
+        for value in [
+            link_type.name.as_deref(),
+            link_type.source_to_target.as_deref(),
+            link_type.target_to_source.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if value.trim().is_empty() {
+                continue;
+            }
+            if !examples
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(value))
+            {
+                examples.push(value.to_string());
+            }
+            if examples.len() >= 8 {
+                return examples;
+            }
+        }
+    }
+    examples
 }
 
 fn find_issue_link_to_unlink<'a>(
     links: &'a [IssueLink],
     source: &str,
     target: &str,
-    link_type: &str,
+    link_type: &ResolvedLinkType,
 ) -> Result<(&'a str, &'a str), YtdError> {
     let link = links
         .iter()
@@ -370,14 +678,14 @@ fn find_issue_link_to_unlink<'a>(
         })
         .ok_or_else(|| {
             YtdError::Input(format!(
-                "Link not found: {source} -> {target} (type: {link_type})"
+                "Link not found: {source} -> {target} (type: {}, phrase: {})",
+                link_type.name, link_type.phrase
             ))
         })?;
 
-    let link_id = link
-        .id
-        .as_deref()
-        .ok_or_else(|| YtdError::Input(format!("Issue link has no ID for type: {link_type}")))?;
+    let link_id = link.id.as_deref().ok_or_else(|| {
+        YtdError::Input(format!("Issue link has no ID for type: {}", link_type.name))
+    })?;
     let target_database_id = link
         .issues
         .as_ref()
@@ -393,18 +701,38 @@ fn find_issue_link_to_unlink<'a>(
     Ok((link_id, target_database_id))
 }
 
-fn link_type_matches(link: &IssueLink, requested: &str) -> bool {
+fn link_type_matches(link: &IssueLink, requested: &ResolvedLinkType) -> bool {
     let Some(link_type) = link.link_type.as_ref() else {
         return false;
     };
-    [
-        link_type.name.as_deref(),
-        link_type.source_to_target.as_deref(),
-        link_type.target_to_source.as_deref(),
-    ]
-    .into_iter()
-    .flatten()
-    .any(|value| value.eq_ignore_ascii_case(requested))
+    let type_matches = link_type
+        .id
+        .as_deref()
+        .map(|id| {
+            requested.link_id == id
+                || requested.link_id == format!("{id}s")
+                || requested.link_id == format!("{id}t")
+        })
+        .unwrap_or(false)
+        || link_type
+            .name
+            .as_deref()
+            .map(|name| name.eq_ignore_ascii_case(&requested.name))
+            .unwrap_or(false);
+
+    if !type_matches {
+        return false;
+    }
+
+    requested
+        .direction
+        .map(|direction| {
+            link.direction
+                .as_deref()
+                .map(|value| value.eq_ignore_ascii_case(direction.youtrack_direction()))
+                .unwrap_or(false)
+        })
+        .unwrap_or(true)
 }
 
 fn linked_issue_matches(issue: &Issue, target: &str) -> bool {
@@ -430,6 +758,104 @@ fn cmd_links<T: HttpTransport>(
         format::print_raw_or_processed_items(&links, &outputs, opts)?;
     }
     Ok(())
+}
+
+fn cmd_link_types<T: HttpTransport>(
+    client: &YtClient<T>,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    if matches!(opts.format, format::Format::Md) {
+        return Err(YtdError::Input(
+            "Format md is not supported for ticket link-types".into(),
+        ));
+    }
+
+    let link_types = client.list_issue_link_types()?;
+    if matches!(opts.format, format::Format::Text) {
+        print!("{}", render_issue_link_types_text(&link_types));
+    } else {
+        let outputs: Vec<IssueLinkTypeOutput> = link_types
+            .iter()
+            .cloned()
+            .map(issue_link_type_output)
+            .collect();
+        format::print_raw_or_processed_items(&link_types, &outputs, opts)?;
+    }
+    Ok(())
+}
+
+fn render_issue_link_types_text(link_types: &[IssueLinkType]) -> String {
+    let mut rows = vec![(
+        "Name".to_string(),
+        "Direction".to_string(),
+        "Phrase".to_string(),
+        "Link ID".to_string(),
+    )];
+
+    for link_type in link_types {
+        let name = link_type.name.as_deref().unwrap_or("-");
+        let id = link_type.id.as_deref().unwrap_or("-");
+        let directed = link_type.directed.unwrap_or_else(|| {
+            link_type
+                .target_to_source
+                .as_deref()
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+        });
+
+        if directed {
+            rows.push((
+                name.to_string(),
+                "inward".to_string(),
+                link_type
+                    .target_to_source
+                    .as_deref()
+                    .filter(|value| !value.trim().is_empty())
+                    .unwrap_or("-")
+                    .to_string(),
+                format!("{id}t"),
+            ));
+            rows.push((
+                name.to_string(),
+                "outward".to_string(),
+                link_type
+                    .source_to_target
+                    .as_deref()
+                    .filter(|value| !value.trim().is_empty())
+                    .unwrap_or("-")
+                    .to_string(),
+                format!("{id}s"),
+            ));
+        } else {
+            rows.push((
+                name.to_string(),
+                "both".to_string(),
+                first_non_empty(&[
+                    link_type.source_to_target.as_deref(),
+                    link_type.target_to_source.as_deref(),
+                    link_type.name.as_deref(),
+                ])
+                .unwrap_or("-")
+                .to_string(),
+                id.to_string(),
+            ));
+        }
+    }
+
+    if rows.len() == 1 {
+        return "No link types found.\n".into();
+    }
+
+    let name_width = rows.iter().map(|row| row.0.len()).max().unwrap_or(4);
+    let direction_width = rows.iter().map(|row| row.1.len()).max().unwrap_or(9);
+    let phrase_width = rows.iter().map(|row| row.2.len()).max().unwrap_or(6);
+    let mut out = String::new();
+    for (name, direction, phrase, link_id) in rows {
+        out.push_str(&format!(
+            "{name:<name_width$}  {direction:<direction_width$}  {phrase:<phrase_width$}  {link_id}\n"
+        ));
+    }
+    out
 }
 
 fn render_issue_links_text(links: &[IssueLink]) -> String {
@@ -1080,21 +1506,44 @@ mod tests {
     use crate::types::YtdConfig;
     use std::cell::RefCell;
     use std::path::Path;
+    use std::rc::Rc;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct CapturedRequest {
+        method: String,
+        url: String,
+        body: Option<String>,
+    }
 
     struct MockTransport {
         responses: RefCell<Vec<String>>,
+        requests: RefCell<Vec<CapturedRequest>>,
     }
 
     impl MockTransport {
         fn new(responses: Vec<&str>) -> Self {
             Self {
                 responses: RefCell::new(responses.into_iter().rev().map(String::from).collect()),
+                requests: RefCell::new(vec![]),
             }
+        }
+
+        fn request(&self, index: usize) -> CapturedRequest {
+            self.requests.borrow()[index].clone()
+        }
+
+        fn request_count(&self) -> usize {
+            self.requests.borrow().len()
         }
     }
 
     impl HttpTransport for MockTransport {
-        fn get(&self, _url: &str, _token: &str) -> Result<String, YtdError> {
+        fn get(&self, url: &str, _token: &str) -> Result<String, YtdError> {
+            self.requests.borrow_mut().push(CapturedRequest {
+                method: "GET".into(),
+                url: url.into(),
+                body: None,
+            });
             self.responses
                 .borrow_mut()
                 .pop()
@@ -1105,7 +1554,12 @@ mod tests {
             Err(YtdError::Http("unused".into()))
         }
 
-        fn post(&self, _url: &str, _token: &str, _body: &str) -> Result<String, YtdError> {
+        fn post(&self, url: &str, _token: &str, body: &str) -> Result<String, YtdError> {
+            self.requests.borrow_mut().push(CapturedRequest {
+                method: "POST".into(),
+                url: url.into(),
+                body: Some(body.into()),
+            });
             self.responses
                 .borrow_mut()
                 .pop()
@@ -1122,8 +1576,42 @@ mod tests {
             Err(YtdError::Http("unused".into()))
         }
 
-        fn delete(&self, _url: &str, _token: &str) -> Result<(), YtdError> {
+        fn delete(&self, url: &str, _token: &str) -> Result<(), YtdError> {
+            self.requests.borrow_mut().push(CapturedRequest {
+                method: "DELETE".into(),
+                url: url.into(),
+                body: None,
+            });
             Ok(())
+        }
+    }
+
+    impl HttpTransport for Rc<MockTransport> {
+        fn get(&self, url: &str, token: &str) -> Result<String, YtdError> {
+            self.as_ref().get(url, token)
+        }
+
+        fn get_bytes(&self, url: &str, token: &str) -> Result<Vec<u8>, YtdError> {
+            self.as_ref().get_bytes(url, token)
+        }
+
+        fn post(&self, url: &str, token: &str, body: &str) -> Result<String, YtdError> {
+            self.as_ref().post(url, token, body)
+        }
+
+        fn post_multipart(
+            &self,
+            url: &str,
+            token: &str,
+            file_path: &Path,
+            file_name: &str,
+        ) -> Result<String, YtdError> {
+            self.as_ref()
+                .post_multipart(url, token, file_path, file_name)
+        }
+
+        fn delete(&self, url: &str, token: &str) -> Result<(), YtdError> {
+            self.as_ref().delete(url, token)
         }
     }
 
@@ -1135,6 +1623,20 @@ mod tests {
             },
             MockTransport::new(responses),
         )
+    }
+
+    fn test_client_with_transport(
+        responses: Vec<&str>,
+    ) -> (YtClient<Rc<MockTransport>>, Rc<MockTransport>) {
+        let transport = Rc::new(MockTransport::new(responses));
+        let client = YtClient::new(
+            YtdConfig {
+                url: "https://test.youtrack.cloud".into(),
+                token: "perm:test".into(),
+            },
+            transport.clone(),
+        );
+        (client, transport)
     }
 
     fn sample_issue(id: &str, id_readable: Option<&str>, summary: Option<&str>) -> Issue {
@@ -1164,6 +1666,60 @@ mod tests {
         }
     }
 
+    fn standard_link_types() -> Vec<IssueLinkType> {
+        vec![
+            IssueLinkType {
+                id: Some("80-0".into()),
+                name: Some("Relates".into()),
+                directed: Some(false),
+                aggregation: Some(false),
+                read_only: Some(false),
+                source_to_target: Some("relates to".into()),
+                target_to_source: Some(String::new()),
+            },
+            IssueLinkType {
+                id: Some("80-1".into()),
+                name: Some("Depend".into()),
+                directed: Some(true),
+                aggregation: Some(false),
+                read_only: Some(false),
+                source_to_target: Some("is required for".into()),
+                target_to_source: Some("depends on".into()),
+            },
+            IssueLinkType {
+                id: Some("80-3".into()),
+                name: Some("Subtask".into()),
+                directed: Some(true),
+                aggregation: Some(true),
+                read_only: Some(true),
+                source_to_target: Some("parent for".into()),
+                target_to_source: Some("subtask of".into()),
+            },
+        ]
+    }
+
+    fn standard_link_types_json() -> &'static str {
+        r#"[
+            {"id":"80-0","name":"Relates","directed":false,"aggregation":false,"readOnly":false,"sourceToTarget":"relates to","targetToSource":""},
+            {"id":"80-1","name":"Depend","directed":true,"aggregation":false,"readOnly":false,"sourceToTarget":"is required for","targetToSource":"depends on"},
+            {"id":"80-3","name":"Subtask","directed":true,"aggregation":true,"readOnly":true,"sourceToTarget":"parent for","targetToSource":"subtask of"}
+        ]"#
+    }
+
+    fn resolved_test_link_type(
+        name: &str,
+        link_id: &str,
+        direction: Option<LinkDirection>,
+        phrase: &str,
+    ) -> ResolvedLinkType {
+        ResolvedLinkType {
+            name: name.into(),
+            link_id: link_id.into(),
+            direction,
+            phrase: phrase.into(),
+        }
+    }
+
     fn list_opts() -> OutputOptions {
         OutputOptions {
             format: format::Format::Text,
@@ -1178,6 +1734,95 @@ mod tests {
     }
 
     #[test]
+    fn resolve_link_type_matches_name_default_inward() {
+        let resolved = resolve_link_type(&standard_link_types(), "Subtask", None).unwrap();
+
+        assert_eq!(resolved.name, "Subtask");
+        assert_eq!(resolved.link_id, "80-3t");
+        assert_eq!(resolved.direction, Some(LinkDirection::Inward));
+        assert_eq!(resolved.phrase, "subtask of");
+    }
+
+    #[test]
+    fn resolve_link_type_matches_name_outward() {
+        let resolved =
+            resolve_link_type(&standard_link_types(), "Subtask", Some("outward")).unwrap();
+
+        assert_eq!(resolved.link_id, "80-3s");
+        assert_eq!(resolved.direction, Some(LinkDirection::Outward));
+        assert_eq!(resolved.phrase, "parent for");
+    }
+
+    #[test]
+    fn resolve_link_type_matches_undirected_name() {
+        let resolved = resolve_link_type(&standard_link_types(), "Relates", None).unwrap();
+
+        assert_eq!(resolved.link_id, "80-0");
+        assert_eq!(resolved.direction, None);
+        assert_eq!(resolved.phrase, "relates to");
+    }
+
+    #[test]
+    fn resolve_link_type_rejects_direction_for_undirected() {
+        let error =
+            resolve_link_type(&standard_link_types(), "Relates", Some("inward")).unwrap_err();
+
+        assert!(error.to_string().contains("not directed"));
+    }
+
+    #[test]
+    fn resolve_link_type_rejects_direction_for_undirected_phrase() {
+        let error =
+            resolve_link_type(&standard_link_types(), "relates to", Some("outward")).unwrap_err();
+
+        assert!(error.to_string().contains("not directed"));
+    }
+
+    #[test]
+    fn resolve_link_type_matches_legacy_phrase() {
+        let inward = resolve_link_type(&standard_link_types(), "subtask of", None).unwrap();
+        let outward = resolve_link_type(&standard_link_types(), "parent for", None).unwrap();
+
+        assert_eq!(inward.link_id, "80-3t");
+        assert_eq!(inward.direction, Some(LinkDirection::Inward));
+        assert_eq!(outward.link_id, "80-3s");
+        assert_eq!(outward.direction, Some(LinkDirection::Outward));
+    }
+
+    #[test]
+    fn resolve_link_type_rejects_conflicting_phrase_direction() {
+        let error =
+            resolve_link_type(&standard_link_types(), "subtask of", Some("outward")).unwrap_err();
+
+        assert!(error.to_string().contains("implies inward direction"));
+    }
+
+    #[test]
+    fn resolve_link_type_rejects_unknown_type_with_helpful_message() {
+        let error = resolve_link_type(&standard_link_types(), "Blocks", None).unwrap_err();
+
+        assert!(error.to_string().contains("Unknown link type: Blocks"));
+        assert!(error.to_string().contains("ytd ticket link-types"));
+        assert!(error.to_string().contains("Subtask"));
+    }
+
+    #[test]
+    fn render_issue_link_types_text_lists_direction_rows() {
+        let rendered = render_issue_link_types_text(&standard_link_types());
+
+        assert!(rendered.contains("Name"));
+        assert!(rendered.contains("Relates"));
+        assert!(rendered.contains("both"));
+        assert!(rendered.contains("Subtask"));
+        assert!(rendered.contains("inward"));
+        assert!(rendered.contains("subtask of"));
+        assert!(rendered.contains("80-3t"));
+        assert!(rendered.contains("outward"));
+        assert!(rendered.contains("parent for"));
+        assert!(rendered.contains("80-3s"));
+    }
+
+    #[test]
     fn render_issue_links_text_with_populated_issues() {
         let links = vec![IssueLink {
             id: Some("105-0".into()),
@@ -1187,6 +1832,7 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some(String::new()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue(
                 "2-14252",
@@ -1219,6 +1865,7 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some(String::new()),
+                ..Default::default()
             }),
             issues: Some(vec![issue]),
         }];
@@ -1422,6 +2069,7 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: None,
                 target_to_source: None,
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("2-14252", Some("DWP-14"), None)]),
         }];
@@ -1440,6 +2088,7 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: None,
                 target_to_source: None,
+                ..Default::default()
             }),
             issues: Some(vec![]),
         }];
@@ -1458,11 +2107,13 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some("relates to".into()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
         }];
 
-        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates to").unwrap();
+        let requested = resolved_test_link_type("Relates", "74-0", None, "relates to");
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", &requested).unwrap();
 
         assert_eq!(found, ("80-0", "2-14"));
     }
@@ -1477,11 +2128,14 @@ mod tests {
                 name: Some("Depend".into()),
                 source_to_target: Some("is required for".into()),
                 target_to_source: Some("depends on".into()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
         }];
 
-        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "depends on").unwrap();
+        let requested =
+            resolved_test_link_type("Depend", "74-0t", Some(LinkDirection::Inward), "depends on");
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", &requested).unwrap();
 
         assert_eq!(found, ("80-0", "2-14"));
     }
@@ -1496,11 +2150,13 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some("relates to".into()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
         }];
 
-        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates").unwrap();
+        let requested = resolved_test_link_type("Relates", "74-0", None, "relates to");
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", &requested).unwrap();
 
         assert_eq!(found, ("80-0", "2-14"));
     }
@@ -1515,11 +2171,13 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some("relates to".into()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
         }];
 
-        let found = find_issue_link_to_unlink(&links, "DWP-12", "2-14", "relates to").unwrap();
+        let requested = resolved_test_link_type("Relates", "74-0", None, "relates to");
+        let found = find_issue_link_to_unlink(&links, "DWP-12", "2-14", &requested).unwrap();
 
         assert_eq!(found, ("80-0", "2-14"));
     }
@@ -1534,12 +2192,13 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some("relates to".into()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
         }];
 
-        let error =
-            find_issue_link_to_unlink(&links, "DWP-12", "DWP-99", "relates to").unwrap_err();
+        let requested = resolved_test_link_type("Relates", "74-0", None, "relates to");
+        let error = find_issue_link_to_unlink(&links, "DWP-12", "DWP-99", &requested).unwrap_err();
 
         assert!(error.to_string().contains("Link not found"));
     }
@@ -1554,12 +2213,13 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some("relates to".into()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("2-14", Some("DWP-14"), Some("Target"))]),
         }];
 
-        let error =
-            find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates to").unwrap_err();
+        let requested = resolved_test_link_type("Relates", "74-0", None, "relates to");
+        let error = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", &requested).unwrap_err();
 
         assert!(error.to_string().contains("Issue link has no ID"));
     }
@@ -1574,16 +2234,144 @@ mod tests {
                 name: Some("Relates".into()),
                 source_to_target: Some("relates to".into()),
                 target_to_source: Some("relates to".into()),
+                ..Default::default()
             }),
             issues: Some(vec![sample_issue("", Some("DWP-14"), Some("Target"))]),
         }];
 
-        let error =
-            find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", "relates to").unwrap_err();
+        let requested = resolved_test_link_type("Relates", "74-0", None, "relates to");
+        let error = find_issue_link_to_unlink(&links, "DWP-12", "DWP-14", &requested).unwrap_err();
 
         assert!(error
             .to_string()
             .contains("Linked issue has no database ID"));
+    }
+
+    #[test]
+    fn cmd_link_with_name_posts_direct_issue_link() {
+        let mut flags = std::collections::HashMap::new();
+        flags.insert("type".into(), "Subtask".into());
+        let parsed = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("link".into()),
+            positional: vec!["DWP-12".into(), "DWP-14".into()],
+            flags,
+        };
+        let (client, transport) = test_client_with_transport(vec![
+            standard_link_types_json(),
+            r#"{"id":"2-14","idReadable":"DWP-14","summary":"Target"}"#,
+            r#"{}"#,
+        ]);
+
+        cmd_link(&client, &parsed).unwrap();
+
+        assert_eq!(transport.request_count(), 3);
+        assert!(transport.request(0).url.contains("/api/issueLinkTypes?"));
+        assert!(transport.request(1).url.contains("/api/issues/DWP-14?"));
+        let request = transport.request(2);
+        assert_eq!(request.method, "POST");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/links/80-3t/issues?fields=id"
+        );
+        assert!(!request.url.contains("/commands"));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&request.body.unwrap()).unwrap(),
+            serde_json::json!({"id":"2-14"})
+        );
+    }
+
+    #[test]
+    fn cmd_link_with_legacy_phrase_posts_direct_issue_link() {
+        let mut flags = std::collections::HashMap::new();
+        flags.insert("type".into(), "parent for".into());
+        let parsed = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("link".into()),
+            positional: vec!["DWP-12".into(), "DWP-14".into()],
+            flags,
+        };
+        let (client, transport) = test_client_with_transport(vec![
+            standard_link_types_json(),
+            r#"{"id":"2-14","idReadable":"DWP-14","summary":"Target"}"#,
+            r#"{}"#,
+        ]);
+
+        cmd_link(&client, &parsed).unwrap();
+
+        let request = transport.request(2);
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/links/80-3s/issues?fields=id"
+        );
+    }
+
+    #[test]
+    fn cmd_link_rejects_unknown_type_before_mutating() {
+        let mut flags = std::collections::HashMap::new();
+        flags.insert("type".into(), "Blocks".into());
+        let parsed = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("link".into()),
+            positional: vec!["DWP-12".into(), "DWP-14".into()],
+            flags,
+        };
+        let (client, transport) = test_client_with_transport(vec![standard_link_types_json()]);
+
+        let error = cmd_link(&client, &parsed).unwrap_err();
+
+        assert!(error.to_string().contains("ytd ticket link-types"));
+        assert_eq!(transport.request_count(), 1);
+    }
+
+    #[test]
+    fn cmd_unlink_with_name_and_direction_deletes_matching_link() {
+        let mut flags = std::collections::HashMap::new();
+        flags.insert("type".into(), "Subtask".into());
+        flags.insert("direction".into(), "outward".into());
+        let parsed = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("unlink".into()),
+            positional: vec!["DWP-12".into(), "DWP-14".into()],
+            flags,
+        };
+        let (client, transport) = test_client_with_transport(vec![
+            r#"[{"id":"80-3s","direction":"OUTWARD","linkType":{"id":"80-3","name":"Subtask","sourceToTarget":"parent for","targetToSource":"subtask of"},"issues":[{"id":"2-14","idReadable":"DWP-14","summary":"Target"}]}]"#,
+            standard_link_types_json(),
+        ]);
+
+        cmd_unlink(&client, &parsed).unwrap();
+
+        let request = transport.request(2);
+        assert_eq!(request.method, "DELETE");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/links/80-3s/issues/2-14"
+        );
+    }
+
+    #[test]
+    fn cmd_unlink_with_legacy_phrase_still_works() {
+        let mut flags = std::collections::HashMap::new();
+        flags.insert("type".into(), "subtask of".into());
+        let parsed = ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("unlink".into()),
+            positional: vec!["DWP-12".into(), "DWP-14".into()],
+            flags,
+        };
+        let (client, transport) = test_client_with_transport(vec![
+            r#"[{"id":"80-3t","direction":"INWARD","linkType":{"id":"80-3","name":"Subtask","sourceToTarget":"parent for","targetToSource":"subtask of"},"issues":[{"id":"2-14","idReadable":"DWP-14","summary":"Target"}]}]"#,
+            standard_link_types_json(),
+        ]);
+
+        cmd_unlink(&client, &parsed).unwrap();
+
+        let request = transport.request(2);
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/links/80-3t/issues/2-14"
+        );
     }
 
     #[test]

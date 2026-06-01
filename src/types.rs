@@ -489,13 +489,56 @@ pub fn issue_link_output(link: IssueLink) -> IssueLinkOutput {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueLinkType {
     pub id: Option<String>,
     pub name: Option<String>,
+    pub directed: Option<bool>,
+    pub aggregation: Option<bool>,
+    pub read_only: Option<bool>,
     pub source_to_target: Option<String>,
     pub target_to_source: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueLinkTypeOutput {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub directed: Option<bool>,
+    pub aggregation: Option<bool>,
+    pub read_only: Option<bool>,
+    pub source_to_target: Option<String>,
+    pub target_to_source: Option<String>,
+    pub outward_id: Option<String>,
+    pub inward_id: Option<String>,
+}
+
+pub fn issue_link_type_output(link_type: IssueLinkType) -> IssueLinkTypeOutput {
+    let directed = link_type.directed.unwrap_or(false);
+    let outward_id = if directed {
+        link_type.id.as_ref().map(|id| format!("{id}s"))
+    } else {
+        None
+    };
+    let inward_id = if directed {
+        link_type.id.as_ref().map(|id| format!("{id}t"))
+    } else {
+        None
+    };
+
+    IssueLinkTypeOutput {
+        id: link_type.id,
+        name: link_type.name,
+        directed: link_type.directed,
+        aggregation: link_type.aggregation,
+        read_only: link_type.read_only,
+        source_to_target: link_type.source_to_target,
+        target_to_source: link_type.target_to_source,
+        outward_id,
+        inward_id,
+    }
 }
 
 // --- Attachments ---

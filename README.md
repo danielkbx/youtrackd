@@ -260,9 +260,10 @@ Ticket management commands:
 ```bash
 ytd ticket tag <id> <tag>
 ytd ticket untag <id> <tag>
-ytd ticket link <id> <target> [--type <type>]
-ytd ticket unlink <id> <target> [--type <type>]
+ytd ticket link <id> <target> [--type <type>] [--direction inward|outward]
+ytd ticket unlink <id> <target> [--type <type>] [--direction inward|outward]
 ytd ticket links <id>
+ytd ticket link-types
 ytd ticket attach <id> <file>
 ytd ticket attachments <id>
 ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
@@ -420,7 +421,7 @@ Global output flags:
 
 Text output renders Markdown content as readable terminal text. Ticket lists, saved search results, sprint ticket lists, and ticket links use compact ticket rows. `ticket get` and `article get` show details first, then the description or content.
 
-`ticket link` and `ticket unlink` default to the link type `relates to` when `--type` is omitted.
+`ticket link` and `ticket unlink` default to the link type `Relates` when `--type` is omitted. `--type` accepts YouTrack link type names such as `Relates` and `Subtask`, plus legacy command phrases such as `relates to`, `subtask of`, and `parent for`. Directed link type names default to inward; add `--direction outward` for the opposite direction. Run `ytd ticket link-types` to list valid values for the current YouTrack instance.
 
 Article detail output includes parent article metadata when present.
 

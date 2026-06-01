@@ -959,6 +959,33 @@ impl<T: HttpTransport> YtClient<T> {
         ])
     }
 
+    pub fn list_issue_link_types(&self) -> Result<Vec<IssueLinkType>, YtdError> {
+        self.get(
+            "/issueLinkTypes",
+            &[
+                (
+                    "fields",
+                    "id,name,directed,aggregation,readOnly,sourceToTarget,targetToSource",
+                ),
+                ("$top", "500"),
+            ],
+        )
+    }
+
+    pub fn add_issue_link(
+        &self,
+        issue_id: &str,
+        link_id: &str,
+        target_issue_database_id: &str,
+    ) -> Result<(), YtdError> {
+        let body = serde_json::json!({ "id": target_issue_database_id });
+        self.post_no_response(
+            &format!("/issues/{issue_id}/links/{link_id}/issues"),
+            &body,
+            &[("fields", "id")],
+        )
+    }
+
     pub fn delete_issue_link(
         &self,
         issue_id: &str,
@@ -1984,6 +2011,44 @@ mod tests {
             .url
             .contains("issues%28id%2CidReadable%2Csummary%2Cupdated%2Cresolved"));
         assert!(request.url.contains("customFields%28id%2Cname%2C%24type"));
+    }
+
+    #[test]
+    fn list_issue_link_types_requests_expected_fields() {
+        let client = test_client(vec![r#"[]"#]);
+
+        let link_types = client.list_issue_link_types().unwrap();
+
+        assert!(link_types.is_empty());
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "GET");
+        assert!(request
+            .url
+            .starts_with("https://test.youtrack.cloud/api/issueLinkTypes?"));
+        assert!(request.url.contains("id%2Cname%2Cdirected%2Caggregation"));
+        assert!(request
+            .url
+            .contains("readOnly%2CsourceToTarget%2CtargetToSource"));
+        assert!(request.url.contains("%24top=500"));
+    }
+
+    #[test]
+    fn add_issue_link_uses_specific_link_issue_endpoint() {
+        let client = test_client(vec![r#"{}"#]);
+
+        client.add_issue_link("DWP-12", "80-3t", "2-99").unwrap();
+
+        let request = client.transport.request(0);
+        assert_eq!(request.method, "POST");
+        assert_eq!(
+            request.url,
+            "https://test.youtrack.cloud/api/issues/DWP-12/links/80-3t/issues?fields=id"
+        );
+        let body = request.body.expect("missing request body");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({"id":"2-99"})
+        );
     }
 
     #[test]

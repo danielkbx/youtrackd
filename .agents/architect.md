@@ -122,6 +122,7 @@ Both `ytd help` and `ytd <command> help` work. Output is plain text — no Markd
 - All requests: `Authorization: Bearer <token>`, `Accept: application/json`
 - Always use `?fields=` to request only needed fields
 - Always set `$top` explicitly (server default is 42)
+- Issue link creation resolves link type names and phrases through `/api/issueLinkTypes`, then uses `POST /api/issues/{issueID}/links/{linkID}/issues` with directed `s`/`t` link IDs
 - Attachments: manual multipart/form-data body building; downloads use signed attachment `url` values
 - Comment attachment upload uses parent-scoped comment attachment endpoints: `/api/issues/{issueID}/comments/{commentID}/attachments` and `/api/articles/{articleID}/comments/{commentID}/attachments`
 - Errors: HTTP status + detail to stderr, exit non-zero

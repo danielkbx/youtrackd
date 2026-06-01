@@ -1,6 +1,6 @@
 # Journey 4: Tags & Links
 
-Testet: `tag list`, `ticket tag`, `ticket untag`, `ticket link`, `ticket unlink`, `ticket links`
+Testet: `tag list`, `ticket tag`, `ticket untag`, `ticket link`, `ticket unlink`, `ticket links`, `ticket link-types`
 
 ## Vorbereitung
 
@@ -68,17 +68,25 @@ ytd ticket get $TICKET_A --format json
 
 ## Links testen
 
-### 8. Tickets verlinken
+### 8. Link-Typen anzeigen
 
 ```
-ytd ticket link $TICKET_A $TICKET_B --type "relates to"
+ytd ticket link-types
+```
+
+**Erwartung**: Enthält mindestens `Relates`. Falls die Instanz Standard-Linktypen bereitstellt, enthält die Ausgabe auch `Subtask` mit `subtask of` und `parent for`.
+
+### 9. Tickets per Link-Typ-Namen verlinken
+
+```
+ytd ticket link $TICKET_A $TICKET_B --type Relates
 ```
 
 **Erwartung**: Exit-Code 0.
 
 Falls `--type` nicht angegeben wird, soll ein sinnvoller Default verwendet werden.
 
-### 9. Links anzeigen
+### 10. Links anzeigen
 
 ```
 ytd ticket links $TICKET_A
@@ -86,7 +94,7 @@ ytd ticket links $TICKET_A
 
 **Erwartung**: Enthält `$TICKET_B` und den Link-Typ. Verlinkte Tickets werden im kompakten Ticketformat angezeigt: Ticket-ID, Summary und, falls von YouTrack geliefert, wichtige Arbeitsfelder wie State, Assignee oder Priority.
 
-### 10. Links auch beim anderen Ticket sichtbar
+### 11. Links auch beim anderen Ticket sichtbar
 
 ```
 ytd ticket links $TICKET_B
@@ -94,15 +102,15 @@ ytd ticket links $TICKET_B
 
 **Erwartung**: Enthält `$TICKET_A` im kompakten Ticketformat.
 
-### 11. Link entfernen
+### 12. Link entfernen
 
 ```
-ytd ticket unlink $TICKET_A $TICKET_B --type "relates to"
+ytd ticket unlink $TICKET_A $TICKET_B --type Relates
 ```
 
 **Erwartung**: Exit-Code 0.
 
-### 12. Entfernten Link in beide Richtungen verifizieren
+### 13. Entfernten Link in beide Richtungen verifizieren
 
 ```
 ytd ticket links $TICKET_A
@@ -111,16 +119,36 @@ ytd ticket links $TICKET_B
 
 **Erwartung**: Die Ausgaben enthalten das jeweils andere Ticket nicht mehr als `relates to`-Link.
 
-### 13. Default-Linktyp beim Entfernen verifizieren
+### 14. Legacy-Phrase weiter unterstützen
+
+```
+ytd ticket link $TICKET_A $TICKET_B --type "relates to"
+ytd ticket unlink $TICKET_A $TICKET_B --type "relates to"
+```
+
+**Erwartung**: Beide Kommandos beenden sich mit Exit-Code 0. Die alte Command-Phrase wird weiterhin akzeptiert.
+
+### 15. Gerichteten Standard-Linktyp prüfen, falls vorhanden
+
+```
+ytd ticket link $TICKET_A $TICKET_B --type Subtask
+ytd ticket unlink $TICKET_A $TICKET_B --type Subtask
+ytd ticket link $TICKET_B $TICKET_A --type Subtask --direction outward
+ytd ticket unlink $TICKET_B $TICKET_A --type Subtask --direction outward
+```
+
+**Erwartung**: Wenn `Subtask` in `ytd ticket link-types` vorhanden ist, beenden sich alle Kommandos mit Exit-Code 0. Ohne `--direction` wird die inward-Richtung (`subtask of`) verwendet; `--direction outward` verwendet `parent for`.
+
+### 16. Default-Linktyp beim Entfernen verifizieren
 
 ```
 ytd ticket link $TICKET_A $TICKET_B
 ytd ticket unlink $TICKET_A $TICKET_B
 ```
 
-**Erwartung**: Beide Kommandos beenden sich mit Exit-Code 0. Ohne `--type` wird der Default-Linktyp `relates to` verwendet.
+**Erwartung**: Beide Kommandos beenden sich mit Exit-Code 0. Ohne `--type` wird der Default-Linktyp `Relates` verwendet.
 
-### 14. Default-Unlink verifizieren
+### 17. Default-Unlink verifizieren
 
 ```
 ytd ticket links $TICKET_A

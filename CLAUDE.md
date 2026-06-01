@@ -82,9 +82,10 @@ ytd ticket comment <id> <text> [--visibility-group <group> | --no-visibility-gro
 ytd ticket comments <id>
 ytd ticket tag <id> <tag>
 ytd ticket untag <id> <tag>
-ytd ticket link <id> <target> [--type <type>]
-ytd ticket unlink <id> <target> [--type <type>]
+ytd ticket link <id> <target> [--type <type>] [--direction inward|outward]
+ytd ticket unlink <id> <target> [--type <type>] [--direction inward|outward]
 ytd ticket links <id>
+ytd ticket link-types
 ytd ticket attach <id> <file>
 ytd ticket attachments <id>
 ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
@@ -173,6 +174,13 @@ Article detail output includes normalized `parentArticle` when present: `id` is 
 - `ticket search`, `ticket list`, `search run`, `sprint ticket list`, and linked ticket text output use compact ticket rows.
 - `ticket get` uses a detail report: title, status/custom fields, metadata, blank line, description, then comments.
 - `--no-comments` removes comments from every supported format for commands that document it.
+
+## Ticket Links
+
+- `ticket link` and `ticket unlink` default to `Relates` when `--type` is omitted.
+- `--type` accepts YouTrack link type names such as `Relates` and `Subtask`, plus command phrases such as `relates to`, `subtask of`, and `parent for`.
+- Directed link type names default to inward; use `--direction outward` for the opposite direction.
+- `ticket link-types` lists valid link type names, phrases, and directed link IDs for the current YouTrack instance.
 
 ## Visibility
 

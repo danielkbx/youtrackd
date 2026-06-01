@@ -355,7 +355,8 @@ fn push_recipes(out: &mut String, project: Option<&SkillProjectContext>) {
     out.push_str(&format!("\"{optional_project_flag} --format json`.\n"));
     out.push_str("- Inspect a ticket: `ytd ticket get <ticket-id> --format json`.\n");
     out.push_str("- Add a comment: `ytd ticket comment <ticket-id> \"text\"`.\n");
-    out.push_str("- Link tickets with `ytd ticket link <ticket-id> <target-ticket-id> [--type <type>]`; remove links with `ytd ticket unlink <ticket-id> <target-ticket-id> [--type <type>]`.\n");
+    out.push_str("- Link tickets with `ytd ticket link <ticket-id> <target-ticket-id> [--type <type>] [--direction inward|outward]`; remove links with `ytd ticket unlink <ticket-id> <target-ticket-id> [--type <type>] [--direction inward|outward]`.\n");
+    out.push_str("- Run `ytd ticket link-types` before guessing link type names or directed phrases; `--type` accepts names such as `Relates` and `Subtask` plus phrases such as `relates to` and `subtask of`.\n");
     out.push_str(&format!(
         "- Create a ticket: `ytd ticket create{required_project_flag} --json '{{\"summary\":\"...\",\"description\":\"...\"}}'`.\n"
     ));
@@ -395,7 +396,7 @@ fn push_full_reference(out: &mut String) {
     out.push_str("ytd schema [list]\n");
     out.push_str("ytd schema ticket|article|board|sprint create|update [--project <project>]\n");
     out.push_str("ytd article search|list|get|create|update|move|dump|append|comment|comments|attach|attachments|delete\n");
-    out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
+    out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|link-types|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
     out.push_str("ytd comment get|update|attach|attachments|delete\n");
     out.push_str("ytd attachment get|delete|download\n");
     out.push_str("ytd alias create|list|delete and ytd <alias> create|list\n");

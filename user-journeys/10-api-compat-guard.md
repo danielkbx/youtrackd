@@ -215,10 +215,11 @@ ytd ticket create --project $PROJECT --json '{"summary": "[YTD-TEST] API Compat 
 ### 17. Tickets verlinken
 
 ```
-ytd ticket link $TICKET_ID $LINK_TARGET_ID --type "relates to"
+ytd ticket link-types
+ytd ticket link $TICKET_ID $LINK_TARGET_ID --type Relates
 ```
 
-**Erwartung**: Exit-Code 0.
+**Erwartung**: `link-types` enthält `Relates`. Das Link-Kommando beendet sich mit Exit-Code 0 und nutzt den direkten Issue-Link-Endpunkt statt der natürlichsprachlichen Command-Syntax.
 
 ### 18. Link in beide Richtungen verifizieren
 
@@ -235,7 +236,7 @@ ytd ticket links $LINK_TARGET_ID
 ytd ticket unlink $TICKET_ID $LINK_TARGET_ID --type "relates to"
 ```
 
-**Erwartung**: Exit-Code 0.
+**Erwartung**: Exit-Code 0. Legacy-Phrasen wie `relates to` bleiben für `unlink` kompatibel.
 
 ### 20. Entfernten Link in beide Richtungen verifizieren
 

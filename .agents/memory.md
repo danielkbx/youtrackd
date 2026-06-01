@@ -42,6 +42,10 @@ Specific comment get/update/delete operations require the parent issue or articl
 
 Issue link removal uses `DELETE /api/issues/{issueID}/links/{linkID}/issues/{targetIssueDatabaseID}`. The final issue path segment needs the internal target issue database ID, which can be read from `GET /api/issues/{issueID}/links` as the linked issue `id`.
 
+## Issue Link Creation
+
+Issue link creation uses `POST /api/issues/{issueID}/links/{linkID}/issues` with body `{"id":"<targetIssueDatabaseID>"}`. Available link types come from `GET /api/issueLinkTypes?fields=id,name,directed,aggregation,readOnly,sourceToTarget,targetToSource`. Directed link IDs append `s` for source-to-target/outward phrases and `t` for target-to-source/inward phrases.
+
 ## Parent-Scoped Attachments
 
 Attachment get/delete/download operations require the parent issue or article path, even when YouTrack reports the attachment on a comment.

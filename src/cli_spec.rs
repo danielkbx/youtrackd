@@ -589,7 +589,15 @@ fn ticket_command() -> CommandSpec {
             command(
                 "link",
                 "Link ticket",
-                vec![option_value("type", "Link type", "type", &[])],
+                vec![
+                    option_value("type", "Link type name or phrase", "type", &[]),
+                    option_value(
+                        "direction",
+                        "Link direction",
+                        "direction",
+                        &["inward", "outward"],
+                    ),
+                ],
                 vec![
                     positional("ticket-id", "Ticket ID", false, &[]),
                     positional("target", "Target ticket", false, &[]),
@@ -599,7 +607,15 @@ fn ticket_command() -> CommandSpec {
             command(
                 "unlink",
                 "Unlink ticket",
-                vec![option_value("type", "Link type", "type", &[])],
+                vec![
+                    option_value("type", "Link type name or phrase", "type", &[]),
+                    option_value(
+                        "direction",
+                        "Link direction",
+                        "direction",
+                        &["inward", "outward"],
+                    ),
+                ],
                 vec![
                     positional("ticket-id", "Ticket ID", false, &[]),
                     positional("target", "Target ticket", false, &[]),
@@ -611,6 +627,13 @@ fn ticket_command() -> CommandSpec {
                 "List ticket links",
                 vec![],
                 vec![positional("ticket-id", "Ticket ID", false, &[])],
+                vec![],
+            ),
+            command(
+                "link-types",
+                "List ticket link types",
+                vec![],
+                vec![],
                 vec![],
             ),
             attach_command("ticket-id"),

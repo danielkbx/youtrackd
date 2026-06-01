@@ -95,6 +95,15 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - `ticket get` uses a detail report: title, status/custom fields, metadata, blank line, description, then comments.
 - `--no-comments` must remove comments from all supported formats for commands that document it.
 
+## Ticket Links
+
+- `ticket link` and `ticket unlink` default to the `Relates` link type when `--type` is omitted.
+- `--type` accepts YouTrack issue link type names and direction phrases returned by `/api/issueLinkTypes`.
+- Directed link type names default to inward; `--direction outward` selects the source-to-target direction.
+- `--direction` is valid only with `--type` and only for directed link types.
+- `ticket link-types` lists link type names, phrases, and directed link IDs from the current YouTrack instance.
+- `ticket link-types --format text|json|raw` is supported; `--format md` is rejected.
+
 ## Documentation
 
 - Any public CLI behavior change must update `src/help.rs`, `README.md`, `CLAUDE.md`, relevant `.agents/` files, and user journeys when affected.

@@ -131,6 +131,7 @@ fn print_global_help() {
             ("ticket link <id> <t>", "Link to another ticket"),
             ("ticket unlink <id> <t>", "Remove link to another ticket"),
             ("ticket links <id>", "Show links"),
+            ("ticket link-types", "Show valid link types"),
             ("ticket attach <id> <f>", "Attach file"),
             ("ticket attachments <id>", "List attachments"),
             ("ticket log <id> <dur>", "Log time (e.g. 2h30m)"),
@@ -415,9 +416,10 @@ fn print_ticket_help() {
   ytd ticket comments <id>
   ytd ticket tag <id> <tag>
   ytd ticket untag <id> <tag>
-  ytd ticket link <id> <target> [--type <linktype>]
-  ytd ticket unlink <id> <target> [--type <linktype>]
+  ytd ticket link <id> <target> [--type <linktype>] [--direction inward|outward]
+  ytd ticket unlink <id> <target> [--type <linktype>] [--direction inward|outward]
   ytd ticket links <id>
+  ytd ticket link-types
   ytd ticket attach <id> <file>
   ytd ticket attachments <id>
   ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
@@ -433,6 +435,9 @@ Create/update print only the ticket ID on stdout.
 Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
 Ticket JSON supports summary, description, customFields, and tags. customFields uses YouTrack API shape.
 Run `ytd schema ticket create --project <project>` or `ytd schema ticket update --project <project>` for project custom field examples.
+Ticket link types accept YouTrack link type names such as `Relates` or `Subtask` and legacy command phrases such as `relates to` or `subtask of`.
+For directed link type names, direction defaults to inward; use `--direction outward` for the opposite direction.
+Run `ytd ticket link-types` to list valid link types and phrases for the current YouTrack instance.
 Delete commands ask for confirmation. Use -y to confirm non-interactively.
 
 Text output for ticket search/list/get and linked or sprint tickets is specialized:

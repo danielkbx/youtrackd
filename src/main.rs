@@ -209,6 +209,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "link"
                         | "unlink"
                         | "links"
+                        | "link-types"
                         | "attach"
                         | "attachments"
                         | "log"
