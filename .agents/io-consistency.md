@@ -24,6 +24,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - JSON commands must require a JSON object unless the command explicitly documents another shape.
 - Structured JSON commands must reject unsupported top-level fields unless the command explicitly documents API pass-through behavior.
 - Ticket create/update JSON accepts only `summary`, `description`, `customFields`, and `tags`; `customFields` and `tags` use YouTrack API shape.
+- `ticket status <id>` lists valid project status values for that ticket. `ticket status <id> <status>` validates the status against the project values before updating the State/Status custom field.
 - Create commands require all fields needed to create a useful resource.
 - Update commands require at least one actual update field or an explicit update flag such as `--visibility-group` or `--no-visibility-group`.
 - Boolean/destructive confirmation uses flags, not JSON.
@@ -53,6 +54,7 @@ These rules define the expected CLI surface for new and changed commands. Treat 
 - Errors, prompts, and diagnostics go to stderr.
 - Create/update/delete commands that return a single mutated resource print only its reusable public ID on stdout.
 - Commands that intentionally perform an action without returning a resource may be silent on success unless existing command behavior documents a status line.
+- `ticket status <id>` supports `text`, `json`, and `raw`; `md` is rejected. Text marks the current status with `*`. JSON returns normalized objects with `name` and `current`. Raw returns YouTrack bundle values.
 - Attachment upload commands (`ticket attach`, `article attach`, `comment attach`) print `Attached <filename>` on success.
 - Credentials and tokens must never be printed to stdout, stderr, logs, or error messages.
 

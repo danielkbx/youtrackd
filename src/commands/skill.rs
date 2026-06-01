@@ -264,6 +264,8 @@ fn push_core_commands(out: &mut String, project: Option<&SkillProjectContext>) {
     ));
     out.push_str("ytd ticket update <ticket-id> --json '{\"summary\":\"...\"}'\n");
     out.push_str("ytd ticket comment <ticket-id> \"text\"\n");
+    out.push_str("ytd ticket status <ticket-id>\n");
+    out.push_str("ytd ticket status <ticket-id> \"In Progress\"\n");
     out.push_str(&format!(
         "ytd article search \"<query>\"{optional_project_flag} --format json\n"
     ));
@@ -355,6 +357,9 @@ fn push_recipes(out: &mut String, project: Option<&SkillProjectContext>) {
     out.push_str(&format!("\"{optional_project_flag} --format json`.\n"));
     out.push_str("- Inspect a ticket: `ytd ticket get <ticket-id> --format json`.\n");
     out.push_str("- Add a comment: `ytd ticket comment <ticket-id> \"text\"`.\n");
+    out.push_str("- Discover valid ticket statuses with `ytd ticket status <ticket-id>` before changing status.\n");
+    out.push_str("- Change ticket status with `ytd ticket status <ticket-id> <status>`; ytd validates the value against the ticket project's configured statuses.\n");
+    out.push_str("- Use `ytd ticket set <ticket-id> <field> <value>` as the generic custom-field fallback when a dedicated command does not cover the field.\n");
     out.push_str("- Link tickets with `ytd ticket link <ticket-id> <target-ticket-id> [--type <type>] [--direction inward|outward]`; remove links with `ytd ticket unlink <ticket-id> <target-ticket-id> [--type <type>] [--direction inward|outward]`.\n");
     out.push_str("- Run `ytd ticket link-types` before guessing link type names or directed phrases; `--type` accepts names such as `Relates` and `Subtask` plus phrases such as `relates to` and `subtask of`.\n");
     out.push_str(&format!(
@@ -396,7 +401,7 @@ fn push_full_reference(out: &mut String) {
     out.push_str("ytd schema [list]\n");
     out.push_str("ytd schema ticket|article|board|sprint create|update [--project <project>]\n");
     out.push_str("ytd article search|list|get|create|update|move|dump|append|comment|comments|attach|attachments|delete\n");
-    out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|link-types|attach|attachments|log|worklog|set|fields|history|sprints|delete\n");
+    out.push_str("ytd ticket search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|link-types|attach|attachments|log|worklog|status|set|fields|history|sprints|delete\n");
     out.push_str("ytd comment get|update|attach|attachments|delete\n");
     out.push_str("ytd attachment get|delete|download\n");
     out.push_str("ytd alias create|list|delete and ytd <alias> create|list\n");
@@ -628,6 +633,17 @@ mod tests {
 
         assert!(standard.contains("ytd ticket unlink <ticket-id> <target-ticket-id>"));
         assert!(full.contains("link|unlink|links"));
+    }
+
+    #[test]
+    fn generated_skill_mentions_ticket_status() {
+        let standard = render_skill(SkillScope::Standard, None);
+        let full = render_skill(SkillScope::Full, None);
+
+        assert!(standard.contains("ytd ticket status <ticket-id>"));
+        assert!(standard.contains("Discover valid ticket statuses"));
+        assert!(standard.contains("generic custom-field fallback"));
+        assert!(full.contains("worklog|status|set"));
     }
 
     #[test]

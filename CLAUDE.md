@@ -90,6 +90,7 @@ ytd ticket attach <id> <file>
 ytd ticket attachments <id>
 ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
 ytd ticket worklog <id>
+ytd ticket status <id> [status]
 ytd ticket set <id> <field> <value>
 ytd ticket fields <id>
 ytd ticket history <id> [--category <category>]

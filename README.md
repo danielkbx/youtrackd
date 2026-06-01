@@ -268,6 +268,7 @@ ytd ticket attach <id> <file>
 ytd ticket attachments <id>
 ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
 ytd ticket worklog <id>
+ytd ticket status <id> [status]
 ytd ticket set <id> <field> <value>
 ytd ticket fields <id>
 ytd ticket history <id> [--category <category>]
@@ -275,6 +276,7 @@ ytd ticket sprints <id>
 ```
 
 Durations can be written as `30m`, `1h`, `2h30m`, or a plain number of minutes.
+Run `ytd ticket status <id>` to list valid status values for the ticket's project. Run `ytd ticket status <id> <status>` to set a validated status; multi-word statuses such as `In Progress` are supported.
 
 ### Articles
 
@@ -491,6 +493,8 @@ ytd ticket create --project PROJ --json '{"summary":"Fix login","customFields":[
 
 ```bash
 ID=$(ytd ticket create --project PROJ --json '{"summary":"Fix login bug"}')
+ytd ticket status "$ID"
+ytd ticket status "$ID" "In Progress"
 ytd ticket set "$ID" Priority Critical
 ytd ticket tag "$ID" backend
 ytd ticket comment "$ID" "Investigating"

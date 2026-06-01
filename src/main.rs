@@ -214,6 +214,7 @@ fn is_known_command(resource: &str, action: Option<&str>) -> bool {
                         | "attachments"
                         | "log"
                         | "worklog"
+                        | "status"
                         | "set"
                         | "fields"
                         | "history"
@@ -264,6 +265,11 @@ mod tests {
         assert!(is_known_command("user", Some("get")));
         assert!(!is_known_command("user", Some("create")));
         assert!(!is_known_command("user", None));
+    }
+
+    #[test]
+    fn knows_ticket_status_command() {
+        assert!(is_known_command("ticket", Some("status")));
     }
 
     #[test]

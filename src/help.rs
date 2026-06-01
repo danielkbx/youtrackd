@@ -136,6 +136,7 @@ fn print_global_help() {
             ("ticket attachments <id>", "List attachments"),
             ("ticket log <id> <dur>", "Log time (e.g. 2h30m)"),
             ("ticket worklog <id>", "Show work items"),
+            ("ticket status <id> [s]", "List or set status"),
             ("ticket set <id> <f> <v>", "Set custom field"),
             ("ticket fields <id>", "Show field values"),
             ("ticket history <id>", "Show activity log"),
@@ -424,6 +425,7 @@ fn print_ticket_help() {
   ytd ticket attachments <id>
   ytd ticket log <id> <duration> [text] [--date YYYY-MM-DD] [--type <worktype>]
   ytd ticket worklog <id>
+  ytd ticket status <id> [status]
   ytd ticket set <id> <field> <value>
   ytd ticket fields <id>
   ytd ticket history <id> [--category <category>]
@@ -435,6 +437,7 @@ Create/update print only the ticket ID on stdout.
 Create uses configured visibility defaults. Update changes visibility only with explicit visibility flags.
 Ticket JSON supports summary, description, customFields, and tags. customFields uses YouTrack API shape.
 Run `ytd schema ticket create --project <project>` or `ytd schema ticket update --project <project>` for project custom field examples.
+Use `ytd ticket status <id>` to list valid status values for the ticket project; use `ytd ticket status <id> <status>` to set a validated status. Status supports text, json, and raw output; md is not supported.
 Ticket link types accept YouTrack link type names such as `Relates` or `Subtask` and legacy command phrases such as `relates to` or `subtask of`.
 For directed link type names, direction defaults to inward; use `--direction outward` for the opposite direction.
 Run `ytd ticket link-types` to list valid link types and phrases for the current YouTrack instance.

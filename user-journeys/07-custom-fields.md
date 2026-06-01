@@ -1,6 +1,6 @@
 # Journey 7: Custom Fields
 
-Testet: `ticket fields`, `ticket set`
+Testet: `ticket fields`, `ticket status`, `ticket set`
 
 ## Schritte
 
@@ -52,15 +52,23 @@ ytd ticket set $TICKET_ID Type Task
 
 **Erwartung**: Exit-Code 0 (oder Fehler, falls das Feld nicht existiert — dann überspringen).
 
-### 7. State auf Done setzen
+### 7. Verfügbare Statuswerte anzeigen
 
 ```
-ytd ticket set $TICKET_ID State Done
+ytd ticket status $TICKET_ID
 ```
 
-**Erwartung**: Exit-Code 0.
+**Erwartung**: Exit-Code 0. Ausgabe enthält die für das Projekt gültigen Statuswerte; der aktuelle Status ist mit `*` markiert.
 
-### 8. Endstatus verifizieren
+### 8. State auf Done setzen
+
+```
+ytd ticket status $TICKET_ID Done
+```
+
+**Erwartung**: Exit-Code 0. Falls `Done` kein gültiger Statuswert im Projekt ist, muss der Fehler die gültigen Werte nennen.
+
+### 9. Endstatus verifizieren
 
 ```
 ytd ticket get $TICKET_ID --format json

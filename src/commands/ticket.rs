@@ -34,12 +34,13 @@ pub fn run<T: HttpTransport>(
         Some("attachments") => cmd_attachments(client, args, opts),
         Some("log") => cmd_log(client, args),
         Some("worklog") => cmd_worklog(client, args, opts),
+        Some("status") => cmd_status(client, args, opts),
         Some("set") => cmd_set(client, args),
         Some("fields") => cmd_fields(client, args, opts),
         Some("history") => cmd_history(client, args, opts),
         Some("sprints") => cmd_sprints(client, args, opts),
         Some("delete") => cmd_delete(client, args),
-        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|link-types|attach|attachments|log|worklog|set|fields|history|sprints|delete>".into())),
+        _ => Err(YtdError::Input("Usage: ytd ticket <search|list|get|create|update|comment|comments|tag|untag|link|unlink|links|link-types|attach|attachments|log|worklog|status|set|fields|history|sprints|delete>".into())),
     }
 }
 
@@ -1432,6 +1433,259 @@ fn cmd_worklog<T: HttpTransport>(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+struct ResolvedStatusField {
+    name: String,
+    values: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StatusValueOutput {
+    name: String,
+    current: bool,
+}
+
+fn cmd_status<T: HttpTransport>(
+    client: &YtClient<T>,
+    args: &ParsedArgs,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    if matches!(opts.format, format::Format::Md) {
+        return Err(YtdError::Input(
+            "Format md is not supported for ticket status".into(),
+        ));
+    }
+
+    let id = require_id(args)?;
+    let status = args
+        .positional
+        .get(1..)
+        .map(|parts| parts.join(" "))
+        .filter(|value| !value.trim().is_empty());
+    let issue = client.get_issue(id)?;
+    let status_field = resolve_issue_status_field(client, &issue)?;
+
+    match status {
+        Some(status) => {
+            let canonical = canonical_status_value(&status_field, &status)?;
+            let body = serde_json::json!({
+                "customFields": [{
+                    "$type": "StateIssueCustomField",
+                    "name": status_field.name,
+                    "value": {
+                        "$type": "StateBundleElement",
+                        "name": canonical
+                    }
+                }]
+            });
+            client.set_custom_field(id, &body)?;
+        }
+        None => print_status_values(&issue, &status_field, opts)?,
+    }
+
+    Ok(())
+}
+
+fn resolve_issue_status_field<T: HttpTransport>(
+    client: &YtClient<T>,
+    issue: &Issue,
+) -> Result<ResolvedStatusField, YtdError> {
+    let project_id = issue
+        .project
+        .as_ref()
+        .map(|project| project.id.as_str())
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| YtdError::Input("Ticket has no project in the YouTrack response".into()))?;
+    let fields = client.list_project_custom_fields(project_id)?;
+    resolve_status_field(issue, &fields)
+}
+
+fn resolve_status_field(
+    issue: &Issue,
+    fields: &[ProjectCustomField],
+) -> Result<ResolvedStatusField, YtdError> {
+    let candidates: Vec<&ProjectCustomField> = fields
+        .iter()
+        .filter(|field| is_state_project_field(field))
+        .collect();
+    if candidates.is_empty() {
+        return Err(YtdError::Input(
+            "Project has no State/Status custom field. Use ytd ticket fields <id> or ytd ticket set <id> <field> <value>."
+                .into(),
+        ));
+    }
+
+    let selected = if candidates.len() == 1 {
+        candidates[0]
+    } else if let Some(field) = candidates.iter().copied().find(|field| {
+        project_field_name(field)
+            .as_deref()
+            .map(|name| issue_has_state_field(issue, name))
+            .unwrap_or(false)
+    }) {
+        field
+    } else {
+        let names = candidates
+            .iter()
+            .filter_map(|field| project_field_name(field))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(YtdError::Input(format!(
+            "Multiple State/Status custom fields found: {names}. Use ytd ticket set <id> <field> <value>."
+        )));
+    };
+
+    let name = project_field_name(selected).ok_or_else(|| {
+        YtdError::Input("State/Status custom field has no name in the YouTrack response".into())
+    })?;
+    let values = selected
+        .bundle
+        .as_ref()
+        .map(|bundle| bundle.values.clone())
+        .unwrap_or_default();
+    if values.is_empty() {
+        return Err(YtdError::Input(format!(
+            "Cannot validate statuses for project field {name}. Use ytd ticket set <id> <field> <value>."
+        )));
+    }
+
+    Ok(ResolvedStatusField { name, values })
+}
+
+fn is_state_project_field(field: &ProjectCustomField) -> bool {
+    field.field_type.as_deref() == Some("StateProjectCustomField")
+        || field
+            .field
+            .as_ref()
+            .and_then(|prototype| prototype.field_type.as_ref())
+            .and_then(|field_type| field_type.value_type.as_deref())
+            == Some("state")
+}
+
+fn project_field_name(field: &ProjectCustomField) -> Option<String> {
+    field
+        .field
+        .as_ref()
+        .and_then(|prototype| prototype.name.clone())
+        .or_else(|| field.name.clone())
+        .filter(|name| !name.trim().is_empty())
+}
+
+fn issue_has_state_field(issue: &Issue, name: &str) -> bool {
+    issue.custom_fields.iter().any(|field| {
+        field
+            .name
+            .as_deref()
+            .map(|field_name| field_name.eq_ignore_ascii_case(name))
+            .unwrap_or(false)
+            && field
+                .field_type
+                .as_deref()
+                .map(|field_type| field_type.contains("State"))
+                .unwrap_or(true)
+    })
+}
+
+fn canonical_status_value(
+    status_field: &ResolvedStatusField,
+    input: &str,
+) -> Result<String, YtdError> {
+    let matches = status_field
+        .values
+        .iter()
+        .filter_map(status_value_name)
+        .filter(|name| name.eq_ignore_ascii_case(input.trim()))
+        .collect::<Vec<_>>();
+
+    match matches.as_slice() {
+        [name] => Ok((*name).to_string()),
+        [] => Err(YtdError::Input(format!(
+            "Unknown status: {}. Valid statuses: {}",
+            input,
+            valid_status_names(status_field).join(", ")
+        ))),
+        _ => Err(YtdError::Input(format!(
+            "Ambiguous status: {}. Valid statuses: {}",
+            input,
+            valid_status_names(status_field).join(", ")
+        ))),
+    }
+}
+
+fn status_value_name(value: &serde_json::Value) -> Option<&str> {
+    value.get("name").and_then(|name| name.as_str())
+}
+
+fn valid_status_names(status_field: &ResolvedStatusField) -> Vec<String> {
+    status_field
+        .values
+        .iter()
+        .filter_map(status_value_name)
+        .map(String::from)
+        .collect()
+}
+
+fn current_status_name(issue: &Issue, status_field: &ResolvedStatusField) -> Option<String> {
+    issue
+        .custom_fields
+        .iter()
+        .find(|field| {
+            field
+                .name
+                .as_deref()
+                .map(|name| name.eq_ignore_ascii_case(&status_field.name))
+                .unwrap_or(false)
+        })
+        .and_then(|field| field.value.as_ref())
+        .and_then(status_value_name)
+        .map(String::from)
+}
+
+fn status_value_outputs(
+    issue: &Issue,
+    status_field: &ResolvedStatusField,
+) -> Vec<StatusValueOutput> {
+    let current = current_status_name(issue, status_field);
+    status_field
+        .values
+        .iter()
+        .filter_map(status_value_name)
+        .map(|name| StatusValueOutput {
+            name: name.to_string(),
+            current: current
+                .as_deref()
+                .map(|current| current.eq_ignore_ascii_case(name))
+                .unwrap_or(false),
+        })
+        .collect()
+}
+
+fn print_status_values(
+    issue: &Issue,
+    status_field: &ResolvedStatusField,
+    opts: &OutputOptions,
+) -> Result<(), YtdError> {
+    if matches!(opts.format, format::Format::Raw) {
+        format::print_value(&serde_json::Value::Array(status_field.values.clone()), opts);
+        return Ok(());
+    }
+
+    let outputs = status_value_outputs(issue, status_field);
+    if matches!(opts.format, format::Format::Text) {
+        for value in outputs {
+            if value.current {
+                println!("* {}", value.name);
+            } else {
+                println!("  {}", value.name);
+            }
+        }
+    } else {
+        format::print_value(&serde_json::to_value(outputs)?, opts);
+    }
+    Ok(())
+}
+
 fn cmd_set<T: HttpTransport>(client: &YtClient<T>, args: &ParsedArgs) -> Result<(), YtdError> {
     let id = require_id(args)?;
     let field_name = args
@@ -1666,6 +1920,88 @@ mod tests {
         }
     }
 
+    fn state_custom_field(name: &str, value: &str) -> CustomField {
+        CustomField {
+            id: None,
+            name: Some(name.into()),
+            field_type: Some("StateIssueCustomField".into()),
+            value: Some(serde_json::json!({
+                "$type": "StateBundleElement",
+                "name": value
+            })),
+        }
+    }
+
+    fn issue_with_project(current_field_name: &str, current_status: &str) -> Issue {
+        Issue {
+            id: "2-12".into(),
+            id_readable: Some("DWP-12".into()),
+            summary: Some("Ticket".into()),
+            description: None,
+            created: None,
+            updated: None,
+            resolved: None,
+            reporter: None,
+            project: Some(ProjectRef {
+                id: "0-96".into(),
+                short_name: Some("DWP".into()),
+                name: Some("DW Playground".into()),
+            }),
+            visibility: None,
+            tags: vec![],
+            comments: vec![],
+            custom_fields: vec![state_custom_field(current_field_name, current_status)],
+        }
+    }
+
+    fn issue_with_project_json(current_field_name: &str, current_status: &str) -> String {
+        serde_json::to_string(&issue_with_project(current_field_name, current_status)).unwrap()
+    }
+
+    fn project_status_fields_json(field_name: &str, values: &[&str]) -> String {
+        let values = values
+            .iter()
+            .map(|value| {
+                serde_json::json!({
+                    "id": format!("s-{value}"),
+                    "name": value,
+                    "$type": "StateBundleElement"
+                })
+            })
+            .collect::<Vec<_>>();
+        serde_json::json!([{
+            "id": "92-1",
+            "field": {
+                "id": "58-1",
+                "name": field_name,
+                "fieldType": {
+                    "id": "state[1]",
+                    "valueType": "state",
+                    "isMultiValue": false
+                }
+            },
+            "canBeEmpty": false,
+            "bundle": { "values": values },
+            "$type": "StateProjectCustomField"
+        }])
+        .to_string()
+    }
+
+    fn parsed_status_args(status: &[&str], format: Option<&str>) -> ParsedArgs {
+        let mut positional = vec!["DWP-12".to_string()];
+        positional.extend(status.iter().map(|part| (*part).to_string()));
+        let mut flags = std::collections::HashMap::new();
+        if let Some(format) = format {
+            flags.insert("format".into(), format.into());
+        }
+        ParsedArgs {
+            resource: Some("ticket".into()),
+            action: Some("status".into()),
+            positional,
+            flags,
+        }
+    }
+
     fn standard_link_types() -> Vec<IssueLinkType> {
         vec![
             IssueLinkType {
@@ -1725,6 +2061,174 @@ mod tests {
             format: format::Format::Text,
             no_meta: false,
         }
+    }
+
+    #[test]
+    fn status_value_outputs_mark_current_status() {
+        let issue = issue_with_project("State", "In Progress");
+        let fields: Vec<ProjectCustomField> = serde_json::from_str(&project_status_fields_json(
+            "State",
+            &["Open", "In Progress", "Done"],
+        ))
+        .unwrap();
+        let status_field = resolve_status_field(&issue, &fields).unwrap();
+
+        let outputs = status_value_outputs(&issue, &status_field);
+
+        assert_eq!(outputs.len(), 3);
+        assert_eq!(outputs[1].name, "In Progress");
+        assert!(outputs[1].current);
+        assert!(!outputs[0].current);
+    }
+
+    #[test]
+    fn status_value_outputs_serialize_for_json() {
+        let issue = issue_with_project("State", "Done");
+        let fields: Vec<ProjectCustomField> =
+            serde_json::from_str(&project_status_fields_json("State", &["Open", "Done"])).unwrap();
+        let status_field = resolve_status_field(&issue, &fields).unwrap();
+
+        let value = serde_json::to_value(status_value_outputs(&issue, &status_field)).unwrap();
+
+        assert_eq!(value[1]["name"], "Done");
+        assert_eq!(value[1]["current"], true);
+    }
+
+    #[test]
+    fn cmd_status_without_value_lists_without_mutating() {
+        let issue_json = issue_with_project_json("State", "Open");
+        let fields_json = project_status_fields_json("State", &["Open", "Done"]);
+        let (client, transport) = test_client_with_transport(vec![&issue_json, &fields_json]);
+        let args = parsed_status_args(&[], Some("json"));
+        let opts = OutputOptions {
+            format: format::Format::Json,
+            no_meta: false,
+        };
+
+        cmd_status(&client, &args, &opts).unwrap();
+
+        assert_eq!(transport.request_count(), 2);
+        assert!(transport.request(0).url.contains("/api/issues/DWP-12?"));
+        assert!(transport
+            .request(1)
+            .url
+            .contains("/api/admin/projects/0-96/customFields?"));
+    }
+
+    #[test]
+    fn raw_status_values_preserve_bundle_shape() {
+        let issue = issue_with_project("State", "Open");
+        let fields: Vec<ProjectCustomField> =
+            serde_json::from_str(&project_status_fields_json("State", &["Open", "Done"])).unwrap();
+        let status_field = resolve_status_field(&issue, &fields).unwrap();
+
+        assert_eq!(status_field.values[0]["name"], "Open");
+        assert_eq!(status_field.values[0]["$type"], "StateBundleElement");
+    }
+
+    #[test]
+    fn cmd_status_rejects_md_format() {
+        let (client, transport) = test_client_with_transport(vec![]);
+        let args = parsed_status_args(&[], Some("md"));
+        let opts = OutputOptions {
+            format: format::Format::Md,
+            no_meta: false,
+        };
+
+        let err = cmd_status(&client, &args, &opts).unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "Format md is not supported for ticket status"
+        );
+        assert_eq!(transport.request_count(), 0);
+    }
+
+    #[test]
+    fn cmd_status_sets_canonical_project_state() {
+        let issue_json = issue_with_project_json("State", "Open");
+        let fields_json = project_status_fields_json("State", &["Open", "In Progress", "Done"]);
+        let (client, transport) =
+            test_client_with_transport(vec![&issue_json, &fields_json, r#"{}"#]);
+        let args = parsed_status_args(&["done"], None);
+
+        cmd_status(&client, &args, &list_opts()).unwrap();
+
+        assert_eq!(transport.request_count(), 3);
+        let request = transport.request(2);
+        assert_eq!(request.method, "POST");
+        let body: serde_json::Value = serde_json::from_str(&request.body.unwrap()).unwrap();
+        assert_eq!(body["customFields"][0]["name"], "State");
+        assert_eq!(body["customFields"][0]["$type"], "StateIssueCustomField");
+        assert_eq!(body["customFields"][0]["value"]["name"], "Done");
+        assert_eq!(
+            body["customFields"][0]["value"]["$type"],
+            "StateBundleElement"
+        );
+    }
+
+    #[test]
+    fn cmd_status_accepts_multi_word_status() {
+        let issue_json = issue_with_project_json("State", "Open");
+        let fields_json = project_status_fields_json("State", &["Open", "In Progress", "Done"]);
+        let (client, transport) =
+            test_client_with_transport(vec![&issue_json, &fields_json, r#"{}"#]);
+        let args = parsed_status_args(&["In", "Progress"], None);
+
+        cmd_status(&client, &args, &list_opts()).unwrap();
+
+        let request = transport.request(2);
+        let body: serde_json::Value = serde_json::from_str(&request.body.unwrap()).unwrap();
+        assert_eq!(body["customFields"][0]["value"]["name"], "In Progress");
+    }
+
+    #[test]
+    fn cmd_status_rejects_unknown_status_before_post() {
+        let issue_json = issue_with_project_json("State", "Open");
+        let fields_json = project_status_fields_json("State", &["Open", "In Progress", "Done"]);
+        let (client, transport) = test_client_with_transport(vec![&issue_json, &fields_json]);
+        let args = parsed_status_args(&["Closed"], None);
+
+        let err = cmd_status(&client, &args, &list_opts()).unwrap_err();
+
+        assert!(err.to_string().contains("Unknown status: Closed"));
+        assert!(err.to_string().contains("Open, In Progress, Done"));
+        assert_eq!(transport.request_count(), 2);
+    }
+
+    #[test]
+    fn resolve_status_field_rejects_missing_state_field() {
+        let issue = issue_with_project("State", "Open");
+        let fields: Vec<ProjectCustomField> = serde_json::from_value(serde_json::json!([{
+            "id": "92-2",
+            "field": {
+                "id": "58-2",
+                "name": "Priority",
+                "fieldType": {
+                    "id": "enum[1]",
+                    "valueType": "enum",
+                    "isMultiValue": false
+                }
+            },
+            "$type": "EnumProjectCustomField",
+            "bundle": { "values": [{ "name": "Major" }] }
+        }]))
+        .unwrap();
+
+        let err = resolve_status_field(&issue, &fields).unwrap_err();
+
+        assert!(err.to_string().contains("Project has no State/Status"));
+    }
+
+    #[test]
+    fn resolve_status_field_uses_non_state_field_name() {
+        let issue = issue_with_project("Status", "Open");
+        let fields: Vec<ProjectCustomField> =
+            serde_json::from_str(&project_status_fields_json("Status", &["Open", "Done"])).unwrap();
+
+        let status_field = resolve_status_field(&issue, &fields).unwrap();
+
+        assert_eq!(status_field.name, "Status");
     }
 
     fn clear_env() {

@@ -660,6 +660,16 @@ fn ticket_command() -> CommandSpec {
                 vec![],
             ),
             command(
+                "status",
+                "List or set ticket status",
+                vec![],
+                vec![
+                    positional("ticket-id", "Ticket ID", false, &[]),
+                    positional("status", "Status value", true, &[]),
+                ],
+                vec![],
+            ),
+            command(
                 "set",
                 "Set custom field",
                 vec![],
@@ -1092,6 +1102,15 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(shells, COMPLETION_SHELLS);
+    }
+
+    #[test]
+    fn ticket_status_command_exists() {
+        let spec = cli_spec();
+        let status = spec.find(&["ticket", "status"]).unwrap();
+        assert_eq!(status.positionals[0].name, "ticket-id");
+        assert_eq!(status.positionals[1].name, "status");
+        assert!(status.positionals[1].repeatable);
     }
 
     #[test]
